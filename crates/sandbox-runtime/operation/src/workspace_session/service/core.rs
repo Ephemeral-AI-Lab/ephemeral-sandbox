@@ -24,6 +24,8 @@ use super::model::{
 pub struct MplaLifecycleRoots {
     pub payload_root: PathBuf,
     pub control_root: PathBuf,
+    pub storage_admin_profile:
+        sandbox_runtime_mpla_poc::storage_admin::StorageAdminCapabilityProfile,
 }
 
 const HOLDER_LIFECYCLE_EVENT_CAPACITY: usize = 128;
@@ -278,6 +280,21 @@ impl WorkspaceSessionService {
     pub fn with_mpla_lifecycle_roots(mut self, roots: MplaLifecycleRoots) -> Self {
         self.mpla_lifecycle_roots = Some(roots);
         self
+    }
+
+    pub(crate) fn mpla_storage_admin_profile(
+        &self,
+    ) -> Result<
+        sandbox_runtime_mpla_poc::storage_admin::StorageAdminCapabilityProfile,
+        WorkspaceSessionError,
+    > {
+        self.mpla_lifecycle_roots
+            .as_ref()
+            .map(|roots| roots.storage_admin_profile)
+            .ok_or_else(|| WorkspaceSessionError::MplaLifecycle {
+                workspace_session_id: WorkspaceSessionId("unallocated".to_owned()),
+                reason: "MPLA storage-admin profile is not configured".to_owned(),
+            })
     }
 
     /// The per-session admission gate: the single serializer for command

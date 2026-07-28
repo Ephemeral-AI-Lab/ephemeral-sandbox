@@ -19,6 +19,25 @@ fn config_default_workspace_section_is_valid() {
 }
 
 #[test]
+fn mpla_storage_admin_profile_is_explicit_and_defaults_to_production() {
+    let defaulted = layerstack_config("").expect("default runtime config");
+    assert_eq!(
+        defaulted.mpla_storage_admin.profile,
+        MplaStorageAdminProfile::Production
+    );
+
+    let configured = layerstack_config(
+        "  mpla_storage_admin:\n    profile: overlayfs_dac_override_qualification\n",
+    )
+    .expect("qualification profile parses");
+    assert_eq!(
+        configured.mpla_storage_admin.profile,
+        MplaStorageAdminProfile::OverlayfsDacOverrideQualification
+    );
+    configured.validate().expect("qualification profile validates");
+}
+
+#[test]
 fn deprecated_namespace_scratch_root_can_be_omitted() {
     let yaml = "runtime:
   workspace:

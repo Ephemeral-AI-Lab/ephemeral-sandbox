@@ -2,17 +2,23 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use sandbox_runtime_mpla_poc::storage_admin::{
-    authorize_storage_admin, decode_invocation, run_storage_admin,
-    storage_admin_mount_plan_evidence, storage_admin_process_evidence_from_status,
-    validate_opened_mount_namespace, OrdinaryWorkloadPolicy, StorageAdminExecution,
-    StorageAdminInvocation, StorageAdminLifecycle, StorageAdminPreparationStep,
-    StorageAdminProcessProfile, STORAGE_ADMIN_SECCOMP_PROFILE_ID,
+    authorize_storage_admin, decode_invocation, run_platform_invocation, run_storage_admin,
+    storage_admin_authorized_path_sha256, storage_admin_mount_attestation_sha256,
+    storage_admin_mount_plan_evidence, storage_admin_mountinfo_target_sha256,
+    storage_admin_process_evidence_from_status, validate_opened_mount_namespace,
+    OrdinaryWorkloadPolicy, StorageAdminCapabilityProfile, StorageAdminExecution,
+    StorageAdminInvocation, StorageAdminLifecycle, StorageAdminLowerBinding,
+    StorageAdminMountAttestation, StorageAdminMountReceiptBinding, StorageAdminMountTableEvidence,
+    StorageAdminObservedMount, StorageAdminPathIdentity, StorageAdminPreparationStep,
+    StorageAdminProcessProfile, StorageAdminTargetBinding, STORAGE_ADMIN_SECCOMP_PROFILE_ID,
 };
 use sandbox_runtime_mpla_poc::{
     AllocationId, OperationId, RunId, SessionId, StorageAdminAction, StorageAdminAuthorization,
     StorageAdminOutcome, StorageAdminRequest, StorageAdminScope, INTERFACE_VERSION, SCHEMA_VERSION,
-    STORAGE_ADMIN_EFFECTIVE_CAPABILITIES, STORAGE_ADMIN_PRIVILEGED_SYSCALLS,
-    STORAGE_ADMIN_PROFILE_ID, STORAGE_ADMIN_TRUSTED_EXECUTABLE,
+    STORAGE_ADMIN_EFFECTIVE_CAPABILITIES,
+    STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_EFFECTIVE_CAPABILITIES,
+    STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID,
+    STORAGE_ADMIN_PRIVILEGED_SYSCALLS, STORAGE_ADMIN_PROFILE_ID, STORAGE_ADMIN_TRUSTED_EXECUTABLE,
 };
 use uuid::Uuid;
 
@@ -41,6 +47,41 @@ struct FakeLifecycle {
     executions: usize,
     recoveries: usize,
     commits: usize,
+    capability_mask: u64,
+    mountinfo_after: Option<StorageAdminMountTableEvidence>,
+    attestation_mutation: Option<AttestationMutation>,
+    input_access_mutation: Option<InputAccessMutation>,
+}
+
+#[derive(Clone, Copy)]
+enum AttestationMutation {
+    LowerPath,
+    LowerOrder,
+    LowerIdentity,
+    LeaseEpoch,
+    RequestHash,
+    WorkspaceTarget,
+    TargetMountId,
+    TargetDigest,
+    Namespace,
+    Filesystem,
+    Source,
+    MountOptions,
+    SuperOptions,
+    Upper,
+    Work,
+    Profile,
+    Capabilities,
+    MissingAttestation,
+    MissingBinding,
+    BindingDigest,
+    BindingOperation,
+}
+
+#[derive(Clone, Copy)]
+enum InputAccessMutation {
+    Missing,
+    RequestedModes,
 }
 
 impl FakeLifecycle {
@@ -50,6 +91,10 @@ impl FakeLifecycle {
             executions: 0,
             recoveries: 0,
             commits: 0,
+            capability_mask: 1 << 21,
+            mountinfo_after: None,
+            attestation_mutation: None,
+            input_access_mutation: None,
         }
     }
 
@@ -59,7 +104,31 @@ impl FakeLifecycle {
             executions: 0,
             recoveries: 0,
             commits: 0,
+            capability_mask: 1 << 21,
+            mountinfo_after: None,
+            attestation_mutation: None,
+            input_access_mutation: None,
         }
+    }
+
+    fn with_capability_mask(mut self, capability_mask: u64) -> Self {
+        self.capability_mask = capability_mask;
+        self
+    }
+
+    fn with_mountinfo_after(mut self, mountinfo_after: StorageAdminMountTableEvidence) -> Self {
+        self.mountinfo_after = Some(mountinfo_after);
+        self
+    }
+
+    fn with_attestation_mutation(mut self, mutation: AttestationMutation) -> Self {
+        self.attestation_mutation = Some(mutation);
+        self
+    }
+
+    fn with_input_access_mutation(mut self, mutation: InputAccessMutation) -> Self {
+        self.input_access_mutation = Some(mutation);
+        self
     }
 }
 
@@ -93,12 +162,29 @@ impl StorageAdminLifecycle for FakeLifecycle {
         sandbox_runtime_mpla_poc::storage_admin::StorageAdminProcessEvidence,
         sandbox_runtime_mpla_poc::storage_admin::StorageAdminMountPlanEvidence,
     )> {
-        let status = "CapInh:\t0000000000000000\nCapPrm:\t0000000000200000\nCapEff:\t0000000000200000\nCapBnd:\t0000000000200000\nCapAmb:\t0000000000000000\nNoNewPrivs:\t1\nSeccomp:\t2\nSeccomp_filters:\t1\n";
+        let status = format!(
+            "CapInh:\t0000000000000000\nCapPrm:\t{mask:016x}\nCapEff:\t{mask:016x}\nCapBnd:\t{mask:016x}\nCapAmb:\t0000000000000000\nNoNewPrivs:\t1\nSeccomp:\t2\nSeccomp_filters:\t1\n",
+            mask = self.capability_mask,
+        );
+        let mut mount_plan = storage_admin_mount_plan_evidence(scope)?;
+        match self.input_access_mutation {
+            Some(InputAccessMutation::Missing) => mount_plan.input_access.paths.clear(),
+            Some(InputAccessMutation::RequestedModes) => {
+                mount_plan.input_access.paths[0].effective_access[0].requested =
+                    vec!["write".to_owned()];
+            }
+            None => {}
+        }
+        if let Some(mountinfo_after) = self.mountinfo_after.clone() {
+            mount_plan.mountinfo_after = mountinfo_after;
+        } else {
+            mount_plan.mountinfo_after = observed_workspace_mount(scope, mount_plan.source.clone());
+        }
         Ok((
             storage_admin_process_evidence_from_status(
                 PathBuf::from(STORAGE_ADMIN_TRUSTED_EXECUTABLE),
                 "00".repeat(32),
-                status,
+                &status,
                 PathBuf::from("/mpla-test/cgroup.procs"),
                 NAMESPACE_HOLDER_PID,
                 scope.mount_namespace_id.clone(),
@@ -109,8 +195,172 @@ impl StorageAdminLifecycle for FakeLifecycle {
                     .parse()
                     .expect("valid mount namespace inode"),
             )?,
-            storage_admin_mount_plan_evidence(scope)?,
+            mount_plan,
         ))
+    }
+
+    fn mount_authority_evidence(
+        &mut self,
+        selection: &sandbox_runtime_mpla_poc::storage_admin::StorageAdminSelection,
+        process: &sandbox_runtime_mpla_poc::storage_admin::StorageAdminProcessEvidence,
+        mount_plan: &sandbox_runtime_mpla_poc::storage_admin::StorageAdminMountPlanEvidence,
+    ) -> sandbox_runtime_mpla_poc::PocResult<(
+        Option<StorageAdminMountAttestation>,
+        Option<StorageAdminMountReceiptBinding>,
+    )> {
+        if selection.request().action != StorageAdminAction::Mount {
+            return Ok((None, None));
+        }
+        let observed = mount_plan
+            .mountinfo_after
+            .target
+            .as_ref()
+            .expect("successful fake mount has a target");
+        let identity = StorageAdminPathIdentity {
+            mount_id: observed.mount_id,
+            device_major: 8,
+            device_minor: 1,
+            inode: 9001,
+        };
+        let mut attestation = StorageAdminMountAttestation {
+            schema_version: SCHEMA_VERSION,
+            run_id: selection.request().scope.run_id.clone(),
+            sandbox_id: selection.request().scope.sandbox_id.clone(),
+            workspace_session_id: selection.request().scope.workspace_session_id.clone(),
+            session_id: selection.request().scope.session_id.clone(),
+            allocation_id: selection.request().scope.allocation_id.clone(),
+            lease_id: selection.request().scope.lease_id.clone(),
+            lease_epoch: selection.request().scope.lease_epoch,
+            mount_namespace_id: selection.request().scope.mount_namespace_id.clone(),
+            mount_namespace_inode: process.mount_namespace_inode,
+            storage_operation_id: selection.request().operation_id.clone(),
+            request_sha256: selection.request_sha256().to_owned(),
+            lower_bindings_newest_first: selection
+                .request()
+                .scope
+                .lower_dirs_newest_first
+                .iter()
+                .enumerate()
+                .map(|(index, path)| StorageAdminLowerBinding {
+                    index,
+                    authorized_path_sha256: storage_admin_authorized_path_sha256(path),
+                    fd_identity: identity.clone(),
+                    authorized_path_identity: identity.clone(),
+                })
+                .collect(),
+            target: StorageAdminTargetBinding {
+                workspace_target: selection.request().scope.workspace_root.clone(),
+                mount_namespace_id: selection.request().scope.mount_namespace_id.clone(),
+                mount_namespace_inode: process.mount_namespace_inode,
+                mount_id: observed.mount_id,
+                mountinfo_sha256: mount_plan.mountinfo_after.sha256.clone(),
+                target_identity: identity,
+                filesystem_type: observed.filesystem_type.clone(),
+                source: observed.source.clone(),
+                mount_options: observed.mount_options.clone(),
+                super_options: observed.super_options.clone(),
+                expected_upperdir_sha256: storage_admin_authorized_path_sha256(
+                    &mount_plan.upper_dir,
+                ),
+                observed_upperdir_sha256: storage_admin_authorized_path_sha256(
+                    observed.upper_dir.as_deref().expect("fake upperdir"),
+                ),
+                expected_workdir_sha256: storage_admin_authorized_path_sha256(&mount_plan.work_dir),
+                observed_workdir_sha256: storage_admin_authorized_path_sha256(
+                    observed.work_dir.as_deref().expect("fake workdir"),
+                ),
+            },
+            profile_id: selection.profile_id().to_owned(),
+            effective_capabilities: selection
+                .profile()
+                .effective_capabilities()
+                .iter()
+                .map(|value| (*value).to_owned())
+                .collect(),
+        };
+        match self.attestation_mutation {
+            Some(AttestationMutation::LowerPath) => {
+                attestation.lower_bindings_newest_first[0].authorized_path_sha256 = "ff".repeat(32);
+            }
+            Some(AttestationMutation::LowerOrder) => {
+                attestation.lower_bindings_newest_first.swap(0, 1);
+            }
+            Some(AttestationMutation::LowerIdentity) => {
+                attestation.lower_bindings_newest_first[0]
+                    .authorized_path_identity
+                    .inode += 1;
+            }
+            Some(AttestationMutation::LeaseEpoch) => {
+                attestation.lease_epoch += 1;
+            }
+            Some(AttestationMutation::RequestHash) => {
+                attestation.request_sha256 = "ff".repeat(32);
+            }
+            Some(AttestationMutation::WorkspaceTarget) => {
+                attestation.target.workspace_target = PathBuf::from("/forged/workspace");
+            }
+            Some(AttestationMutation::TargetMountId) => {
+                attestation.target.mount_id += 1;
+            }
+            Some(AttestationMutation::TargetDigest) => {
+                attestation.target.mountinfo_sha256 = "ff".repeat(32);
+            }
+            Some(AttestationMutation::Namespace) => {
+                attestation.target.mount_namespace_id = "mnt:[1]".to_owned();
+            }
+            Some(AttestationMutation::Filesystem) => {
+                attestation.target.filesystem_type = "forged".to_owned();
+            }
+            Some(AttestationMutation::Source) => {
+                attestation.target.source = "forged".to_owned();
+            }
+            Some(AttestationMutation::MountOptions) => {
+                attestation
+                    .target
+                    .mount_options
+                    .retain(|option| option != "nodev");
+            }
+            Some(AttestationMutation::SuperOptions) => {
+                attestation.target.super_options.push("forged".to_owned());
+            }
+            Some(AttestationMutation::Upper) => {
+                attestation.target.observed_upperdir_sha256 = "ff".repeat(32);
+            }
+            Some(AttestationMutation::Work) => {
+                attestation.target.observed_workdir_sha256 = "ff".repeat(32);
+            }
+            Some(AttestationMutation::Profile) => {
+                attestation.profile_id = "forged-profile".to_owned();
+            }
+            Some(AttestationMutation::Capabilities) => {
+                attestation
+                    .effective_capabilities
+                    .push("CAP_SYS_PTRACE".to_owned());
+            }
+            Some(AttestationMutation::MissingAttestation) => {
+                return Ok((None, None));
+            }
+            Some(AttestationMutation::MissingBinding) => {
+                return Ok((Some(attestation), None));
+            }
+            Some(AttestationMutation::BindingDigest)
+            | Some(AttestationMutation::BindingOperation)
+            | None => {}
+        }
+        let mut binding = StorageAdminMountReceiptBinding {
+            storage_operation_id: selection.request().operation_id.clone(),
+            attestation_sha256: storage_admin_mount_attestation_sha256(&attestation)?,
+        };
+        match self.attestation_mutation {
+            Some(AttestationMutation::BindingDigest) => {
+                binding.attestation_sha256 = "ff".repeat(32);
+            }
+            Some(AttestationMutation::BindingOperation) => {
+                binding.storage_operation_id = OperationId::from_string("forged-operation");
+            }
+            _ => {}
+        }
+        Ok((Some(attestation), Some(binding)))
     }
 }
 
@@ -159,6 +409,7 @@ fn invocation(root: &Path, operation_id: &str) -> StorageAdminInvocation {
         trusted_executable_sha256: "00".repeat(32),
         workload_cgroup_procs: root.join("workload/cgroup.procs"),
         mount_namespace_holder_pid: NAMESPACE_HOLDER_PID,
+        mount_receipt_binding: None,
     }
 }
 
@@ -171,6 +422,37 @@ fn rejection(invocation: &StorageAdminInvocation) -> String {
     )
     .expect_err("substitution must fail closed")
     .to_string()
+}
+
+fn observed_workspace_mount(
+    scope: &StorageAdminScope,
+    source: String,
+) -> StorageAdminMountTableEvidence {
+    let mut mount_options = vec![
+        "rw".to_owned(),
+        "nosuid".to_owned(),
+        "nodev".to_owned(),
+        "relatime".to_owned(),
+    ];
+    mount_options.sort();
+    let target = StorageAdminObservedMount {
+        mount_id: 47,
+        parent_mount_id: 1,
+        root: PathBuf::from("/"),
+        source,
+        filesystem_type: "overlay".to_owned(),
+        target: scope.workspace_root.clone(),
+        mount_options,
+        optional_fields: Vec::new(),
+        super_options: vec!["rw".to_owned()],
+        upper_dir: Some(scope.allocation_root.join("upper")),
+        work_dir: Some(scope.allocation_root.join("work")),
+    };
+    StorageAdminMountTableEvidence {
+        sha256: storage_admin_mountinfo_target_sha256(Some(&target))
+            .expect("hash fake target mount"),
+        target: Some(target),
+    }
 }
 
 #[test]
@@ -200,6 +482,258 @@ fn only_exact_authenticated_lifecycle_request_selects_storage_profile() {
     let mut wrong_actor = invocation.clone();
     wrong_actor.authorization.actor_id = "ordinary-workload".to_owned();
     assert!(rejection(&wrong_actor).contains("actor id"));
+}
+
+#[test]
+fn caller_cannot_escalate_a_production_request_to_the_qualification_profile() {
+    let root = TestRoot::new();
+    let mut untrusted = invocation(&root.0, "operation-profile-escalation");
+    untrusted.request.profile_id =
+        STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID.to_owned();
+
+    assert!(rejection(&untrusted).contains("profile id"));
+    assert_eq!(
+        StorageAdminCapabilityProfile::Production.profile_id(),
+        STORAGE_ADMIN_PROFILE_ID
+    );
+    assert_eq!(
+        StorageAdminCapabilityProfile::OverlayfsDacOverrideQualification.profile_id(),
+        STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID
+    );
+}
+
+#[test]
+fn malformed_mount_binding_is_rejected_before_platform_process_preparation() {
+    let root = TestRoot::new();
+    let mut invocation = invocation(&root.0, "operation-early-binding-validation");
+    invocation.mount_receipt_binding = Some(StorageAdminMountReceiptBinding {
+        storage_operation_id: OperationId::from_string("prior-mount"),
+        attestation_sha256: "00".repeat(32),
+    });
+
+    let error = run_platform_invocation(&invocation).expect_err("mount binding must be rejected");
+    assert!(error
+        .to_string()
+        .contains("cannot supply prior mount authority"));
+}
+
+#[test]
+fn qualification_profile_receipt_records_only_the_targeted_extra_capability() {
+    let root = TestRoot::new();
+    let mut invocation = invocation(&root.0, "operation-qualification-receipt");
+    invocation.expected_request.profile_id =
+        STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID.to_owned();
+    invocation.request.profile_id =
+        STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID.to_owned();
+    let mut lifecycle = FakeLifecycle::succeeding().with_capability_mask((1 << 21) | (1 << 1));
+
+    let receipt = run_storage_admin(&invocation, &mut lifecycle).expect("qualification receipt");
+    assert_eq!(
+        receipt.profile_id,
+        STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID
+    );
+    assert_eq!(
+        receipt.effective_capabilities,
+        STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_EFFECTIVE_CAPABILITIES
+            .iter()
+            .map(|capability| (*capability).to_owned())
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        receipt.process_evidence.capabilities.effective,
+        (1 << 21) | (1 << 1)
+    );
+    assert_eq!(
+        receipt.process_evidence.capabilities.permitted,
+        (1 << 21) | (1 << 1)
+    );
+    assert_eq!(
+        receipt.process_evidence.capabilities.bounding,
+        (1 << 21) | (1 << 1)
+    );
+}
+
+#[test]
+fn mount_input_access_evidence_must_exactly_cover_the_bound_plan() {
+    for (operation_id, mutation, expected) in [
+        (
+            "operation-input-access-missing",
+            InputAccessMutation::Missing,
+            "does not cover",
+        ),
+        (
+            "operation-input-access-modes",
+            InputAccessMutation::RequestedModes,
+            "requested modes",
+        ),
+    ] {
+        let root = TestRoot::new();
+        let invocation = invocation(&root.0, operation_id);
+        let mut lifecycle = FakeLifecycle::succeeding().with_input_access_mutation(mutation);
+
+        let error =
+            run_storage_admin(&invocation, &mut lifecycle).expect_err("evidence must be rejected");
+        assert!(error.to_string().contains(expected));
+        assert_eq!(lifecycle.commits, 0);
+    }
+}
+
+#[test]
+fn measured_raw_mount_api_representation_is_accepted_only_when_all_trusted_fields_match() {
+    let root = TestRoot::new();
+    let valid = invocation(&root.0, "operation-measured-mountinfo-valid");
+    let plan = storage_admin_mount_plan_evidence(&valid.request.scope).expect("mount plan");
+    let valid_observed = observed_workspace_mount(&valid.request.scope, plan.source.clone());
+    let mut valid_lifecycle = FakeLifecycle::succeeding().with_mountinfo_after(valid_observed);
+    run_storage_admin(&valid, &mut valid_lifecycle).expect("matching observed mount is accepted");
+    assert_eq!(valid_lifecycle.commits, 1);
+
+    let mut forged_source = invocation(&root.0, "operation-measured-mountinfo-forged-source");
+    let mut forged_observed =
+        observed_workspace_mount(&forged_source.request.scope, "forged".to_owned());
+    let mut forged_lifecycle =
+        FakeLifecycle::succeeding().with_mountinfo_after(forged_observed.clone());
+    assert!(run_storage_admin(&forged_source, &mut forged_lifecycle).is_err());
+    assert_eq!(forged_lifecycle.commits, 0);
+
+    for label in ["filesystem", "options", "upper", "work"] {
+        let operation_id = format!("operation-measured-mountinfo-{label}");
+        forged_source = invocation(&root.0, &operation_id);
+        forged_observed =
+            observed_workspace_mount(&forged_source.request.scope, plan.source.clone());
+        let entry = forged_observed
+            .target
+            .as_mut()
+            .expect("workspace target entry");
+        match label {
+            "filesystem" => entry.filesystem_type = "forged".to_owned(),
+            "options" => entry.mount_options.retain(|option| option != "nosuid"),
+            "upper" => entry.upper_dir = Some(PathBuf::from("/forged/upper")),
+            "work" => entry.work_dir = Some(PathBuf::from("/forged/work")),
+            _ => unreachable!("fixed mismatch case"),
+        }
+        forged_lifecycle = FakeLifecycle::succeeding().with_mountinfo_after(forged_observed);
+        assert!(
+            run_storage_admin(&forged_source, &mut forged_lifecycle).is_err(),
+            "{label} mismatch must fail closed"
+        );
+        assert_eq!(forged_lifecycle.commits, 0, "{label} mismatch committed");
+    }
+}
+
+#[test]
+fn durable_mount_attestation_rejects_every_identity_substitution_class() {
+    let root = TestRoot::new();
+    let cases = [
+        ("lower-path", AttestationMutation::LowerPath),
+        ("lower-order", AttestationMutation::LowerOrder),
+        ("lower-identity", AttestationMutation::LowerIdentity),
+        ("lease-epoch", AttestationMutation::LeaseEpoch),
+        ("request-hash", AttestationMutation::RequestHash),
+        ("workspace-target", AttestationMutation::WorkspaceTarget),
+        ("target-mount-id", AttestationMutation::TargetMountId),
+        ("target-digest", AttestationMutation::TargetDigest),
+        ("namespace", AttestationMutation::Namespace),
+        ("filesystem", AttestationMutation::Filesystem),
+        ("source", AttestationMutation::Source),
+        ("mount-options", AttestationMutation::MountOptions),
+        ("super-options", AttestationMutation::SuperOptions),
+        ("upper", AttestationMutation::Upper),
+        ("work", AttestationMutation::Work),
+        ("profile", AttestationMutation::Profile),
+        ("capabilities", AttestationMutation::Capabilities),
+        (
+            "missing-attestation",
+            AttestationMutation::MissingAttestation,
+        ),
+        ("missing-binding", AttestationMutation::MissingBinding),
+        ("binding-digest", AttestationMutation::BindingDigest),
+        ("binding-operation", AttestationMutation::BindingOperation),
+    ];
+    for (label, mutation) in cases {
+        let mut invocation = invocation(&root.0, &format!("operation-attestation-{label}"));
+        invocation
+            .request
+            .scope
+            .lower_dirs_newest_first
+            .push(root.0.join(format!("payload/{label}-second-lower")));
+        invocation.expected_request = invocation.request.clone();
+        let mut lifecycle = FakeLifecycle::succeeding().with_attestation_mutation(mutation);
+        let error = run_storage_admin(&invocation, &mut lifecycle)
+            .expect_err("forged attestation must fail closed")
+            .to_string();
+        assert!(
+            error.contains("attestation")
+                || error.contains("opened lower")
+                || error.contains("mount receipt"),
+            "{label} returned an unexpected rejection: {error}"
+        );
+        assert_eq!(lifecycle.commits, 0, "{label} forged receipt committed");
+    }
+}
+
+#[test]
+fn failed_mount_receipt_retains_only_the_bounded_target_diagnostic() {
+    let root = TestRoot::new();
+    let invocation = invocation(&root.0, "operation-receipt-diagnostic");
+    let observed =
+        observed_workspace_mount(&invocation.request.scope, "raw-mount-api-source".to_owned());
+    let mut lifecycle = FakeLifecycle::succeeding().with_mountinfo_after(observed);
+
+    let error = run_storage_admin(&invocation, &mut lifecycle)
+        .expect_err("mismatched source must reject the receipt")
+        .to_string();
+    assert!(error.contains("receipt observed mount source does not match trusted binding"));
+    assert!(error.contains("raw-mount-api-source"));
+    assert_eq!(lifecycle.commits, 0);
+
+    let diagnostic_path = root.0.join(
+        "control/storage-admin/operation-receipt-diagnostic/RECEIPT_VALIDATION_DIAGNOSTIC.json",
+    );
+    let diagnostic: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(&diagnostic_path).expect("read immutable receipt diagnostic"),
+    )
+    .expect("decode receipt diagnostic");
+    let fields: BTreeSet<_> = diagnostic
+        .as_object()
+        .expect("diagnostic object")
+        .keys()
+        .map(String::as_str)
+        .collect();
+    assert_eq!(
+        fields,
+        [
+            "schema_version",
+            "interface_version",
+            "operation_id",
+            "request_sha256",
+            "mountinfo_sha256",
+            "filesystem_type",
+            "parsed_source",
+            "mount_options",
+            "trusted_expected_source",
+        ]
+        .into_iter()
+        .collect()
+    );
+    assert_eq!(
+        diagnostic["mountinfo_sha256"],
+        storage_admin_mountinfo_target_sha256(Some(
+            &observed_workspace_mount(&invocation.request.scope, "raw-mount-api-source".to_owned())
+                .target
+                .expect("observed target")
+        ))
+        .expect("hash observed target")
+    );
+    assert_eq!(diagnostic["filesystem_type"], "overlay");
+    assert_eq!(diagnostic["parsed_source"], "raw-mount-api-source");
+    assert_eq!(
+        diagnostic["mount_options"],
+        serde_json::json!(["nodev", "nosuid", "relatime", "rw"])
+    );
+    assert_eq!(diagnostic["trusted_expected_source"], "none");
+    assert!(diagnostic.get("target").is_none());
+    assert!(diagnostic.get("lower_dirs_newest_first").is_none());
 }
 
 #[test]
@@ -418,6 +952,11 @@ fn response_loss_retry_returns_one_stable_operation_and_receipt() {
     let first =
         run_storage_admin(&invocation, &mut lifecycle).expect("first execution must succeed");
     let durable_before = std::fs::read(&first.receipt_path).expect("read durable receipt");
+    let durable_text = std::str::from_utf8(&durable_before).expect("receipt is UTF-8 JSON");
+    assert!(
+        !durable_text.contains("/proc/self/fd/"),
+        "a transient FD spelling must never become durable authority"
+    );
     assert_eq!(lifecycle.executions, 1);
     assert_eq!(lifecycle.commits, 1);
     assert!(!first.idempotent_replay);
@@ -445,6 +984,34 @@ fn response_loss_retry_returns_one_stable_operation_and_receipt() {
     assert!(run_storage_admin(&substituted_holder, &mut must_not_replay).is_err());
     assert_eq!(must_not_replay.executions, 0);
     assert_eq!(must_not_replay.recoveries, 0);
+}
+
+#[test]
+fn receipt_loss_and_operation_id_collision_fail_closed_without_reexecution() {
+    let root = TestRoot::new();
+    let original = invocation(&root.0, "operation-lost-receipt");
+    let mut lifecycle = FakeLifecycle::succeeding();
+    let receipt = run_storage_admin(&original, &mut lifecycle).expect("initial mount receipt");
+    std::fs::remove_file(&receipt.receipt_path).expect("simulate lost receipt");
+
+    let mut recovery = FakeLifecycle::succeeding();
+    let recovered =
+        run_storage_admin(&original, &mut recovery).expect("durable failed recovery receipt");
+    assert_eq!(recovery.executions, 0);
+    assert_eq!(recovery.recoveries, 1);
+    assert_eq!(recovered.outcome, StorageAdminOutcome::Failed);
+
+    let collision_original = invocation(&root.0, "operation-id-collision");
+    let mut collision_lifecycle = FakeLifecycle::succeeding();
+    run_storage_admin(&collision_original, &mut collision_lifecycle)
+        .expect("establish immutable operation");
+    let mut collision = collision_original.clone();
+    collision.request.scope.workspace_root = root.0.join("other-workspace");
+    collision.expected_request = collision.request.clone();
+    let mut must_not_execute = FakeLifecycle::succeeding();
+    assert!(run_storage_admin(&collision, &mut must_not_execute).is_err());
+    assert_eq!(must_not_execute.executions, 0);
+    assert_eq!(must_not_execute.recoveries, 0);
 }
 
 #[test]
@@ -560,7 +1127,7 @@ Seccomp_filters:\t1
     let mount = storage_admin_mount_plan_evidence(&invocation.request.scope)
         .expect("capture exact mount plan");
     assert_eq!(mount.mount_namespace_id, "mnt:[4026532999]");
-    assert_eq!(mount.source, "overlay");
+    assert_eq!(mount.source, "none");
     assert_eq!(mount.filesystem_type, "overlay");
     assert_eq!(mount.target, root.0.join("workspace"));
     assert_eq!(mount.flags, ["MS_NODEV", "MS_NOSUID"]);
@@ -610,6 +1177,8 @@ fn receipt_schema_captures_identity_security_scope_result_cleanup_and_time() {
         "allowed_privileged_syscalls",
         "process_evidence",
         "mount_plan_evidence",
+        "mount_attestation",
+        "mount_receipt_binding",
         "scope",
         "outcome",
         "idempotent_replay",

@@ -23,6 +23,10 @@ pub struct RuntimeConfig {
     pub command: CommandConfig,
     #[serde(default)]
     pub file: FileConfig,
+    /// Server-owned storage-helper profile selection. Public MPLA requests
+    /// must echo this fixed policy and cannot use the field to self-select.
+    #[serde(default)]
+    pub mpla_storage_admin: MplaStorageAdminConfig,
 }
 
 impl RuntimeConfig {
@@ -52,7 +56,34 @@ impl RuntimeConfig {
         }
         self.layerstack.validate()?;
         self.command.validate()?;
-        self.file.validate()
+        self.file.validate()?;
+        self.mpla_storage_admin.validate()
+    }
+}
+
+/// The capability profile loaded by the daemon for its fixed MPLA helper.
+/// Production stays at `production`; the qualification variant is explicit
+/// and has no environment-, image-, or host-specific branches.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MplaStorageAdminProfile {
+    #[default]
+    Production,
+    OverlayfsDacOverrideQualification,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct MplaStorageAdminConfig {
+    pub profile: MplaStorageAdminProfile,
+}
+
+impl MplaStorageAdminConfig {
+    /// The type admits only the two explicitly enumerated profiles.  Keeping
+    /// validation explicit makes this a policy boundary rather than a free
+    /// form capability configuration.
+    pub const fn validate(&self) -> Result<(), ConfigFieldError> {
+        Ok(())
     }
 }
 

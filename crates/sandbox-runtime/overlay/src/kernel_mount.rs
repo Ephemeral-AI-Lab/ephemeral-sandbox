@@ -1,7 +1,8 @@
 //! Kernel-boundary overlay mount mechanics — the RAW new-mount API.
 //!
 //! The overlay is built with `fsopen`/`fsconfig`/`fsmount`/`move_mount` (NOT the
-//! `mount(8)` binary). Ordering invariant: the first
+//! `mount(8)` binary). `fsmount` applies `MOUNT_ATTR_NODEV` and
+//! `MOUNT_ATTR_NOSUID` before the mount can be attached. Ordering invariant: the first
 //! `fsconfig(SET_STRING, "lowerdir+", path)` call is the highest-priority lower
 //! layer, so [`OverlayHandle::layer_paths`] is iterated in its given
 //! newest-first order.
@@ -19,7 +20,7 @@ use std::path::{Path, PathBuf};
 #[cfg(target_os = "linux")]
 use rustix::fd::AsFd;
 #[cfg(target_os = "linux")]
-use rustix::fs::{Mode, OFlags};
+use rustix::fs::{statx, AtFlags, Mode, OFlags, StatxFlags};
 #[cfg(target_os = "linux")]
 use rustix::io::Errno;
 #[cfg(target_os = "linux")]
@@ -45,6 +46,32 @@ pub struct OverlayHandle {
     pub workdir: PathBuf,
     /// Leased lower-layer paths, NEWEST-FIRST (mount priority order).
     pub layer_paths: Vec<PathBuf>,
+}
+
+/// Stable kernel identity for an opened path.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OpenedPathIdentity {
+    /// Mount containing the opened object.
+    pub mount_id: u64,
+    /// Filesystem device major number.
+    pub device_major: u32,
+    /// Filesystem device minor number.
+    pub device_minor: u32,
+    /// Filesystem inode number.
+    pub inode: u64,
+}
+
+/// Ordered proof that one pinned lower FD denotes its authorized path.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OpenedLowerBinding {
+    /// Newest-first position in the lower stack.
+    pub index: usize,
+    /// Exact path supplied by the trusted mount plan.
+    pub authorized_path: PathBuf,
+    /// Identity measured directly through the still-open lower FD.
+    pub fd_identity: OpenedPathIdentity,
+    /// Identity measured from the authorized path after the FD was opened.
+    pub authorized_path_identity: OpenedPathIdentity,
 }
 
 /// A live overlay mount at a workspace root. RAII: [`Drop`] unmounts.
@@ -122,13 +149,31 @@ pub fn mount_overlay(
     workspace_root: &Path,
     handle: &OverlayHandle,
 ) -> std::result::Result<OverlayMount, OverlayError> {
+    mount_overlay_with_lower_inspection(workspace_root, handle, |_| ()).map(|(mount, ())| mount)
+}
+
+/// Mount an overlay and inspect stable lower identities after attach.
+///
+/// The inspector runs after `move_mount` and before any pinned lower FD is
+/// released. Its return value is delivered with the live mount guard.
+///
+/// # Errors
+///
+/// Returns [`OverlayError`] when mount inputs are invalid or a kernel mount
+/// syscall fails.
+#[cfg(target_os = "linux")]
+pub fn mount_overlay_with_lower_inspection<T>(
+    workspace_root: &Path,
+    handle: &OverlayHandle,
+    inspect: impl FnOnce(&[OpenedLowerBinding]) -> T,
+) -> std::result::Result<(OverlayMount, T), OverlayError> {
     let inputs = ValidatedMountInputs::open(workspace_root, handle)?;
     let fsfd = configured_overlay_fs(&inputs, LowerdirMode::Repeated)?;
     let mount_fd = match fsconfig_create(fsfd.as_fd()) {
         Ok(()) => fsmount(
             fsfd.as_fd(),
             FsMountFlags::FSMOUNT_CLOEXEC,
-            MountAttrFlags::empty(),
+            overlay_mount_attributes(),
         )
         .map_mount_syscall("fsmount")?,
         Err(Errno::INVAL) => {
@@ -138,7 +183,7 @@ pub fn mount_overlay(
             fsmount(
                 legacy_fsfd.as_fd(),
                 FsMountFlags::FSMOUNT_CLOEXEC,
-                MountAttrFlags::empty(),
+                overlay_mount_attributes(),
             )
             .map_mount_syscall("fsmount legacy lowerdir")?
         }
@@ -157,9 +202,18 @@ pub fn mount_overlay(
         MoveMountFlags::MOVE_MOUNT_F_EMPTY_PATH,
     )
     .map_mount_syscall("move_mount workspace_root")?;
-    Ok(OverlayMount {
-        workspace_root: Some(inputs.workspace_root),
-    })
+    let inspection = inspect(&inputs.lower_bindings);
+    Ok((
+        OverlayMount {
+            workspace_root: Some(inputs.workspace_root),
+        },
+        inspection,
+    ))
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn overlay_mount_attributes() -> MountAttrFlags {
+    MountAttrFlags::MOUNT_ATTR_NODEV | MountAttrFlags::MOUNT_ATTR_NOSUID
 }
 
 #[cfg(target_os = "linux")]
@@ -219,6 +273,20 @@ pub const fn mount_overlay(
     _workspace_root: &Path,
     _handle: &OverlayHandle,
 ) -> std::result::Result<OverlayMount, OverlayError> {
+    Err(OverlayError::Unsupported)
+}
+
+/// Non-Linux unsupported path for post-attach lower inspection.
+///
+/// # Errors
+///
+/// Always returns [`OverlayError::Unsupported`].
+#[cfg(not(target_os = "linux"))]
+pub fn mount_overlay_with_lower_inspection<T>(
+    _workspace_root: &Path,
+    _handle: &OverlayHandle,
+    _inspect: impl FnOnce(&[OpenedLowerBinding]) -> T,
+) -> std::result::Result<(OverlayMount, T), OverlayError> {
     Err(OverlayError::Unsupported)
 }
 
@@ -290,6 +358,7 @@ pub(crate) struct ValidatedMountInputs {
     pub(crate) layer_paths: Vec<PathBuf>,
     pub(crate) upperdir: PathBuf,
     pub(crate) workdir: PathBuf,
+    pub(crate) lower_bindings: Vec<OpenedLowerBinding>,
     _fds: Vec<File>,
 }
 
@@ -317,9 +386,23 @@ impl ValidatedMountInputs {
         fds.push(open_dir_no_follow(workspace_root)?);
 
         let mut layer_paths = Vec::with_capacity(handle.layer_paths.len());
-        for layer in &handle.layer_paths {
+        let mut lower_bindings = Vec::with_capacity(handle.layer_paths.len());
+        for (index, layer) in handle.layer_paths.iter().enumerate() {
             require_existing_dir(layer, "leased lowerdir")?;
             let fd = open_dir_no_follow(layer)?;
+            let fd_identity = opened_file_identity(&fd)?;
+            let authorized_path_identity = path_identity(layer)?;
+            if fd_identity != authorized_path_identity {
+                return Err(OverlayError::InvalidMountInput(format!(
+                    "opened lower identity does not match authorized path at index {index}"
+                )));
+            }
+            lower_bindings.push(OpenedLowerBinding {
+                index,
+                authorized_path: layer.clone(),
+                fd_identity,
+                authorized_path_identity,
+            });
             layer_paths.push(fd_path(&fd));
             fds.push(fd);
         }
@@ -349,9 +432,52 @@ impl ValidatedMountInputs {
             layer_paths,
             upperdir: handle.upperdir.clone(),
             workdir: handle.workdir.clone(),
+            lower_bindings,
             _fds: fds,
         })
     }
+}
+
+#[cfg(target_os = "linux")]
+fn opened_file_identity(file: &File) -> std::result::Result<OpenedPathIdentity, OverlayError> {
+    let stat = statx(
+        file.as_fd(),
+        "",
+        AtFlags::EMPTY_PATH | AtFlags::NO_AUTOMOUNT,
+        StatxFlags::BASIC_STATS | StatxFlags::MNT_ID,
+    )
+    .map_mount_syscall("statx opened lower")?;
+    statx_identity(stat, "opened lower")
+}
+
+#[cfg(target_os = "linux")]
+fn path_identity(path: &Path) -> std::result::Result<OpenedPathIdentity, OverlayError> {
+    let stat = statx(
+        rustix::fs::CWD,
+        path,
+        AtFlags::SYMLINK_NOFOLLOW | AtFlags::NO_AUTOMOUNT,
+        StatxFlags::BASIC_STATS | StatxFlags::MNT_ID,
+    )
+    .map_err(|error| OverlayError::capture(path, error.into()))?;
+    statx_identity(stat, "authorized lower path")
+}
+
+#[cfg(target_os = "linux")]
+fn statx_identity(
+    stat: rustix::fs::Statx,
+    label: &str,
+) -> std::result::Result<OpenedPathIdentity, OverlayError> {
+    if stat.stx_mask & StatxFlags::MNT_ID.bits() == 0 {
+        return Err(OverlayError::InvalidMountInput(format!(
+            "{label} does not expose a stable mount id"
+        )));
+    }
+    Ok(OpenedPathIdentity {
+        mount_id: stat.stx_mnt_id,
+        device_major: stat.stx_dev_major,
+        device_minor: stat.stx_dev_minor,
+        inode: stat.stx_ino,
+    })
 }
 
 #[cfg(target_os = "linux")]

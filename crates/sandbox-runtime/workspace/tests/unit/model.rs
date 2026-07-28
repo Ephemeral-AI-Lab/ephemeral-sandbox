@@ -42,6 +42,7 @@ fn workspace_profile_handle() -> MountedWorkspace {
             upperdir: "/tmp/eos/upper".into(),
             workdir: "/tmp/eos/work".into(),
         },
+        external_overlay_authority: false,
         ns_fds: HolderNsFds {
             user: Some(10),
             mnt: Some(11),

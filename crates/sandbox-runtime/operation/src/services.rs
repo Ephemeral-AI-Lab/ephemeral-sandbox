@@ -322,6 +322,7 @@ impl SandboxRuntimeOperations {
         let mpla_lifecycle_roots = crate::workspace_session::MplaLifecycleRoots {
             payload_root: layer_stack_root.join("mpla-poc/payload"),
             control_root: workspace_scratch_root.join("mpla-poc/control"),
+            storage_admin_profile: config.mpla_storage_admin_profile,
         };
         let scratch_locator =
             crate::workspace_crate::WorkspaceScratchLocator::new(workspace_scratch_root.clone())
@@ -770,6 +771,10 @@ pub struct SandboxRuntimeConfig {
     pub cgroup_root: Option<std::path::PathBuf>,
     pub workload_cgroup_limits: Option<WorkloadCgroupLimits>,
     pub workload_cgroup_unavailable_reason: Option<String>,
+    /// Immutable daemon policy consumed by the fixed MPLA storage helper.
+    /// It is never populated from a public operation request.
+    pub mpla_storage_admin_profile:
+        sandbox_runtime_mpla_poc::storage_admin::StorageAdminCapabilityProfile,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -286,6 +286,7 @@ fn mounted_workspace(
                 upperdir,
                 workdir,
             },
+            external_overlay_authority: false,
             ns_fds: HolderNsFds {
                 user: Some(user_fd),
                 mnt: Some(mnt_fd),

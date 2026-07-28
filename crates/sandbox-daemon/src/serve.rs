@@ -102,6 +102,14 @@ pub(crate) fn build_runtime_config(
         cgroup_root,
         workload_cgroup_limits: selected_workload_cgroup_limits(config),
         workload_cgroup_unavailable_reason,
+        mpla_storage_admin_profile: match config.runtime.mpla_storage_admin.profile {
+            sandbox_config::configs::runtime::MplaStorageAdminProfile::Production => {
+                sandbox_runtime::StorageAdminCapabilityProfile::Production
+            }
+            sandbox_config::configs::runtime::MplaStorageAdminProfile::OverlayfsDacOverrideQualification => {
+                sandbox_runtime::StorageAdminCapabilityProfile::OverlayfsDacOverrideQualification
+            }
+        },
         workspace: sandbox_runtime::WorkspaceRuntimeConfig {
             workspace_root,
             layer_stack_root: config.runtime.workspace.layer_stack_root.clone(),

@@ -263,10 +263,41 @@ impl WorkspaceSessionService {
             });
         }
         if receipt.outcome != StorageAdminOutcome::Succeeded {
-            let reason = receipt.failure.as_deref().map_or_else(
+            let mut reason = receipt.failure.as_deref().map_or_else(
                 || "storage-admin returned an unsuccessful receipt".to_owned(),
                 |failure| format!("storage-admin returned an unsuccessful receipt: {failure}"),
             );
+            let input_access = receipt
+                .mount_plan_evidence
+                .input_access
+                .paths
+                .iter()
+                .map(|path| {
+                    let access = path
+                        .effective_access
+                        .iter()
+                        .map(|check| {
+                            let requested = check.requested.join("+");
+                            if check.allowed {
+                                format!("{requested}=allowed")
+                            } else {
+                                format!(
+                                    "{requested}=denied({})",
+                                    check.error.as_deref().unwrap_or("unknown")
+                                )
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    format!("{}:{access}", path.label)
+                })
+                .collect::<Vec<_>>()
+                .join(";");
+            if input_access.is_empty() {
+                reason.push_str("; measured_input_access=unavailable");
+            } else {
+                reason.push_str(&format!("; measured_input_access={input_access}"));
+            }
             return Err(WorkspaceSessionError::MplaLifecycle {
                 workspace_session_id: workspace_session_id.clone(),
                 reason,
@@ -289,6 +320,57 @@ impl WorkspaceSessionService {
                 workspace_session_id: workspace_session_id.clone(),
                 reason: "MPLA lifecycle phase changed during storage action".to_owned(),
             });
+        }
+        match action {
+            StorageAdminAction::Mount => {
+                if current.mount_scope.is_some()
+                    || current.mount_receipt_binding.is_some()
+                    || current.cleanup_operation_id.is_some()
+                {
+                    return Err(WorkspaceSessionError::MplaLifecycle {
+                        workspace_session_id: workspace_session_id.clone(),
+                        reason: "MPLA mount authority was already initialized".to_owned(),
+                    });
+                }
+                let mount_receipt_binding =
+                    receipt.mount_receipt_binding.clone().ok_or_else(|| {
+                        WorkspaceSessionError::MplaLifecycle {
+                            workspace_session_id: workspace_session_id.clone(),
+                            reason:
+                                "successful MPLA mount receipt has no durable authority binding"
+                                    .to_owned(),
+                        }
+                    })?;
+                if receipt.mount_attestation.is_none()
+                    || mount_receipt_binding.storage_operation_id != receipt.operation_id
+                {
+                    return Err(WorkspaceSessionError::MplaLifecycle {
+                        workspace_session_id: workspace_session_id.clone(),
+                        reason:
+                            "successful MPLA mount receipt has inconsistent attestation authority"
+                                .to_owned(),
+                    });
+                }
+                current.mount_scope = Some(receipt.scope.clone());
+                current.mount_receipt_binding = Some(mount_receipt_binding);
+            }
+            StorageAdminAction::Quiesce
+            | StorageAdminAction::StrictUnmount
+            | StorageAdminAction::Cleanup => {
+                if receipt.mount_attestation.is_some()
+                    || receipt.mount_receipt_binding != current.mount_receipt_binding
+                    || current.mount_scope.as_ref() != Some(&receipt.scope)
+                {
+                    return Err(WorkspaceSessionError::MplaLifecycle {
+                        workspace_session_id: workspace_session_id.clone(),
+                        reason: "MPLA lifecycle receipt does not preserve exact mount authority"
+                            .to_owned(),
+                    });
+                }
+                if action == StorageAdminAction::Cleanup {
+                    current.cleanup_operation_id = Some(receipt.operation_id.clone());
+                }
+            }
         }
         current.phase = mpla_phase_after(action);
         Ok(result)

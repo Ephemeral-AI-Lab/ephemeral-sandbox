@@ -122,10 +122,14 @@ impl WorkspaceSessionService {
                 run_id,
                 payload_root: roots.payload_root,
                 control_root: roots.control_root,
+                storage_admin_profile: roots.storage_admin_profile,
                 allocation,
                 lease,
                 lease_operation_id: operation_id,
                 prepared,
+                mount_scope: None,
+                mount_receipt_binding: None,
+                cleanup_operation_id: None,
                 phase: MplaStoragePhase::Prepared,
             };
             let session =

@@ -13,11 +13,18 @@ fn mount_inputs_pin_only_lowerdirs_with_fd_paths(
         &OverlayHandle {
             upperdir: upperdir.clone(),
             workdir: workdir.clone(),
-            layer_paths: vec![lower],
+            layer_paths: vec![lower.clone()],
         },
     )?;
 
     assert!(inputs.layer_paths[0].starts_with("/proc/self/fd/"));
+    assert_eq!(inputs.lower_bindings.len(), 1);
+    assert_eq!(inputs.lower_bindings[0].index, 0);
+    assert_eq!(inputs.lower_bindings[0].authorized_path, lower);
+    assert_eq!(
+        inputs.lower_bindings[0].fd_identity,
+        inputs.lower_bindings[0].authorized_path_identity
+    );
     assert_eq!(inputs.upperdir, upperdir);
     assert_eq!(inputs.workdir, workdir);
     Ok(())
@@ -36,6 +43,17 @@ fn legacy_lowerdir_value_preserves_newest_first_order() {
         super::legacy_lowerdir_value(&lowerdirs),
         "/proc/self/fd/10:/proc/self/fd/11:/proc/self/fd/12"
     );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn raw_overlay_mount_requires_nodev_and_nosuid_before_attach() {
+    use rustix::mount::MountAttrFlags;
+
+    let attributes = super::overlay_mount_attributes();
+    assert!(attributes.contains(MountAttrFlags::MOUNT_ATTR_NODEV));
+    assert!(attributes.contains(MountAttrFlags::MOUNT_ATTR_NOSUID));
+    assert_eq!(attributes.bits(), 0x0000_0006);
 }
 
 fn test_dir(name: &str) -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {

@@ -172,6 +172,8 @@ pub struct StorageAdminReceipt {
     pub allowed_privileged_syscalls: Vec<String>,
     pub process_evidence: crate::storage_admin::StorageAdminProcessEvidence,
     pub mount_plan_evidence: crate::storage_admin::StorageAdminMountPlanEvidence,
+    pub mount_attestation: Option<crate::storage_admin::StorageAdminMountAttestation>,
+    pub mount_receipt_binding: Option<crate::storage_admin::StorageAdminMountReceiptBinding>,
     pub scope: StorageAdminScope,
     pub outcome: StorageAdminOutcome,
     pub idempotent_replay: bool,

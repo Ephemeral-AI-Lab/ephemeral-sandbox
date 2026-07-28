@@ -155,10 +155,16 @@ pub(crate) struct MplaWorkspaceBinding {
     pub(crate) run_id: RunId,
     pub(crate) payload_root: PathBuf,
     pub(crate) control_root: PathBuf,
+    pub(crate) storage_admin_profile:
+        sandbox_runtime_mpla_poc::storage_admin::StorageAdminCapabilityProfile,
     pub(crate) allocation: AllocationHandle,
     pub(crate) lease: MutableLease,
     pub(crate) lease_operation_id: OperationId,
     pub(crate) prepared: PreparedExternalSession,
+    pub(crate) mount_scope: Option<sandbox_runtime_mpla_poc::StorageAdminScope>,
+    pub(crate) mount_receipt_binding:
+        Option<sandbox_runtime_mpla_poc::storage_admin::StorageAdminMountReceiptBinding>,
+    pub(crate) cleanup_operation_id: Option<OperationId>,
     pub(crate) phase: MplaStoragePhase,
 }
 

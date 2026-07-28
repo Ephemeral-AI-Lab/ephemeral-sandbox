@@ -94,6 +94,8 @@ fn corrective_storage_admin_contract_round_trips() {
         .expect("process evidence"),
         mount_plan_evidence: storage_admin_mount_plan_evidence(&scope)
             .expect("mount-plan evidence"),
+        mount_attestation: None,
+        mount_receipt_binding: None,
         scope,
         outcome: StorageAdminOutcome::Succeeded,
         idempotent_replay: false,

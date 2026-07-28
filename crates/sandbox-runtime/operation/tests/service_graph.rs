@@ -204,6 +204,7 @@ fn runtime_from_config_initializes_layerstack_workspace_base(
             cgroup_root: None,
             workload_cgroup_limits: None,
             workload_cgroup_unavailable_reason: Some("test host has no delegation".to_owned()),
+            mpla_storage_admin_profile: sandbox_runtime::StorageAdminCapabilityProfile::Production,
         },
         Observer::disabled(),
     );
@@ -339,6 +340,8 @@ fn service_graph_workspace_session_source_boundaries_stay_private() {
     assert!(adapter.contains(".create_mpla_workspace_session("));
     assert!(adapter.contains(".guarded_destroy("));
     assert!(adapter.contains("dispatch_mpla_storage_admin"));
+    assert!(adapter.contains("binding.storage_admin_profile != selected_profile"));
+    assert!(adapter.contains("require_daemon_selected_storage_admin_profile"));
     assert_eq!(adapter.matches("OperationEntry::public").count(), 5);
     assert!(adapter.contains("name: CREATE_WORKSPACE_SESSION_LEGACY_SCRATCH_ADAPTER"));
     assert_eq!(adapter.matches("spec: None").count(), 1);

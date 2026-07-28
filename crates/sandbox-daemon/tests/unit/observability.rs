@@ -1501,6 +1501,7 @@ fn runtime_config(root: &Path) -> TestResult<sandbox_runtime::SandboxRuntimeConf
         cgroup_root: None,
         workload_cgroup_limits: None,
         workload_cgroup_unavailable_reason: Some("test host has no delegation".to_owned()),
+        mpla_storage_admin_profile: sandbox_runtime::StorageAdminCapabilityProfile::Production,
         workspace: sandbox_runtime::WorkspaceRuntimeConfig {
             workspace_root,
             layer_stack_root,

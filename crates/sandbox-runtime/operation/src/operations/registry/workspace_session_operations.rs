@@ -107,6 +107,10 @@ fn dispatch_create_mpla_workspace_session(
             return request.invalid_argument("create_mpla_workspace_session requires sandbox scope")
         }
     };
+    let selected_profile = match operations.workspace_session.mpla_storage_admin_profile() {
+        Ok(profile) => profile,
+        Err(error) => return workspace_session_error_response(error),
+    };
     match operations
         .workspace_session
         .create_mpla_workspace_session(run_id, OperationId::from_string(request.request_id.clone()))
@@ -119,6 +123,7 @@ fn dispatch_create_mpla_workspace_session(
                 "workspace_session_id": handler.workspace_session_id.0,
                 "network_profile": handler.handle.network.as_str(),
                 "finalize_policy": FinalizePolicy::NoOp.as_str(),
+                "storage_admin_profile_id": selected_profile.profile_id(),
                 "storage_admin_scope": storage_admin_scope,
             })),
             Err(error) => workspace_session_error_response(error),
@@ -208,12 +213,22 @@ fn dispatch_mpla_storage_admin(
         None => return request.invalid_argument("mpla_storage_admin requires sandbox scope"),
     };
     let workspace_session_id = WorkspaceSessionId(submitted.scope.workspace_session_id.clone());
+    let selected_profile = match operations.workspace_session.mpla_storage_admin_profile() {
+        Ok(profile) => profile,
+        Err(error) => return workspace_session_error_response(error),
+    };
     let result = operations.workspace_session.with_gated_mpla_storage_action(
         &workspace_session_id,
         submitted.action,
         |handler, binding| {
-            let receipt =
-                bind_and_run_storage_admin(request, sandbox_id, &submitted, handler, binding)?;
+            let receipt = bind_and_run_storage_admin(
+                request,
+                sandbox_id,
+                &submitted,
+                handler,
+                binding,
+                selected_profile,
+            )?;
             Ok((receipt.clone(), receipt))
         },
     );
@@ -249,6 +264,7 @@ fn bind_and_run_storage_admin(
     submitted: &StorageAdminRequest,
     handler: &WorkspaceSessionHandler,
     binding: &MplaWorkspaceBinding,
+    selected_profile: sandbox_runtime_mpla_poc::storage_admin::StorageAdminCapabilityProfile,
 ) -> Result<StorageAdminReceipt, String> {
     if submitted.operation_id.as_str() != request.request_id {
         return Err("storage-admin operation_id must equal the routed request_id".to_owned());
@@ -264,6 +280,12 @@ fn bind_and_run_storage_admin(
             "storage-admin workspace root is not the live session workspace root".to_owned(),
         );
     }
+    if binding.storage_admin_profile != selected_profile {
+        return Err(
+            "storage-admin session profile does not match the current daemon policy".to_owned(),
+        );
+    }
+    require_daemon_selected_storage_admin_profile(&submitted.profile_id, selected_profile)?;
     let holder_pid = u32::try_from(handler.handle.holder_pid)
         .map_err(|_| "storage-admin live holder pid is invalid".to_owned())?;
     if holder_pid == 0 {
@@ -288,7 +310,7 @@ fn bind_and_run_storage_admin(
     let expected_request = StorageAdminRequest {
         schema_version: submitted.schema_version,
         interface_version: submitted.interface_version.clone(),
-        profile_id: submitted.profile_id.clone(),
+        profile_id: selected_profile.profile_id().to_owned(),
         operation_id: OperationId::from_string(request.request_id.clone()),
         action: submitted.action,
         scope: submitted.scope.clone(),
@@ -319,6 +341,7 @@ fn bind_and_run_storage_admin(
         trusted_executable_sha256: trusted_storage_admin_executable_sha256()?,
         workload_cgroup_procs,
         mount_namespace_holder_pid: holder_pid,
+        mount_receipt_binding: binding.mount_receipt_binding.clone(),
     };
     let receipt = run_fixed_storage_admin(&invocation)?;
     if receipt.scope != submitted.scope
@@ -328,6 +351,20 @@ fn bind_and_run_storage_admin(
         return Err("storage-admin receipt does not match the bound request".to_owned());
     }
     Ok(receipt)
+}
+
+fn require_daemon_selected_storage_admin_profile(
+    submitted_profile_id: &str,
+    selected_profile: sandbox_runtime_mpla_poc::storage_admin::StorageAdminCapabilityProfile,
+) -> Result<(), String> {
+    if submitted_profile_id == selected_profile.profile_id() {
+        Ok(())
+    } else {
+        Err(
+            "storage-admin profile does not match the daemon-selected capability profile"
+                .to_owned(),
+        )
+    }
 }
 
 fn trusted_storage_admin_executable_sha256() -> Result<String, String> {
@@ -458,7 +495,7 @@ fn run_fixed_storage_admin(
         .spawn()
         .map_err(|error| format!("spawn fixed storage-admin helper: {error}"))?;
     let helper_pid = child.id();
-    if let Err(error) = fs::write(&cgroup_procs, helper_pid.to_string()) {
+    if let Err(error) = fs::write(cgroup_procs, helper_pid.to_string()) {
         let _ = child.kill();
         let _ = child.wait();
         return Err(format!(
@@ -466,7 +503,7 @@ fn run_fixed_storage_admin(
             cgroup_procs.display()
         ));
     }
-    let cgroup_members = fs::read_to_string(&cgroup_procs)
+    let cgroup_members = fs::read_to_string(cgroup_procs)
         .map_err(|error| format!("verify storage-admin cgroup placement: {error}"))?;
     if !cgroup_members
         .lines()

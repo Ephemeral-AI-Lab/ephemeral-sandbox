@@ -1,39 +1,55 @@
 use std::collections::BTreeSet;
 #[cfg(target_os = "linux")]
+use std::ffi::CString;
+#[cfg(target_os = "linux")]
 use std::fs::File;
 use std::fs::{self, OpenOptions};
 #[cfg(target_os = "linux")]
 use std::io::Read;
 #[cfg(target_os = "linux")]
 use std::os::fd::AsRawFd;
-#[cfg(target_os = "linux")]
+#[cfg(target_family = "unix")]
 use std::os::unix::ffi::OsStrExt;
 #[cfg(target_os = "linux")]
 use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path, PathBuf};
 
 #[cfg(target_os = "linux")]
-use sandbox_runtime_overlay::{mount_overlay as mount_kernel_overlay, OverlayHandle};
+use rustix::fs::{statx, AtFlags, StatxFlags};
+#[cfg(target_os = "linux")]
+use sandbox_runtime_overlay::{
+    mount_overlay_with_lower_inspection as mount_kernel_overlay_with_lower_inspection,
+    OpenedLowerBinding, OpenedPathIdentity, OverlayHandle,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::durable::{read_json, write_immutable_json, FileLock};
 use crate::{
-    unix_time_ms, PocError, PocResult, StorageAdminAction, StorageAdminAuthorization,
+    unix_time_ms, OperationId, PocError, PocResult, StorageAdminAction, StorageAdminAuthorization,
     StorageAdminOutcome, StorageAdminReceipt, StorageAdminRequest, StorageAdminScope,
     INTERFACE_VERSION, SCHEMA_VERSION, STORAGE_ADMIN_EFFECTIVE_CAPABILITIES,
+    STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_EFFECTIVE_CAPABILITIES,
+    STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID,
     STORAGE_ADMIN_PRIVILEGED_SYSCALLS, STORAGE_ADMIN_PROFILE_ID, STORAGE_ADMIN_TRUSTED_EXECUTABLE,
 };
 
 const STORAGE_ADMIN_DIRECTORY: &str = "storage-admin";
 const ATTEMPT_FILE: &str = "ATTEMPT.json";
+const RECEIPT_VALIDATION_DIAGNOSTIC_FILE: &str = "RECEIPT_VALIDATION_DIAGNOSTIC.json";
 const RECEIPT_FILE: &str = "RECEIPT.json";
 const LOCK_FILE: &str = "LOCK";
 const MAX_INVOCATION_BYTES: usize = 1024 * 1024;
+const MAX_RECEIPT_DIAGNOSTIC_FIELD_BYTES: usize = 1024;
+const MAX_RECEIPT_DIAGNOSTIC_MOUNT_OPTIONS: usize = 32;
+const RAW_OVERLAY_MOUNTINFO_SOURCE: &str = "none";
+const CAP_DAC_OVERRIDE_BIT: u64 = 1 << 1;
 const CAP_SYS_ADMIN_BIT: u64 = 1 << 21;
 pub const STORAGE_ADMIN_SECCOMP_PROFILE_ID: &str = "mpla-storage-admin-v1-seccomp-v1";
 const STORAGE_ADMIN_SECCOMP_PROFILE_CANONICAL: &[u8] =
     b"mpla-storage-admin-v1-seccomp-v1;default=allow;deny=clone,clone3,execve,execveat,fork,vfork;errno=EPERM";
+#[cfg(target_os = "linux")]
+const CAP_DAC_OVERRIDE_NUMBER: u32 = 1;
 #[cfg(target_os = "linux")]
 const CAP_SYS_ADMIN_NUMBER: u32 = 21;
 #[cfg(target_os = "linux")]
@@ -120,12 +136,77 @@ pub struct StorageAdminInvocation {
     /// that membership again before any mount syscall.
     pub workload_cgroup_procs: PathBuf,
     pub mount_namespace_holder_pid: u32,
+    pub mount_receipt_binding: Option<StorageAdminMountReceiptBinding>,
+}
+
+/// The only authority profiles the fixed storage helper understands.  The
+/// profile enters the helper only through the daemon-reconstructed expected
+/// request; public callers can at most echo that value.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum StorageAdminCapabilityProfile {
+    #[default]
+    Production,
+    OverlayfsDacOverrideQualification,
+}
+
+impl StorageAdminCapabilityProfile {
+    pub fn from_profile_id(profile_id: &str) -> PocResult<Self> {
+        match profile_id {
+            STORAGE_ADMIN_PROFILE_ID => Ok(Self::Production),
+            STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID => {
+                Ok(Self::OverlayfsDacOverrideQualification)
+            }
+            _ => Err(PocError::Integrity(
+                "storage-admin profile id is not an approved server capability profile".to_owned(),
+            )),
+        }
+    }
+
+    #[must_use]
+    pub const fn profile_id(self) -> &'static str {
+        match self {
+            Self::Production => STORAGE_ADMIN_PROFILE_ID,
+            Self::OverlayfsDacOverrideQualification => {
+                STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID
+            }
+        }
+    }
+
+    #[must_use]
+    pub const fn effective_capabilities(self) -> &'static [&'static str] {
+        match self {
+            Self::Production => STORAGE_ADMIN_EFFECTIVE_CAPABILITIES,
+            Self::OverlayfsDacOverrideQualification => {
+                STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_EFFECTIVE_CAPABILITIES
+            }
+        }
+    }
+
+    #[must_use]
+    pub const fn effective_capability_mask(self) -> u64 {
+        match self {
+            Self::Production => CAP_SYS_ADMIN_BIT,
+            Self::OverlayfsDacOverrideQualification => CAP_SYS_ADMIN_BIT | CAP_DAC_OVERRIDE_BIT,
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[must_use]
+    const fn capability_numbers(self) -> &'static [u32] {
+        match self {
+            Self::Production => &[CAP_SYS_ADMIN_NUMBER],
+            Self::OverlayfsDacOverrideQualification => {
+                &[CAP_SYS_ADMIN_NUMBER, CAP_DAC_OVERRIDE_NUMBER]
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StorageAdminSelection {
     request: StorageAdminRequest,
     request_sha256: String,
+    profile: StorageAdminCapabilityProfile,
 }
 
 impl StorageAdminSelection {
@@ -141,7 +222,12 @@ impl StorageAdminSelection {
 
     #[must_use]
     pub const fn profile_id(&self) -> &'static str {
-        STORAGE_ADMIN_PROFILE_ID
+        self.profile.profile_id()
+    }
+
+    #[must_use]
+    pub const fn profile(&self) -> StorageAdminCapabilityProfile {
+        self.profile
     }
 
     #[must_use]
@@ -218,6 +304,18 @@ pub trait StorageAdminLifecycle {
         ))
     }
 
+    fn mount_authority_evidence(
+        &mut self,
+        _selection: &StorageAdminSelection,
+        _process: &StorageAdminProcessEvidence,
+        _mount_plan: &StorageAdminMountPlanEvidence,
+    ) -> PocResult<(
+        Option<StorageAdminMountAttestation>,
+        Option<StorageAdminMountReceiptBinding>,
+    )> {
+        Ok((None, None))
+    }
+
     fn cleanup_after_receipt_failure(
         &mut self,
         _action: StorageAdminAction,
@@ -283,11 +381,47 @@ pub struct StorageAdminMountPlanEvidence {
     pub lower_dirs_newest_first: Vec<PathBuf>,
     pub upper_dir: PathBuf,
     pub work_dir: PathBuf,
-    /// Whole-table digests plus the exact target entry make the mount-table
-    /// observation durable without embedding an unbounded host mount table in
+    /// Read-only, effective-credential measurements of every directory the
+    /// mount request names.  They make a rejected mount diagnosable without
+    /// changing the helper's authority or the requested filesystem operation.
+    #[serde(default)]
+    pub input_access: StorageAdminMountInputAccessEvidence,
+    /// A digest and parsed form of the bounded target-only mountinfo record
+    /// make the observation durable without embedding the host mount table in
     /// every operation receipt.
     pub mountinfo_before: StorageAdminMountTableEvidence,
     pub mountinfo_after: StorageAdminMountTableEvidence,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminMountInputAccessEvidence {
+    pub paths: Vec<StorageAdminPathAccessEvidence>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminPathAccessEvidence {
+    pub label: String,
+    pub path: PathBuf,
+    pub metadata: Option<StorageAdminPathMetadataEvidence>,
+    pub metadata_error: Option<String>,
+    pub effective_access: Vec<StorageAdminEffectiveAccessCheck>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminPathMetadataEvidence {
+    pub is_directory: bool,
+    pub device: u64,
+    pub inode: u64,
+    pub uid: u32,
+    pub gid: u32,
+    pub mode: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminEffectiveAccessCheck {
+    pub requested: Vec<String>,
+    pub allowed: bool,
+    pub error: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -299,14 +433,76 @@ pub struct StorageAdminMountTableEvidence {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct StorageAdminObservedMount {
     pub mount_id: u64,
+    pub parent_mount_id: u64,
+    pub root: PathBuf,
     pub source: String,
     pub filesystem_type: String,
     pub target: PathBuf,
     pub mount_options: Vec<String>,
+    pub optional_fields: Vec<String>,
     pub super_options: Vec<String>,
-    pub lower_dirs_newest_first: Vec<PathBuf>,
     pub upper_dir: Option<PathBuf>,
     pub work_dir: Option<PathBuf>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminPathIdentity {
+    pub mount_id: u64,
+    pub device_major: u32,
+    pub device_minor: u32,
+    pub inode: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminLowerBinding {
+    pub index: usize,
+    pub authorized_path_sha256: String,
+    pub fd_identity: StorageAdminPathIdentity,
+    pub authorized_path_identity: StorageAdminPathIdentity,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminTargetBinding {
+    pub workspace_target: PathBuf,
+    pub mount_namespace_id: String,
+    pub mount_namespace_inode: u64,
+    pub mount_id: u64,
+    pub mountinfo_sha256: String,
+    pub target_identity: StorageAdminPathIdentity,
+    pub filesystem_type: String,
+    pub source: String,
+    pub mount_options: Vec<String>,
+    pub super_options: Vec<String>,
+    pub expected_upperdir_sha256: String,
+    pub observed_upperdir_sha256: String,
+    pub expected_workdir_sha256: String,
+    pub observed_workdir_sha256: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminMountAttestation {
+    pub schema_version: u32,
+    pub run_id: crate::RunId,
+    pub sandbox_id: String,
+    pub workspace_session_id: String,
+    pub session_id: crate::SessionId,
+    pub allocation_id: crate::AllocationId,
+    pub lease_id: String,
+    pub lease_epoch: u64,
+    pub mount_namespace_id: String,
+    pub mount_namespace_inode: u64,
+    pub storage_operation_id: crate::OperationId,
+    pub request_sha256: String,
+    pub lower_bindings_newest_first: Vec<StorageAdminLowerBinding>,
+    pub target: StorageAdminTargetBinding,
+    pub profile_id: String,
+    pub effective_capabilities: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct StorageAdminMountReceiptBinding {
+    pub storage_operation_id: crate::OperationId,
+    pub attestation_sha256: String,
 }
 
 impl StorageAdminProcessProfile {
@@ -425,7 +621,21 @@ struct StorageAdminAttempt {
     trusted_executable_sha256: String,
     workload_cgroup_procs: PathBuf,
     mount_namespace_holder_pid: u32,
+    mount_receipt_binding: Option<StorageAdminMountReceiptBinding>,
     started_unix_ms: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct StorageAdminReceiptValidationDiagnostic {
+    schema_version: u32,
+    interface_version: String,
+    operation_id: crate::OperationId,
+    request_sha256: String,
+    mountinfo_sha256: String,
+    filesystem_type: String,
+    parsed_source: String,
+    mount_options: Vec<String>,
+    trusted_expected_source: String,
 }
 
 #[cfg(target_os = "linux")]
@@ -449,19 +659,42 @@ pub struct PlatformStorageLifecycle {
     mounted_by_this_process: Option<PathBuf>,
     authority_evidence: Option<(StorageAdminProcessEvidence, StorageAdminMountPlanEvidence)>,
     authority_evidence_error: Option<PocError>,
+    selection: Option<StorageAdminSelection>,
+    mount_attestation: Option<StorageAdminMountAttestation>,
+    trusted_mount_attestation: Option<StorageAdminMountAttestation>,
+    mount_receipt_binding: Option<StorageAdminMountReceiptBinding>,
 }
 
 impl PlatformStorageLifecycle {
     fn measured(
         process: StorageAdminProcessEvidence,
-        scope: &StorageAdminScope,
+        selection: StorageAdminSelection,
+        mount_receipt_binding: Option<StorageAdminMountReceiptBinding>,
     ) -> PocResult<Self> {
+        let scope = &selection.request.scope;
         let mut mount_plan = storage_admin_mount_plan_evidence(scope)?;
         mount_plan.mountinfo_before = capture_storage_admin_mountinfo(scope)?;
+        let trusted_mount_attestation = match selection.request.action {
+            StorageAdminAction::Mount => None,
+            _ => Some(load_mount_receipt_attestation(
+                scope,
+                selection.profile(),
+                mount_receipt_binding.as_ref().ok_or_else(|| {
+                    PocError::Integrity(
+                        "storage-admin lifecycle action is missing mount receipt authority"
+                            .to_owned(),
+                    )
+                })?,
+            )?),
+        };
         Ok(Self {
             mounted_by_this_process: None,
             authority_evidence: Some((process, mount_plan)),
             authority_evidence_error: None,
+            selection: Some(selection),
+            mount_attestation: None,
+            trusted_mount_attestation,
+            mount_receipt_binding,
         })
     }
 
@@ -477,6 +710,22 @@ impl PlatformStorageLifecycle {
             Err(error) => self.authority_evidence_error = Some(error),
         }
     }
+
+    fn cleanup_verified_mount(&mut self, scope: &StorageAdminScope) -> PocResult<()> {
+        if self.mounted_by_this_process.is_none() {
+            return Ok(());
+        }
+        let attestation = self.mount_attestation.as_ref().ok_or_else(|| {
+            PocError::RecoveryRequired(
+                "automatic cleanup is forbidden without the just-created mount attestation"
+                    .to_owned(),
+            )
+        })?;
+        validate_current_attested_target(scope, attestation)?;
+        strict_unmount_path(&scope.workspace_root)?;
+        self.mounted_by_this_process = None;
+        cleanup_platform_state(scope, &mut self.mounted_by_this_process)
+    }
 }
 
 impl StorageAdminLifecycle for PlatformStorageLifecycle {
@@ -485,20 +734,96 @@ impl StorageAdminLifecycle for PlatformStorageLifecycle {
         action: StorageAdminAction,
         scope: &StorageAdminScope,
     ) -> StorageAdminExecution {
-        let execution =
-            match execute_platform_action(action, scope, &mut self.mounted_by_this_process) {
-                Ok(()) => StorageAdminExecution::succeeded(),
-                Err(error) => {
-                    let cleanup = cleanup_platform_state(scope, &mut self.mounted_by_this_process);
-                    let cleanup_complete = cleanup.is_ok();
-                    let failure = match cleanup {
-                        Ok(()) => error.to_string(),
-                        Err(cleanup_error) => format!("{error}; cleanup failed: {cleanup_error}"),
-                    };
-                    StorageAdminExecution::failed(failure, cleanup_complete)
-                }
-            };
-        self.refresh_mountinfo_after(scope);
+        let action_result = match action {
+            StorageAdminAction::Mount => {
+                let selection = self.selection.clone().ok_or_else(|| {
+                    PocError::Integrity(
+                        "platform storage-admin lifecycle lost its selected request".to_owned(),
+                    )
+                });
+                let process = self
+                    .authority_evidence
+                    .as_ref()
+                    .map(|(process, _)| process.clone())
+                    .ok_or_else(|| {
+                        PocError::Integrity(
+                            "platform storage-admin lifecycle lost its process evidence".to_owned(),
+                        )
+                    });
+                let mount_plan = self
+                    .authority_evidence
+                    .as_ref()
+                    .map(|(_, mount_plan)| mount_plan.clone())
+                    .ok_or_else(|| {
+                        PocError::Integrity(
+                            "platform storage-admin lifecycle lost its mount plan".to_owned(),
+                        )
+                    });
+                selection
+                    .and_then(|selection| process.map(|process| (selection, process)))
+                    .and_then(|(selection, process)| {
+                        mount_plan.map(|mount_plan| (selection, process, mount_plan))
+                    })
+                    .and_then(|(selection, process, mount_plan)| {
+                        mount_overlay_with_attestation(
+                            scope,
+                            &selection,
+                            &process,
+                            &mount_plan,
+                            &mut self.mounted_by_this_process,
+                        )
+                    })
+                    .and_then(|(attestation, observation)| {
+                        let mount_receipt_binding = StorageAdminMountReceiptBinding {
+                            storage_operation_id: attestation.storage_operation_id.clone(),
+                            attestation_sha256: storage_admin_mount_attestation_sha256(
+                                &attestation,
+                            )?,
+                        };
+                        self.mount_attestation = Some(attestation);
+                        self.mount_receipt_binding = Some(mount_receipt_binding);
+                        if let Some((_, mount_plan)) = self.authority_evidence.as_mut() {
+                            mount_plan.mountinfo_after = observation;
+                        }
+                        Ok(())
+                    })
+            }
+            _ => self
+                .trusted_mount_attestation
+                .clone()
+                .ok_or_else(|| {
+                    PocError::Integrity(
+                        "platform storage-admin lifecycle lost its mount attestation".to_owned(),
+                    )
+                })
+                .and_then(|attestation| {
+                    validate_target_before_action(action, scope, &attestation)?;
+                    execute_platform_action(action, scope, &mut self.mounted_by_this_process)
+                        .and_then(|()| {
+                            if action == StorageAdminAction::Quiesce {
+                                validate_current_attested_target(scope, &attestation)
+                            } else {
+                                validate_target_after_action(action, scope)
+                            }
+                        })
+                }),
+        };
+        let execution = match action_result {
+            Ok(()) => StorageAdminExecution::succeeded(),
+            Err(error) if action == StorageAdminAction::Mount => {
+                let cleanup = self.cleanup_verified_mount(scope);
+                let cleanup_complete = cleanup.is_ok();
+                let failure = match cleanup {
+                    Ok(()) => error.to_string(),
+                    Err(cleanup_error) => format!("{error}; cleanup failed: {cleanup_error}"),
+                };
+                StorageAdminExecution::failed(failure, cleanup_complete)
+            }
+            Err(error) => StorageAdminExecution::failed(error.to_string(), false),
+        };
+        if action != StorageAdminAction::Mount || self.mount_attestation.is_none() {
+            self.refresh_mountinfo_after(scope);
+        }
         execution
     }
 
@@ -507,21 +832,51 @@ impl StorageAdminLifecycle for PlatformStorageLifecycle {
         action: StorageAdminAction,
         scope: &StorageAdminScope,
     ) -> StorageAdminExecution {
-        let cleanup = match action {
-            StorageAdminAction::Mount
-            | StorageAdminAction::StrictUnmount
-            | StorageAdminAction::Cleanup => {
-                cleanup_platform_state(scope, &mut self.mounted_by_this_process)
-            }
-            StorageAdminAction::Quiesce => Ok(()),
-        };
-        let execution = match cleanup {
-            Ok(()) => StorageAdminExecution::failed(
-                format!("recovered incomplete {action:?} operation"),
-                true,
-            ),
+        if action == StorageAdminAction::Mount {
+            self.refresh_mountinfo_after(scope);
+            return StorageAdminExecution::failed(
+                "incomplete Mount has no durable lower-binding attestation; automatic cleanup is forbidden",
+                false,
+            );
+        }
+        let recovery = self
+            .trusted_mount_attestation
+            .clone()
+            .ok_or_else(|| {
+                PocError::Integrity(
+                    "incomplete lifecycle recovery lost its mount attestation".to_owned(),
+                )
+            })
+            .and_then(|attestation| {
+                validate_attestation_scope(scope, &attestation)?;
+                match action {
+                    StorageAdminAction::Quiesce => {
+                        validate_current_attested_target(scope, &attestation)?;
+                        syncfs_path(&scope.workspace_root)?;
+                        validate_current_attested_target(scope, &attestation)
+                    }
+                    StorageAdminAction::StrictUnmount => {
+                        if capture_storage_admin_mountinfo(scope)?.target.is_some() {
+                            validate_current_attested_target(scope, &attestation)?;
+                            syncfs_path(&scope.workspace_root)?;
+                            strict_unmount_path(&scope.workspace_root)?;
+                        }
+                        require_target_absent(scope)
+                    }
+                    StorageAdminAction::Cleanup => {
+                        require_target_absent(scope)?;
+                        cleanup_platform_state(scope, &mut self.mounted_by_this_process)?;
+                        require_target_absent(scope)
+                    }
+                    StorageAdminAction::Mount => Err(PocError::Integrity(
+                        "mount recovery reached a forbidden lifecycle branch".to_owned(),
+                    )),
+                }
+            });
+        let execution = match recovery {
+            Ok(()) => StorageAdminExecution::succeeded(),
             Err(error) => StorageAdminExecution::failed(
-                format!("incomplete {action:?} recovery failed: {error}"),
+                format!("incomplete {action:?} recovery rejected: {error}"),
                 false,
             ),
         };
@@ -547,18 +902,51 @@ impl StorageAdminLifecycle for PlatformStorageLifecycle {
         })
     }
 
+    fn mount_authority_evidence(
+        &mut self,
+        _selection: &StorageAdminSelection,
+        _process: &StorageAdminProcessEvidence,
+        _mount_plan: &StorageAdminMountPlanEvidence,
+    ) -> PocResult<(
+        Option<StorageAdminMountAttestation>,
+        Option<StorageAdminMountReceiptBinding>,
+    )> {
+        Ok((
+            self.mount_attestation.clone(),
+            self.mount_receipt_binding.clone(),
+        ))
+    }
+
     fn cleanup_after_receipt_failure(
         &mut self,
-        _action: StorageAdminAction,
+        action: StorageAdminAction,
         scope: &StorageAdminScope,
     ) -> PocResult<()> {
-        cleanup_platform_state(scope, &mut self.mounted_by_this_process)
+        match action {
+            StorageAdminAction::Mount => self.cleanup_verified_mount(scope),
+            StorageAdminAction::Quiesce
+            | StorageAdminAction::StrictUnmount
+            | StorageAdminAction::Cleanup => Ok(()),
+        }
     }
 }
 
 impl Drop for PlatformStorageLifecycle {
     fn drop(&mut self) {
-        if let Some(workspace_root) = self.mounted_by_this_process.take() {
+        let Some(workspace_root) = self.mounted_by_this_process.take() else {
+            return;
+        };
+        let Some(attestation) = self.mount_attestation.as_ref() else {
+            return;
+        };
+        let scope = self
+            .selection
+            .as_ref()
+            .map(|selection| &selection.request.scope);
+        if scope.is_some_and(|scope| {
+            scope.workspace_root == workspace_root
+                && validate_current_attested_target(scope, attestation).is_ok()
+        }) {
             let _ = strict_unmount_path(&workspace_root);
         }
     }
@@ -588,12 +976,13 @@ pub fn authorize_storage_admin(
     authorization: &StorageAdminAuthorization,
     trusted_actor_id: &str,
 ) -> PocResult<StorageAdminSelection> {
-    validate_request(expected)?;
+    let profile = validate_request(expected)?;
     validate_exact_request(expected, request)?;
     validate_authorization(expected, authorization, trusted_actor_id)?;
     Ok(StorageAdminSelection {
         request: request.clone(),
         request_sha256: request_sha256(request)?,
+        profile,
     })
 }
 
@@ -612,6 +1001,10 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
         &invocation.request,
         &invocation.authorization,
         &invocation.trusted_actor_id,
+    )?;
+    validate_mount_receipt_binding_for_action(
+        selection.request.action,
+        invocation.mount_receipt_binding.as_ref(),
     )?;
     let paths = operation_paths(&selection.request)?;
     prepare_operation_store(&paths)?;
@@ -653,6 +1046,7 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
                 trusted_executable_sha256: invocation.trusted_executable_sha256.clone(),
                 workload_cgroup_procs: invocation.workload_cgroup_procs.clone(),
                 mount_namespace_holder_pid: invocation.mount_namespace_holder_pid,
+                mount_receipt_binding: invocation.mount_receipt_binding.clone(),
                 started_unix_ms,
             },
         )?;
@@ -662,6 +1056,7 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
             lifecycle,
             execution,
             started_unix_ms,
+            &paths.receipt_validation_diagnostic,
             &paths.receipt,
         );
     };
@@ -673,6 +1068,7 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
         lifecycle,
         execution,
         started_unix_ms,
+        &paths.receipt_validation_diagnostic,
         &paths.receipt,
     )
 }
@@ -680,7 +1076,7 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
 pub fn run_platform_invocation(
     invocation: &StorageAdminInvocation,
 ) -> PocResult<StorageAdminReceipt> {
-    authorize_storage_admin(
+    let selection = authorize_storage_admin(
         &invocation.expected_request,
         &invocation.request,
         &invocation.authorization,
@@ -695,7 +1091,11 @@ pub fn run_platform_invocation(
         &invocation.trusted_executable_sha256,
     )?;
     validate_workload_cgroup_procs(&invocation.workload_cgroup_procs)?;
-    prepare_platform_process(invocation)?;
+    validate_mount_receipt_binding_for_action(
+        selection.request.action,
+        invocation.mount_receipt_binding.as_ref(),
+    )?;
+    prepare_platform_process(invocation, selection.profile())?;
     let process_evidence =
         capture_storage_admin_process_evidence(&invocation.workload_cgroup_procs)?;
     require_equal(
@@ -703,8 +1103,11 @@ pub fn run_platform_invocation(
         process_evidence.executable_sha256.as_str(),
         invocation.trusted_executable_sha256.as_str(),
     )?;
-    let mut lifecycle =
-        PlatformStorageLifecycle::measured(process_evidence, &invocation.request.scope)?;
+    let mut lifecycle = PlatformStorageLifecycle::measured(
+        process_evidence,
+        selection,
+        invocation.mount_receipt_binding.clone(),
+    )?;
     run_storage_admin(invocation, &mut lifecycle)
 }
 
@@ -713,26 +1116,56 @@ fn commit_execution<L: StorageAdminLifecycle>(
     lifecycle: &mut L,
     execution: StorageAdminExecution,
     started_unix_ms: u64,
+    receipt_validation_diagnostic_path: &Path,
     receipt_path: &Path,
 ) -> PocResult<StorageAdminReceipt> {
     validate_execution(&execution)?;
     let completed_unix_ms = unix_time_ms()?.max(started_unix_ms);
     let (process_evidence, mount_plan_evidence) =
         lifecycle.authority_evidence(&selection.request.scope)?;
-    validate_receipt_authority_evidence(
+    let (mount_attestation, mount_receipt_binding) =
+        lifecycle.mount_authority_evidence(selection, &process_evidence, &mount_plan_evidence)?;
+    if let Err(error) = validate_receipt_authority_evidence(
         &process_evidence,
         &mount_plan_evidence,
         &selection.request.scope,
-    )?;
+        selection.profile(),
+    ) {
+        return fail_receipt_validation(
+            selection,
+            lifecycle,
+            &mount_plan_evidence,
+            receipt_validation_diagnostic_path,
+            error,
+        );
+    }
+    if let Err(error) = validate_mount_authority_evidence(
+        selection,
+        &process_evidence,
+        &mount_plan_evidence,
+        execution.outcome,
+        mount_attestation.as_ref(),
+        mount_receipt_binding.as_ref(),
+    ) {
+        return fail_receipt_validation(
+            selection,
+            lifecycle,
+            &mount_plan_evidence,
+            receipt_validation_diagnostic_path,
+            error,
+        );
+    }
     let receipt = StorageAdminReceipt {
         schema_version: SCHEMA_VERSION,
         interface_version: INTERFACE_VERSION.to_owned(),
-        profile_id: STORAGE_ADMIN_PROFILE_ID.to_owned(),
+        profile_id: selection.profile_id().to_owned(),
         operation_id: selection.request.operation_id.clone(),
         action: selection.request.action,
         request_sha256: selection.request_sha256.clone(),
         trusted_executable: PathBuf::from(STORAGE_ADMIN_TRUSTED_EXECUTABLE),
-        effective_capabilities: STORAGE_ADMIN_EFFECTIVE_CAPABILITIES
+        effective_capabilities: selection
+            .profile()
+            .effective_capabilities()
             .iter()
             .map(|capability| (*capability).to_owned())
             .collect(),
@@ -742,6 +1175,8 @@ fn commit_execution<L: StorageAdminLifecycle>(
             .collect(),
         process_evidence,
         mount_plan_evidence,
+        mount_attestation,
+        mount_receipt_binding,
         scope: selection.request.scope.clone(),
         outcome: execution.outcome,
         idempotent_replay: false,
@@ -765,20 +1200,107 @@ fn commit_execution<L: StorageAdminLifecycle>(
     Ok(receipt)
 }
 
-fn validate_request(request: &StorageAdminRequest) -> PocResult<()> {
+fn fail_receipt_validation<L: StorageAdminLifecycle>(
+    selection: &StorageAdminSelection,
+    lifecycle: &mut L,
+    mount_plan_evidence: &StorageAdminMountPlanEvidence,
+    diagnostic_path: &Path,
+    validation_error: PocError,
+) -> PocResult<StorageAdminReceipt> {
+    let diagnostic = receipt_validation_diagnostic(selection, mount_plan_evidence)?;
+    let rendered_diagnostic = diagnostic.as_ref().map(serde_json::to_string).transpose()?;
+    if let Some(diagnostic) = diagnostic.as_ref() {
+        if let Err(diagnostic_error) = write_immutable_json(diagnostic_path, diagnostic) {
+            let cleanup = lifecycle
+                .cleanup_after_receipt_failure(selection.request.action, &selection.request.scope);
+            return match cleanup {
+                Ok(()) => Err(PocError::RecoveryRequired(format!(
+                    "receipt validation failed: {validation_error}; receipt-validation diagnostic persistence failed: {diagnostic_error}"
+                ))),
+                Err(cleanup_error) => Err(PocError::RecoveryRequired(format!(
+                    "receipt validation failed: {validation_error}; receipt-validation diagnostic persistence failed: {diagnostic_error}; cleanup failed: {cleanup_error}"
+                ))),
+            };
+        }
+    }
+    if let Err(cleanup_error) =
+        lifecycle.cleanup_after_receipt_failure(selection.request.action, &selection.request.scope)
+    {
+        return Err(PocError::RecoveryRequired(format!(
+            "receipt validation failed: {validation_error}; cleanup failed: {cleanup_error}"
+        )));
+    }
+    match rendered_diagnostic {
+        Some(diagnostic) => Err(PocError::Integrity(format!(
+            "{validation_error}; storage-admin receipt-validation diagnostic={diagnostic}"
+        ))),
+        None => Err(validation_error),
+    }
+}
+
+fn receipt_validation_diagnostic(
+    selection: &StorageAdminSelection,
+    mount_plan_evidence: &StorageAdminMountPlanEvidence,
+) -> PocResult<Option<StorageAdminReceiptValidationDiagnostic>> {
+    let Some(target) = mount_plan_evidence.mountinfo_after.target.as_ref() else {
+        return Ok(None);
+    };
+    validate_sha256(
+        "receipt diagnostic mountinfo hash",
+        &mount_plan_evidence.mountinfo_after.sha256,
+    )?;
+    if target.mount_options.len() > MAX_RECEIPT_DIAGNOSTIC_MOUNT_OPTIONS {
+        return Err(PocError::Integrity(
+            "storage-admin receipt diagnostic mount option count exceeds its bounded budget"
+                .to_owned(),
+        ));
+    }
+    Ok(Some(StorageAdminReceiptValidationDiagnostic {
+        schema_version: SCHEMA_VERSION,
+        interface_version: INTERFACE_VERSION.to_owned(),
+        operation_id: selection.request.operation_id.clone(),
+        request_sha256: selection.request_sha256.clone(),
+        mountinfo_sha256: bounded_receipt_diagnostic_field(
+            "mountinfo hash",
+            &mount_plan_evidence.mountinfo_after.sha256,
+        )?,
+        filesystem_type: bounded_receipt_diagnostic_field(
+            "filesystem type",
+            &target.filesystem_type,
+        )?,
+        parsed_source: bounded_receipt_diagnostic_field("parsed source", &target.source)?,
+        mount_options: target
+            .mount_options
+            .iter()
+            .map(|option| bounded_receipt_diagnostic_field("mount option", option))
+            .collect::<PocResult<Vec<_>>>()?,
+        trusted_expected_source: bounded_receipt_diagnostic_field(
+            "trusted expected source",
+            &mount_plan_evidence.source,
+        )?,
+    }))
+}
+
+fn bounded_receipt_diagnostic_field(label: &str, value: &str) -> PocResult<String> {
+    if value.len() > MAX_RECEIPT_DIAGNOSTIC_FIELD_BYTES {
+        return Err(PocError::Integrity(format!(
+            "storage-admin receipt diagnostic {label} exceeds its bounded budget"
+        )));
+    }
+    Ok(value.to_owned())
+}
+
+fn validate_request(request: &StorageAdminRequest) -> PocResult<StorageAdminCapabilityProfile> {
     require_equal("schema version", &request.schema_version, &SCHEMA_VERSION)?;
     require_equal(
         "interface version",
         request.interface_version.as_str(),
         INTERFACE_VERSION,
     )?;
-    require_equal(
-        "profile id",
-        request.profile_id.as_str(),
-        STORAGE_ADMIN_PROFILE_ID,
-    )?;
+    let profile = StorageAdminCapabilityProfile::from_profile_id(&request.profile_id)?;
     validate_path_atom("operation id", request.operation_id.as_str())?;
-    validate_scope(&request.scope)
+    validate_scope(&request.scope)?;
+    Ok(profile)
 }
 
 fn validate_scope(scope: &StorageAdminScope) -> PocResult<()> {
@@ -1014,6 +1536,28 @@ fn request_sha256(request: &StorageAdminRequest) -> PocResult<String> {
     Ok(hex_digest(&digest))
 }
 
+pub fn storage_admin_mount_attestation_sha256(
+    attestation: &StorageAdminMountAttestation,
+) -> PocResult<String> {
+    let bytes = serde_json::to_vec(attestation)?;
+    Ok(hex_digest(&Sha256::digest(bytes)))
+}
+
+pub fn storage_admin_mountinfo_target_sha256(
+    target: Option<&StorageAdminObservedMount>,
+) -> PocResult<String> {
+    let bytes = serde_json::to_vec(&target)?;
+    Ok(hex_digest(&Sha256::digest(bytes)))
+}
+
+pub fn storage_admin_authorized_path_sha256(path: &Path) -> String {
+    #[cfg(target_family = "unix")]
+    let bytes = path.as_os_str().as_bytes();
+    #[cfg(not(target_family = "unix"))]
+    let bytes = path.to_string_lossy().as_bytes();
+    hex_digest(&Sha256::digest(bytes))
+}
+
 fn storage_admin_seccomp_profile_sha256() -> String {
     hex_digest(&Sha256::digest(STORAGE_ADMIN_SECCOMP_PROFILE_CANONICAL))
 }
@@ -1037,10 +1581,268 @@ fn hex_digest(bytes: &[u8]) -> String {
     value
 }
 
+fn validate_mount_receipt_binding_for_action(
+    action: StorageAdminAction,
+    binding: Option<&StorageAdminMountReceiptBinding>,
+) -> PocResult<()> {
+    match (action, binding) {
+        (StorageAdminAction::Mount, None) => Ok(()),
+        (StorageAdminAction::Mount, Some(_)) => Err(PocError::Integrity(
+            "mount request cannot supply prior mount authority".to_owned(),
+        )),
+        (_, Some(binding)) => {
+            validate_path_atom(
+                "mount receipt operation id",
+                binding.storage_operation_id.as_str(),
+            )?;
+            validate_sha256(
+                "mount receipt attestation digest",
+                &binding.attestation_sha256,
+            )
+        }
+        (_, None) => Err(PocError::Integrity(
+            "storage-admin lifecycle action is missing mount receipt authority".to_owned(),
+        )),
+    }
+}
+
+fn validate_mount_authority_evidence(
+    selection: &StorageAdminSelection,
+    process: &StorageAdminProcessEvidence,
+    mount_plan: &StorageAdminMountPlanEvidence,
+    outcome: StorageAdminOutcome,
+    attestation: Option<&StorageAdminMountAttestation>,
+    binding: Option<&StorageAdminMountReceiptBinding>,
+) -> PocResult<()> {
+    if outcome != StorageAdminOutcome::Succeeded {
+        return Ok(());
+    }
+    match selection.request.action {
+        StorageAdminAction::Mount => {
+            let attestation = attestation.ok_or_else(|| {
+                PocError::Integrity(
+                    "successful mount is missing durable lower-binding attestation".to_owned(),
+                )
+            })?;
+            validate_mount_attestation(attestation, selection, process, mount_plan)?;
+            let digest = storage_admin_mount_attestation_sha256(attestation)?;
+            let expected = StorageAdminMountReceiptBinding {
+                storage_operation_id: selection.request.operation_id.clone(),
+                attestation_sha256: digest,
+            };
+            require_equal(
+                "mount receipt binding",
+                binding.ok_or_else(|| {
+                    PocError::Integrity(
+                        "successful mount is missing its receipt binding".to_owned(),
+                    )
+                })?,
+                &expected,
+            )
+        }
+        _ => {
+            if attestation.is_some() {
+                return Err(PocError::Integrity(
+                    "later lifecycle receipt cannot replace the mount attestation".to_owned(),
+                ));
+            }
+            validate_mount_receipt_binding_for_action(selection.request.action, binding)
+        }
+    }
+}
+
+fn validate_mount_attestation(
+    attestation: &StorageAdminMountAttestation,
+    selection: &StorageAdminSelection,
+    process: &StorageAdminProcessEvidence,
+    mount_plan: &StorageAdminMountPlanEvidence,
+) -> PocResult<()> {
+    let scope = &selection.request.scope;
+    require_equal(
+        "mount attestation schema version",
+        &attestation.schema_version,
+        &SCHEMA_VERSION,
+    )?;
+    require_equal(
+        "mount attestation run id",
+        &attestation.run_id,
+        &scope.run_id,
+    )?;
+    require_equal(
+        "mount attestation sandbox id",
+        &attestation.sandbox_id,
+        &scope.sandbox_id,
+    )?;
+    require_equal(
+        "mount attestation workspace session id",
+        &attestation.workspace_session_id,
+        &scope.workspace_session_id,
+    )?;
+    require_equal(
+        "mount attestation session id",
+        &attestation.session_id,
+        &scope.session_id,
+    )?;
+    require_equal(
+        "mount attestation allocation id",
+        &attestation.allocation_id,
+        &scope.allocation_id,
+    )?;
+    require_equal(
+        "mount attestation lease id",
+        &attestation.lease_id,
+        &scope.lease_id,
+    )?;
+    require_equal(
+        "mount attestation lease epoch",
+        &attestation.lease_epoch,
+        &scope.lease_epoch,
+    )?;
+    require_equal(
+        "mount attestation namespace",
+        &attestation.mount_namespace_id,
+        &scope.mount_namespace_id,
+    )?;
+    require_equal(
+        "mount attestation namespace inode",
+        &attestation.mount_namespace_inode,
+        &process.mount_namespace_inode,
+    )?;
+    require_equal(
+        "mount attestation operation id",
+        &attestation.storage_operation_id,
+        &selection.request.operation_id,
+    )?;
+    require_equal(
+        "mount attestation request digest",
+        &attestation.request_sha256,
+        &selection.request_sha256,
+    )?;
+    require_equal(
+        "mount attestation profile",
+        attestation.profile_id.as_str(),
+        selection.profile_id(),
+    )?;
+    require_equal(
+        "mount attestation effective capabilities",
+        &attestation.effective_capabilities,
+        &owned_strings(selection.profile().effective_capabilities()),
+    )?;
+    if attestation.lower_bindings_newest_first.len() != scope.lower_dirs_newest_first.len() {
+        return Err(PocError::Integrity(
+            "mount attestation lower stack length does not match trusted binding".to_owned(),
+        ));
+    }
+    for (index, (binding, path)) in attestation
+        .lower_bindings_newest_first
+        .iter()
+        .zip(&scope.lower_dirs_newest_first)
+        .enumerate()
+    {
+        require_equal("mount attestation lower index", &binding.index, &index)?;
+        require_equal(
+            "mount attestation lower path proof",
+            &binding.authorized_path_sha256,
+            &storage_admin_authorized_path_sha256(path),
+        )?;
+        validate_sha256(
+            "mount attestation lower path proof",
+            &binding.authorized_path_sha256,
+        )?;
+        require_equal(
+            "mount attestation opened lower identity",
+            &binding.fd_identity,
+            &binding.authorized_path_identity,
+        )?;
+        validate_path_identity("mount attestation lower", &binding.fd_identity)?;
+    }
+    let observed = mount_plan.mountinfo_after.target.as_ref().ok_or_else(|| {
+        PocError::Integrity("mount attestation has no attached workspace target".to_owned())
+    })?;
+    let target = &attestation.target;
+    require_equal(
+        "mount attestation workspace target",
+        &target.workspace_target,
+        &scope.workspace_root,
+    )?;
+    require_equal(
+        "mount attestation target namespace",
+        &target.mount_namespace_id,
+        &scope.mount_namespace_id,
+    )?;
+    require_equal(
+        "mount attestation target namespace inode",
+        &target.mount_namespace_inode,
+        &process.mount_namespace_inode,
+    )?;
+    require_equal(
+        "mount attestation mount id",
+        &target.mount_id,
+        &observed.mount_id,
+    )?;
+    require_equal(
+        "mount attestation target mountinfo digest",
+        &target.mountinfo_sha256,
+        &mount_plan.mountinfo_after.sha256,
+    )?;
+    require_equal(
+        "mount attestation filesystem",
+        &target.filesystem_type,
+        &observed.filesystem_type,
+    )?;
+    require_equal("mount attestation source", &target.source, &observed.source)?;
+    require_equal(
+        "mount attestation mount options",
+        &target.mount_options,
+        &observed.mount_options,
+    )?;
+    require_equal(
+        "mount attestation super options",
+        &target.super_options,
+        &observed.super_options,
+    )?;
+    require_equal(
+        "mount attestation expected upperdir",
+        &target.expected_upperdir_sha256,
+        &storage_admin_authorized_path_sha256(&mount_plan.upper_dir),
+    )?;
+    require_equal(
+        "mount attestation observed upperdir",
+        &target.observed_upperdir_sha256,
+        &storage_admin_authorized_path_sha256(observed.upper_dir.as_deref().ok_or_else(|| {
+            PocError::Integrity("mount attestation observed upperdir is missing".to_owned())
+        })?),
+    )?;
+    require_equal(
+        "mount attestation expected workdir",
+        &target.expected_workdir_sha256,
+        &storage_admin_authorized_path_sha256(&mount_plan.work_dir),
+    )?;
+    require_equal(
+        "mount attestation observed workdir",
+        &target.observed_workdir_sha256,
+        &storage_admin_authorized_path_sha256(observed.work_dir.as_deref().ok_or_else(|| {
+            PocError::Integrity("mount attestation observed workdir is missing".to_owned())
+        })?),
+    )?;
+    validate_path_identity("mount attestation target", &target.target_identity)
+}
+
+fn validate_path_identity(label: &str, identity: &StorageAdminPathIdentity) -> PocResult<()> {
+    if identity.mount_id == 0 || identity.inode == 0 {
+        Err(PocError::Integrity(format!(
+            "storage-admin {label} identity is incomplete"
+        )))
+    } else {
+        Ok(())
+    }
+}
+
 struct OperationPaths {
     directory: PathBuf,
     lock: PathBuf,
     attempt: PathBuf,
+    receipt_validation_diagnostic: PathBuf,
     receipt: PathBuf,
 }
 
@@ -1051,6 +1853,7 @@ fn operation_paths(request: &StorageAdminRequest) -> PocResult<OperationPaths> {
     Ok(OperationPaths {
         lock: root.join(LOCK_FILE),
         attempt: directory.join(ATTEMPT_FILE),
+        receipt_validation_diagnostic: directory.join(RECEIPT_VALIDATION_DIAGNOSTIC_FILE),
         receipt: directory.join(RECEIPT_FILE),
         directory,
     })
@@ -1138,6 +1941,11 @@ fn validate_stored_attempt(
         &attempt.mount_namespace_holder_pid,
         &invocation.mount_namespace_holder_pid,
     )?;
+    require_equal(
+        "stored attempt mount receipt binding",
+        &attempt.mount_receipt_binding,
+        &invocation.mount_receipt_binding,
+    )?;
     if attempt.started_unix_ms == 0 {
         return Err(PocError::Integrity(
             "stored storage-admin attempt has a zero start timestamp".to_owned(),
@@ -1164,7 +1972,7 @@ fn validate_stored_receipt(
     require_equal(
         "stored receipt profile id",
         receipt.profile_id.as_str(),
-        STORAGE_ADMIN_PROFILE_ID,
+        selection.profile_id(),
     )?;
     require_equal(
         "stored receipt operation id",
@@ -1186,7 +1994,7 @@ fn validate_stored_receipt(
         receipt.trusted_executable.as_path(),
         Path::new(STORAGE_ADMIN_TRUSTED_EXECUTABLE),
     )?;
-    let expected_capabilities = owned_strings(STORAGE_ADMIN_EFFECTIVE_CAPABILITIES);
+    let expected_capabilities = owned_strings(selection.profile().effective_capabilities());
     require_equal(
         "stored receipt effective capabilities",
         &receipt.effective_capabilities,
@@ -1202,6 +2010,15 @@ fn validate_stored_receipt(
         &receipt.process_evidence,
         &receipt.mount_plan_evidence,
         &receipt.scope,
+        selection.profile(),
+    )?;
+    validate_mount_authority_evidence(
+        selection,
+        &receipt.process_evidence,
+        &receipt.mount_plan_evidence,
+        receipt.outcome,
+        receipt.mount_attestation.as_ref(),
+        receipt.mount_receipt_binding.as_ref(),
     )?;
     require_equal(
         "stored receipt scope",
@@ -1234,6 +2051,7 @@ fn validate_receipt_authority_evidence(
     process: &StorageAdminProcessEvidence,
     mount_plan: &StorageAdminMountPlanEvidence,
     scope: &StorageAdminScope,
+    profile: StorageAdminCapabilityProfile,
 ) -> PocResult<()> {
     require_equal(
         "receipt executable identity",
@@ -1243,17 +2061,17 @@ fn validate_receipt_authority_evidence(
     require_equal(
         "receipt effective capability mask",
         &process.capabilities.effective,
-        &CAP_SYS_ADMIN_BIT,
+        &profile.effective_capability_mask(),
     )?;
     require_equal(
         "receipt permitted capability mask",
         &process.capabilities.permitted,
-        &CAP_SYS_ADMIN_BIT,
+        &profile.effective_capability_mask(),
     )?;
     require_equal(
         "receipt bounding capability mask",
         &process.capabilities.bounding,
-        &CAP_SYS_ADMIN_BIT,
+        &profile.effective_capability_mask(),
     )?;
     require_equal(
         "receipt inheritable capability mask",
@@ -1318,8 +2136,65 @@ fn validate_receipt_authority_evidence(
         &mount_plan.work_dir,
         &scope.allocation_root.join("work"),
     )?;
+    validate_mount_input_access_evidence(&mount_plan.input_access, mount_plan)?;
     validate_mount_table_evidence("before", &mount_plan.mountinfo_before, mount_plan)?;
     validate_mount_table_evidence("after", &mount_plan.mountinfo_after, mount_plan)
+}
+
+fn validate_mount_input_access_evidence(
+    evidence: &StorageAdminMountInputAccessEvidence,
+    plan: &StorageAdminMountPlanEvidence,
+) -> PocResult<()> {
+    let mut expected = plan
+        .lower_dirs_newest_first
+        .iter()
+        .enumerate()
+        .map(|(index, path)| (format!("lower_dir[{index}]"), path))
+        .collect::<Vec<_>>();
+    expected.extend([
+        ("upper_dir".to_owned(), &plan.upper_dir),
+        ("work_dir".to_owned(), &plan.work_dir),
+        ("workspace_root".to_owned(), &plan.target),
+    ]);
+    if evidence.paths.len() != expected.len() {
+        return Err(PocError::Integrity(
+            "storage-admin input-access evidence does not cover the mount plan".to_owned(),
+        ));
+    }
+    for (observed, (label, path)) in evidence.paths.iter().zip(expected) {
+        require_equal("receipt input-access label", &observed.label, &label)?;
+        require_equal("receipt input-access path", &observed.path, path)?;
+        if observed.effective_access.len() != 2 {
+            return Err(PocError::Integrity(
+                "storage-admin input-access evidence has an unexpected check count".to_owned(),
+            ));
+        }
+        if observed.metadata.is_some() == observed.metadata_error.is_some() {
+            return Err(PocError::Integrity(
+                "storage-admin input-access metadata evidence is ambiguous".to_owned(),
+            ));
+        }
+        for (check, requested) in observed.effective_access.iter().zip([
+            ["read", "search"].as_slice(),
+            ["read", "write", "search"].as_slice(),
+        ]) {
+            let expected_requested = requested
+                .iter()
+                .map(|value| (*value).to_owned())
+                .collect::<Vec<_>>();
+            require_equal(
+                "receipt input-access requested modes",
+                &check.requested,
+                &expected_requested,
+            )?;
+            if check.allowed == check.error.is_some() {
+                return Err(PocError::Integrity(
+                    "storage-admin input-access result is ambiguous".to_owned(),
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn validate_mount_table_evidence(
@@ -1328,6 +2203,11 @@ fn validate_mount_table_evidence(
     plan: &StorageAdminMountPlanEvidence,
 ) -> PocResult<()> {
     validate_sha256(&format!("receipt mountinfo {phase} hash"), &table.sha256)?;
+    require_equal(
+        &format!("receipt mountinfo {phase} canonical target hash"),
+        &table.sha256,
+        &storage_admin_mountinfo_target_sha256(table.target.as_ref())?,
+    )?;
     let Some(target) = &table.target else {
         return Ok(());
     };
@@ -1353,11 +2233,6 @@ fn validate_mount_table_evidence(
             "storage-admin observed mount is missing fixed nodev/nosuid options".to_owned(),
         ));
     }
-    require_equal(
-        "receipt observed mount lower directories",
-        &target.lower_dirs_newest_first,
-        &plan.lower_dirs_newest_first,
-    )?;
     require_equal(
         "receipt observed mount upper directory",
         &target.upper_dir,
@@ -1596,48 +2471,185 @@ pub fn storage_admin_mount_plan_evidence(
     validate_scope(scope)?;
     Ok(StorageAdminMountPlanEvidence {
         mount_namespace_id: scope.mount_namespace_id.clone(),
-        source: "overlay".to_owned(),
+        source: RAW_OVERLAY_MOUNTINFO_SOURCE.to_owned(),
         filesystem_type: "overlay".to_owned(),
         target: scope.workspace_root.clone(),
         flags: vec!["MS_NODEV".to_owned(), "MS_NOSUID".to_owned()],
         lower_dirs_newest_first: scope.lower_dirs_newest_first.clone(),
         upper_dir: scope.allocation_root.join("upper"),
         work_dir: scope.allocation_root.join("work"),
+        input_access: capture_storage_admin_input_access(scope),
         mountinfo_before: StorageAdminMountTableEvidence {
-            sha256: "00".repeat(32),
+            sha256: storage_admin_mountinfo_target_sha256(None)?,
             target: None,
         },
         mountinfo_after: StorageAdminMountTableEvidence {
-            sha256: "00".repeat(32),
+            sha256: storage_admin_mountinfo_target_sha256(None)?,
             target: None,
         },
     })
 }
 
 #[cfg(target_os = "linux")]
+fn capture_storage_admin_input_access(
+    scope: &StorageAdminScope,
+) -> StorageAdminMountInputAccessEvidence {
+    let mut paths = scope
+        .lower_dirs_newest_first
+        .iter()
+        .enumerate()
+        .map(|(index, path)| capture_storage_admin_path_access(format!("lower_dir[{index}]"), path))
+        .collect::<Vec<_>>();
+    paths.extend([
+        capture_storage_admin_path_access(
+            "upper_dir".to_owned(),
+            &scope.allocation_root.join("upper"),
+        ),
+        capture_storage_admin_path_access(
+            "work_dir".to_owned(),
+            &scope.allocation_root.join("work"),
+        ),
+        capture_storage_admin_path_access("workspace_root".to_owned(), &scope.workspace_root),
+    ]);
+    StorageAdminMountInputAccessEvidence { paths }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn capture_storage_admin_input_access(
+    scope: &StorageAdminScope,
+) -> StorageAdminMountInputAccessEvidence {
+    let mut paths = scope
+        .lower_dirs_newest_first
+        .iter()
+        .enumerate()
+        .map(|(index, path)| {
+            unsupported_storage_admin_path_access(format!("lower_dir[{index}]"), path)
+        })
+        .collect::<Vec<_>>();
+    paths.extend([
+        unsupported_storage_admin_path_access(
+            "upper_dir".to_owned(),
+            &scope.allocation_root.join("upper"),
+        ),
+        unsupported_storage_admin_path_access(
+            "work_dir".to_owned(),
+            &scope.allocation_root.join("work"),
+        ),
+        unsupported_storage_admin_path_access("workspace_root".to_owned(), &scope.workspace_root),
+    ]);
+    StorageAdminMountInputAccessEvidence { paths }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn unsupported_storage_admin_path_access(
+    label: String,
+    path: &Path,
+) -> StorageAdminPathAccessEvidence {
+    let unsupported = "effective credential evidence requires Linux".to_owned();
+    StorageAdminPathAccessEvidence {
+        label,
+        path: path.to_path_buf(),
+        metadata: None,
+        metadata_error: Some(unsupported.clone()),
+        effective_access: vec![
+            StorageAdminEffectiveAccessCheck {
+                requested: vec!["read".to_owned(), "search".to_owned()],
+                allowed: false,
+                error: Some(unsupported.clone()),
+            },
+            StorageAdminEffectiveAccessCheck {
+                requested: vec!["read".to_owned(), "write".to_owned(), "search".to_owned()],
+                allowed: false,
+                error: Some(unsupported),
+            },
+        ],
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn capture_storage_admin_path_access(label: String, path: &Path) -> StorageAdminPathAccessEvidence {
+    let (metadata, metadata_error) = match fs::metadata(path) {
+        Ok(metadata) => (
+            Some(StorageAdminPathMetadataEvidence {
+                is_directory: metadata.is_dir(),
+                device: metadata.dev(),
+                inode: metadata.ino(),
+                uid: metadata.uid(),
+                gid: metadata.gid(),
+                mode: metadata.mode(),
+            }),
+            None,
+        ),
+        Err(error) => (None, Some(error.to_string())),
+    };
+    StorageAdminPathAccessEvidence {
+        label,
+        path: path.to_path_buf(),
+        metadata,
+        metadata_error,
+        effective_access: vec![
+            capture_effective_access(path, libc::R_OK | libc::X_OK, ["read", "search"]),
+            capture_effective_access(
+                path,
+                libc::R_OK | libc::W_OK | libc::X_OK,
+                ["read", "write", "search"],
+            ),
+        ],
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn capture_effective_access<const N: usize>(
+    path: &Path,
+    mode: libc::c_int,
+    requested: [&str; N],
+) -> StorageAdminEffectiveAccessCheck {
+    let requested = requested.into_iter().map(str::to_owned).collect();
+    let Ok(path) = CString::new(path.as_os_str().as_bytes()) else {
+        return StorageAdminEffectiveAccessCheck {
+            requested,
+            allowed: false,
+            error: Some("path contains a NUL byte".to_owned()),
+        };
+    };
+    // SAFETY: the path is a NUL-terminated C string and faccessat only reads it.
+    let result = unsafe { libc::faccessat(libc::AT_FDCWD, path.as_ptr(), mode, libc::AT_EACCESS) };
+    if result == 0 {
+        StorageAdminEffectiveAccessCheck {
+            requested,
+            allowed: true,
+            error: None,
+        }
+    } else {
+        StorageAdminEffectiveAccessCheck {
+            requested,
+            allowed: false,
+            error: Some(std::io::Error::last_os_error().to_string()),
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn capture_storage_admin_mountinfo(
     scope: &StorageAdminScope,
 ) -> PocResult<StorageAdminMountTableEvidence> {
+    capture_storage_admin_mountinfo_from_path(scope, Path::new("/proc/self/mountinfo"))
+}
+
+#[cfg(target_os = "linux")]
+fn capture_storage_admin_mountinfo_from_path(
+    scope: &StorageAdminScope,
+    mountinfo_path: &Path,
+) -> PocResult<StorageAdminMountTableEvidence> {
     const MAX_MOUNTINFO_BYTES: u64 = 16 * 1024 * 1024;
-    let mut mountinfo = File::open("/proc/self/mountinfo").map_err(|error| {
-        PocError::io(
-            "open storage-admin mount table",
-            "/proc/self/mountinfo",
-            error,
-        )
-    })?;
+    let mut mountinfo = File::open(mountinfo_path)
+        .map_err(|error| PocError::io("open storage-admin mount table", mountinfo_path, error))?;
     let mut bytes = Vec::new();
     mountinfo
         .by_ref()
         .take(MAX_MOUNTINFO_BYTES + 1)
         .read_to_end(&mut bytes)
-        .map_err(|error| {
-            PocError::io(
-                "read storage-admin mount table",
-                "/proc/self/mountinfo",
-                error,
-            )
-        })?;
+        .map_err(|error| PocError::io("read storage-admin mount table", mountinfo_path, error))?;
     if bytes.len() as u64 > MAX_MOUNTINFO_BYTES {
         return Err(PocError::Integrity(
             "storage-admin mount table exceeds the bounded receipt budget".to_owned(),
@@ -1646,12 +2658,12 @@ fn capture_storage_admin_mountinfo(
     let raw = std::str::from_utf8(&bytes).map_err(|error| {
         PocError::Integrity(format!("storage-admin mount table is not UTF-8: {error}"))
     })?;
-    let target = raw
-        .lines()
-        .filter_map(parse_mountinfo_line)
-        .find(|entry| entry.target == scope.workspace_root);
+    let target = raw.lines().find_map(|line| {
+        let entry = parse_mountinfo_line(line)?;
+        (entry.target == scope.workspace_root).then_some(entry)
+    });
     Ok(StorageAdminMountTableEvidence {
-        sha256: hex_digest(&Sha256::digest(&bytes)),
+        sha256: storage_admin_mountinfo_target_sha256(target.as_ref())?,
         target,
     })
 }
@@ -1674,33 +2686,42 @@ fn parse_mountinfo_line(line: &str) -> Option<StorageAdminObservedMount> {
         return None;
     }
     let mount_id = left_fields[0].parse().ok()?;
+    let parent_mount_id = left_fields[1].parse().ok()?;
+    let root = PathBuf::from(unescape_mountinfo_path(left_fields[3])?);
     let target = PathBuf::from(unescape_mountinfo_path(left_fields[4])?);
-    let mount_options = split_mount_options(left_fields[5]);
-    let super_options = split_mount_options(right_fields[2]);
-    let lower_dirs_newest_first = mount_option_value(&super_options, "lowerdir")
-        .map(|value| {
-            value
-                .split(':')
-                .map(unescape_mountinfo_path)
-                .collect::<Option<Vec<_>>>()
-                .map(|paths| paths.into_iter().map(PathBuf::from).collect())
+    let mut mount_options = split_mount_options(left_fields[5]);
+    let mut optional_fields: Vec<String> =
+        left_fields[6..].iter().map(ToString::to_string).collect();
+    let raw_super_options = split_mount_options(right_fields[2]);
+    let upper_dir = mount_option_value(&raw_super_options, "upperdir")
+        .and_then(unescape_mountinfo_path)
+        .map(PathBuf::from);
+    let work_dir = mount_option_value(&raw_super_options, "workdir")
+        .and_then(unescape_mountinfo_path)
+        .map(PathBuf::from);
+    let mut super_options = raw_super_options
+        .into_iter()
+        .map(|option| {
+            if option.starts_with("lowerdir=") {
+                "lowerdir=<redacted>".to_owned()
+            } else {
+                option
+            }
         })
-        .flatten()
-        .unwrap_or_default();
-    let upper_dir = mount_option_value(&super_options, "upperdir")
-        .and_then(unescape_mountinfo_path)
-        .map(PathBuf::from);
-    let work_dir = mount_option_value(&super_options, "workdir")
-        .and_then(unescape_mountinfo_path)
-        .map(PathBuf::from);
+        .collect::<Vec<_>>();
+    mount_options.sort();
+    optional_fields.sort();
+    super_options.sort();
     Some(StorageAdminObservedMount {
         mount_id,
+        parent_mount_id,
+        root,
         source: right_fields[1].to_owned(),
         filesystem_type: right_fields[0].to_owned(),
         target,
         mount_options,
+        optional_fields,
         super_options,
-        lower_dirs_newest_first,
         upper_dir,
         work_dir,
     })
@@ -1762,6 +2783,7 @@ fn validate_wire_shape(value: &serde_json::Value) -> PocResult<()> {
             "trusted_executable_sha256",
             "workload_cgroup_procs",
             "mount_namespace_holder_pid",
+            "mount_receipt_binding",
         ],
     )?;
     let object = value.as_object().ok_or_else(|| {
@@ -1848,27 +2870,33 @@ fn validate_object_keys(
 }
 
 #[cfg(target_os = "linux")]
-fn prepare_platform_process(invocation: &StorageAdminInvocation) -> PocResult<()> {
+fn prepare_platform_process(
+    invocation: &StorageAdminInvocation,
+    profile: StorageAdminCapabilityProfile,
+) -> PocResult<()> {
     enter_bound_user_and_mount_namespaces(
         invocation.mount_namespace_holder_pid,
         &invocation.request.scope.mount_namespace_id,
         &invocation.workload_cgroup_procs,
     )?;
-    narrow_process_capabilities()?;
+    narrow_process_capabilities(profile)?;
     set_no_new_privileges()?;
     install_storage_admin_seccomp_profile()?;
-    verify_process_identity(&invocation.workload_cgroup_procs)
+    verify_process_identity(&invocation.workload_cgroup_procs, profile)
 }
 
 #[cfg(not(target_os = "linux"))]
-fn prepare_platform_process(_invocation: &StorageAdminInvocation) -> PocResult<()> {
+fn prepare_platform_process(
+    _invocation: &StorageAdminInvocation,
+    _profile: StorageAdminCapabilityProfile,
+) -> PocResult<()> {
     Err(PocError::Unsupported(
         "mpla-storage-admin-v1 execution requires Linux".to_owned(),
     ))
 }
 
 #[cfg(target_os = "linux")]
-fn narrow_process_capabilities() -> PocResult<()> {
+fn narrow_process_capabilities(profile: StorageAdminCapabilityProfile) -> PocResult<()> {
     // SAFETY: prctl is called with fixed integer arguments and no borrowed memory.
     let ambient_result = unsafe {
         libc::prctl(
@@ -1889,13 +2917,15 @@ fn narrow_process_capabilities() -> PocResult<()> {
     // CAP_SETPCAP is retained only long enough to make the helper's bounding
     // set irreversible. It is absent before the helper enters the bound mount
     // namespace and before any storage syscall can run.
-    set_capability_masks(&[CAP_SYS_ADMIN_NUMBER, CAP_SETPCAP_NUMBER])?;
+    let mut bootstrap_capabilities = profile.capability_numbers().to_vec();
+    bootstrap_capabilities.push(CAP_SETPCAP_NUMBER);
+    set_capability_masks(&bootstrap_capabilities)?;
     for capability in 0..=MAX_CAPABILITY {
-        if capability != CAP_SYS_ADMIN_NUMBER {
+        if !profile.capability_numbers().contains(&capability) {
             drop_bounding_capability(capability)?;
         }
     }
-    set_capability_masks(&[CAP_SYS_ADMIN_NUMBER])?;
+    set_capability_masks(profile.capability_numbers())?;
     Ok(())
 }
 
@@ -2123,7 +3153,10 @@ pub fn capture_storage_admin_process_evidence(
 }
 
 #[cfg(target_os = "linux")]
-fn verify_process_identity(workload_cgroup_procs: &Path) -> PocResult<()> {
+fn verify_process_identity(
+    workload_cgroup_procs: &Path,
+    profile: StorageAdminCapabilityProfile,
+) -> PocResult<()> {
     let evidence = capture_storage_admin_process_evidence(workload_cgroup_procs)?;
     require_equal(
         "executable identity",
@@ -2133,17 +3166,17 @@ fn verify_process_identity(workload_cgroup_procs: &Path) -> PocResult<()> {
     require_equal(
         "effective capability mask",
         &evidence.capabilities.effective,
-        &CAP_SYS_ADMIN_BIT,
+        &profile.effective_capability_mask(),
     )?;
     require_equal(
         "permitted capability mask",
         &evidence.capabilities.permitted,
-        &CAP_SYS_ADMIN_BIT,
+        &profile.effective_capability_mask(),
     )?;
     require_equal(
         "bounding capability mask",
         &evidence.capabilities.bounding,
-        &CAP_SYS_ADMIN_BIT,
+        &profile.effective_capability_mask(),
     )?;
     require_equal(
         "inheritable capability mask",
@@ -2321,6 +3354,182 @@ fn parse_status_u32(status: &str, field: &str) -> PocResult<u32> {
         .map_err(|error| PocError::Integrity(format!("invalid {field} value: {error}")))
 }
 
+fn load_mount_receipt_attestation(
+    scope: &StorageAdminScope,
+    profile: StorageAdminCapabilityProfile,
+    binding: &StorageAdminMountReceiptBinding,
+) -> PocResult<StorageAdminMountAttestation> {
+    validate_mount_receipt_binding_for_action(StorageAdminAction::Quiesce, Some(binding))?;
+    let request = StorageAdminRequest {
+        schema_version: SCHEMA_VERSION,
+        interface_version: INTERFACE_VERSION.to_owned(),
+        profile_id: profile.profile_id().to_owned(),
+        operation_id: binding.storage_operation_id.clone(),
+        action: StorageAdminAction::Mount,
+        scope: scope.clone(),
+    };
+    let selection = StorageAdminSelection {
+        request_sha256: request_sha256(&request)?,
+        request,
+        profile,
+    };
+    let paths = operation_paths(&selection.request)?;
+    if !paths.attempt.exists() {
+        return Err(PocError::Integrity(
+            "mount authority receipt is missing its immutable attempt".to_owned(),
+        ));
+    }
+    let receipt: StorageAdminReceipt = read_json(&paths.receipt)?;
+    validate_stored_receipt(&receipt, &selection, &paths.receipt)?;
+    require_equal(
+        "mount authority receipt outcome",
+        &receipt.outcome,
+        &StorageAdminOutcome::Succeeded,
+    )?;
+    let attestation = receipt.mount_attestation.ok_or_else(|| {
+        PocError::Integrity("mount authority receipt is missing its attestation".to_owned())
+    })?;
+    require_equal(
+        "mount authority attestation digest",
+        &storage_admin_mount_attestation_sha256(&attestation)?,
+        &binding.attestation_sha256,
+    )?;
+    Ok(attestation)
+}
+
+#[cfg(target_os = "linux")]
+pub fn validate_storage_admin_destroy_authority(
+    scope: &StorageAdminScope,
+    profile: StorageAdminCapabilityProfile,
+    binding: &StorageAdminMountReceiptBinding,
+    cleanup_operation_id: &OperationId,
+    mount_namespace_holder_pid: u32,
+) -> PocResult<()> {
+    validate_mount_namespace_holder_pid(mount_namespace_holder_pid)?;
+    let attestation = load_mount_receipt_attestation(scope, profile, binding)?;
+    validate_attestation_scope(scope, &attestation)?;
+
+    let cleanup_request = StorageAdminRequest {
+        schema_version: SCHEMA_VERSION,
+        interface_version: INTERFACE_VERSION.to_owned(),
+        profile_id: profile.profile_id().to_owned(),
+        operation_id: cleanup_operation_id.clone(),
+        action: StorageAdminAction::Cleanup,
+        scope: scope.clone(),
+    };
+    let cleanup_selection = StorageAdminSelection {
+        request_sha256: request_sha256(&cleanup_request)?,
+        request: cleanup_request,
+        profile,
+    };
+    let cleanup_paths = operation_paths(&cleanup_selection.request)?;
+    if !cleanup_paths.attempt.exists() {
+        return Err(PocError::Integrity(
+            "destroy authority cleanup receipt is missing its immutable attempt".to_owned(),
+        ));
+    }
+    let cleanup_receipt: StorageAdminReceipt = read_json(&cleanup_paths.receipt)?;
+    validate_stored_receipt(&cleanup_receipt, &cleanup_selection, &cleanup_paths.receipt)?;
+    require_equal(
+        "destroy authority cleanup outcome",
+        &cleanup_receipt.outcome,
+        &StorageAdminOutcome::Succeeded,
+    )?;
+    require_equal(
+        "destroy authority cleanup completion",
+        &cleanup_receipt.cleanup_complete,
+        &true,
+    )?;
+    require_equal(
+        "destroy authority mount receipt binding",
+        cleanup_receipt
+            .mount_receipt_binding
+            .as_ref()
+            .ok_or_else(|| {
+                PocError::Integrity(
+                    "destroy authority cleanup receipt lost mount authority".to_owned(),
+                )
+            })?,
+        binding,
+    )?;
+
+    let namespace_path = mount_namespace_path(mount_namespace_holder_pid)?;
+    let namespace_file = File::open(&namespace_path).map_err(|error| {
+        PocError::io(
+            "open destroy-authority mount namespace",
+            &namespace_path,
+            error,
+        )
+    })?;
+    let opened_fd_path = PathBuf::from(format!("/proc/self/fd/{}", namespace_file.as_raw_fd()));
+    let opened_namespace = fs::read_link(&opened_fd_path).map_err(|error| {
+        PocError::io(
+            "read destroy-authority mount namespace identity",
+            &opened_fd_path,
+            error,
+        )
+    })?;
+    let opened_inode = namespace_file
+        .metadata()
+        .map_err(|error| {
+            PocError::io(
+                "stat destroy-authority mount namespace",
+                &namespace_path,
+                error,
+            )
+        })?
+        .ino();
+    validate_opened_mount_namespace(
+        &scope.mount_namespace_id,
+        opened_namespace.to_string_lossy().as_ref(),
+        opened_inode,
+    )?;
+    require_equal(
+        "destroy-authority attested namespace inode",
+        &attestation.mount_namespace_inode,
+        &opened_inode,
+    )?;
+
+    let holder_mountinfo = PathBuf::from(format!("/proc/{mount_namespace_holder_pid}/mountinfo"));
+    let observation = capture_storage_admin_mountinfo_from_path(scope, &holder_mountinfo)?;
+    if observation.target.is_some() {
+        return Err(PocError::Integrity(
+            "destroy authority found a mount at the attested workspace target".to_owned(),
+        ));
+    }
+    require_equal(
+        "destroy authority target-absence digest",
+        &observation.sha256,
+        &storage_admin_mountinfo_target_sha256(None)?,
+    )?;
+
+    let current_namespace = fs::read_link(&namespace_path).map_err(|error| {
+        PocError::io(
+            "reread destroy-authority mount namespace",
+            &namespace_path,
+            error,
+        )
+    })?;
+    require_equal(
+        "destroy-authority stable holder namespace",
+        current_namespace.to_string_lossy().as_ref(),
+        opened_namespace.to_string_lossy().as_ref(),
+    )
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn validate_storage_admin_destroy_authority(
+    _scope: &StorageAdminScope,
+    _profile: StorageAdminCapabilityProfile,
+    _binding: &StorageAdminMountReceiptBinding,
+    _cleanup_operation_id: &OperationId,
+    _mount_namespace_holder_pid: u32,
+) -> PocResult<()> {
+    Err(PocError::Unsupported(
+        "storage-admin destroy authority requires Linux".to_owned(),
+    ))
+}
+
 #[cfg(target_os = "linux")]
 fn execute_platform_action(
     action: StorageAdminAction,
@@ -2328,7 +3537,9 @@ fn execute_platform_action(
     mounted_by_this_process: &mut Option<PathBuf>,
 ) -> PocResult<()> {
     match action {
-        StorageAdminAction::Mount => mount_overlay(scope, mounted_by_this_process),
+        StorageAdminAction::Mount => Err(PocError::Integrity(
+            "mount must use the attested overlay attachment path".to_owned(),
+        )),
         StorageAdminAction::Quiesce => syncfs_path(&scope.workspace_root),
         StorageAdminAction::StrictUnmount => {
             syncfs_path(&scope.workspace_root)?;
@@ -2350,10 +3561,13 @@ fn execute_platform_action(
 }
 
 #[cfg(target_os = "linux")]
-fn mount_overlay(
+fn mount_overlay_with_attestation(
     scope: &StorageAdminScope,
+    selection: &StorageAdminSelection,
+    process: &StorageAdminProcessEvidence,
+    mount_plan: &StorageAdminMountPlanEvidence,
     mounted_by_this_process: &mut Option<PathBuf>,
-) -> PocResult<()> {
+) -> PocResult<(StorageAdminMountAttestation, StorageAdminMountTableEvidence)> {
     let upper_dir = scope.allocation_root.join("upper");
     let work_dir = scope.allocation_root.join("work");
     require_directory("allocation upper directory", &upper_dir)?;
@@ -2368,22 +3582,360 @@ fn mount_overlay(
             error,
         )
     })?;
-    // Use the production raw mount API rather than legacy mount(2).  It
-    // configures `userxattr` and is the kernel path qualified for the nested
-    // user namespace that owns the MPLA holder mount namespace.
-    let mount = mount_kernel_overlay(
+    if mount_plan.mountinfo_before.target.is_some() {
+        return Err(PocError::Integrity(
+            "storage-admin workspace target was already mounted before attach".to_owned(),
+        ));
+    }
+    let (mount, inspection) = mount_kernel_overlay_with_lower_inspection(
         &scope.workspace_root,
         &OverlayHandle {
             upperdir: upper_dir,
             workdir: work_dir,
             layer_paths: scope.lower_dirs_newest_first.clone(),
         },
+        |lower_bindings| {
+            capture_mount_attestation(scope, selection, process, mount_plan, lower_bindings)
+        },
     )?;
-    // The helper exits after issuing its receipt; the mount intentionally
-    // outlives that process and is later torn down by strict_unmount/cleanup.
+    let (attestation, observation) = match inspection {
+        Ok(value) => value,
+        Err(error) => {
+            std::mem::forget(mount);
+            return match strict_unmount_path(&scope.workspace_root) {
+                Ok(()) => Err(error),
+                Err(cleanup_error) => Err(PocError::RecoveryRequired(format!(
+                    "post-attach attestation failed: {error}; strict cleanup failed: {cleanup_error}"
+                ))),
+            };
+        }
+    };
     std::mem::forget(mount);
     *mounted_by_this_process = Some(scope.workspace_root.clone());
-    Ok(())
+    Ok((attestation, observation))
+}
+
+#[cfg(not(target_os = "linux"))]
+fn mount_overlay_with_attestation(
+    _scope: &StorageAdminScope,
+    _selection: &StorageAdminSelection,
+    _process: &StorageAdminProcessEvidence,
+    _mount_plan: &StorageAdminMountPlanEvidence,
+    _mounted_by_this_process: &mut Option<PathBuf>,
+) -> PocResult<(StorageAdminMountAttestation, StorageAdminMountTableEvidence)> {
+    Err(PocError::Unsupported(
+        "storage-admin mount attestation requires Linux".to_owned(),
+    ))
+}
+
+#[cfg(target_os = "linux")]
+fn capture_mount_attestation(
+    scope: &StorageAdminScope,
+    selection: &StorageAdminSelection,
+    process: &StorageAdminProcessEvidence,
+    mount_plan: &StorageAdminMountPlanEvidence,
+    opened_lowers: &[OpenedLowerBinding],
+) -> PocResult<(StorageAdminMountAttestation, StorageAdminMountTableEvidence)> {
+    if opened_lowers.len() != scope.lower_dirs_newest_first.len() {
+        return Err(PocError::Integrity(
+            "opened lower stack length does not match authorized scope".to_owned(),
+        ));
+    }
+    let mut lower_bindings = Vec::with_capacity(opened_lowers.len());
+    for (index, (opened, authorized_path)) in opened_lowers
+        .iter()
+        .zip(&scope.lower_dirs_newest_first)
+        .enumerate()
+    {
+        require_equal("opened lower order", &opened.index, &index)?;
+        require_equal(
+            "opened lower authorized path",
+            &opened.authorized_path,
+            authorized_path,
+        )?;
+        let fd_identity = storage_path_identity(&opened.fd_identity);
+        let authorized_path_identity = storage_path_identity(&opened.authorized_path_identity);
+        require_equal(
+            "opened lower physical authorization proof",
+            &fd_identity,
+            &authorized_path_identity,
+        )?;
+        lower_bindings.push(StorageAdminLowerBinding {
+            index,
+            authorized_path_sha256: storage_admin_authorized_path_sha256(authorized_path),
+            fd_identity,
+            authorized_path_identity,
+        });
+    }
+    let observation = capture_storage_admin_mountinfo(scope)?;
+    validate_mount_table_evidence("attached", &observation, mount_plan)?;
+    let observed = observation.target.as_ref().ok_or_else(|| {
+        PocError::Integrity("attached workspace mount is missing from mountinfo".to_owned())
+    })?;
+    let target_identity = capture_path_identity(&scope.workspace_root)?;
+    require_equal(
+        "attached workspace mount id",
+        &target_identity.mount_id,
+        &observed.mount_id,
+    )?;
+    let observed_upper = observed.upper_dir.as_deref().ok_or_else(|| {
+        PocError::Integrity("attached workspace mount is missing upperdir".to_owned())
+    })?;
+    let observed_work = observed.work_dir.as_deref().ok_or_else(|| {
+        PocError::Integrity("attached workspace mount is missing workdir".to_owned())
+    })?;
+    let attestation = StorageAdminMountAttestation {
+        schema_version: SCHEMA_VERSION,
+        run_id: scope.run_id.clone(),
+        sandbox_id: scope.sandbox_id.clone(),
+        workspace_session_id: scope.workspace_session_id.clone(),
+        session_id: scope.session_id.clone(),
+        allocation_id: scope.allocation_id.clone(),
+        lease_id: scope.lease_id.clone(),
+        lease_epoch: scope.lease_epoch,
+        mount_namespace_id: scope.mount_namespace_id.clone(),
+        mount_namespace_inode: process.mount_namespace_inode,
+        storage_operation_id: selection.request.operation_id.clone(),
+        request_sha256: selection.request_sha256.clone(),
+        lower_bindings_newest_first: lower_bindings,
+        target: StorageAdminTargetBinding {
+            workspace_target: scope.workspace_root.clone(),
+            mount_namespace_id: scope.mount_namespace_id.clone(),
+            mount_namespace_inode: process.mount_namespace_inode,
+            mount_id: observed.mount_id,
+            mountinfo_sha256: observation.sha256.clone(),
+            target_identity,
+            filesystem_type: observed.filesystem_type.clone(),
+            source: observed.source.clone(),
+            mount_options: observed.mount_options.clone(),
+            super_options: observed.super_options.clone(),
+            expected_upperdir_sha256: storage_admin_authorized_path_sha256(&mount_plan.upper_dir),
+            observed_upperdir_sha256: storage_admin_authorized_path_sha256(observed_upper),
+            expected_workdir_sha256: storage_admin_authorized_path_sha256(&mount_plan.work_dir),
+            observed_workdir_sha256: storage_admin_authorized_path_sha256(observed_work),
+        },
+        profile_id: selection.profile_id().to_owned(),
+        effective_capabilities: owned_strings(selection.profile().effective_capabilities()),
+    };
+    validate_mount_attestation(
+        &attestation,
+        selection,
+        process,
+        &StorageAdminMountPlanEvidence {
+            mountinfo_after: observation.clone(),
+            ..mount_plan.clone()
+        },
+    )?;
+    Ok((attestation, observation))
+}
+
+#[cfg(target_os = "linux")]
+fn storage_path_identity(identity: &OpenedPathIdentity) -> StorageAdminPathIdentity {
+    StorageAdminPathIdentity {
+        mount_id: identity.mount_id,
+        device_major: identity.device_major,
+        device_minor: identity.device_minor,
+        inode: identity.inode,
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn capture_path_identity(path: &Path) -> PocResult<StorageAdminPathIdentity> {
+    let stat = statx(
+        rustix::fs::CWD,
+        path,
+        AtFlags::SYMLINK_NOFOLLOW | AtFlags::NO_AUTOMOUNT,
+        StatxFlags::BASIC_STATS | StatxFlags::MNT_ID,
+    )
+    .map_err(|error| PocError::io("statx storage-admin path identity", path, error.into()))?;
+    if stat.stx_mask & StatxFlags::MNT_ID.bits() == 0 {
+        return Err(PocError::Integrity(
+            "storage-admin path identity does not expose a mount id".to_owned(),
+        ));
+    }
+    Ok(StorageAdminPathIdentity {
+        mount_id: stat.stx_mnt_id,
+        device_major: stat.stx_dev_major,
+        device_minor: stat.stx_dev_minor,
+        inode: stat.stx_ino,
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn validate_target_before_action(
+    action: StorageAdminAction,
+    scope: &StorageAdminScope,
+    attestation: &StorageAdminMountAttestation,
+) -> PocResult<()> {
+    validate_attestation_scope(scope, attestation)?;
+    match action {
+        StorageAdminAction::Quiesce | StorageAdminAction::StrictUnmount => {
+            validate_current_attested_target(scope, attestation)
+        }
+        StorageAdminAction::Cleanup => require_target_absent(scope),
+        StorageAdminAction::Mount => Err(PocError::Integrity(
+            "mount cannot consume prior mount authority".to_owned(),
+        )),
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn validate_target_before_action(
+    _action: StorageAdminAction,
+    _scope: &StorageAdminScope,
+    _attestation: &StorageAdminMountAttestation,
+) -> PocResult<()> {
+    Err(PocError::Unsupported(
+        "storage-admin target validation requires Linux".to_owned(),
+    ))
+}
+
+#[cfg(target_os = "linux")]
+fn validate_target_after_action(
+    action: StorageAdminAction,
+    scope: &StorageAdminScope,
+) -> PocResult<()> {
+    match action {
+        StorageAdminAction::Quiesce => Ok(()),
+        StorageAdminAction::StrictUnmount | StorageAdminAction::Cleanup => {
+            require_target_absent(scope)
+        }
+        StorageAdminAction::Mount => Ok(()),
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn validate_target_after_action(
+    _action: StorageAdminAction,
+    _scope: &StorageAdminScope,
+) -> PocResult<()> {
+    Err(PocError::Unsupported(
+        "storage-admin target validation requires Linux".to_owned(),
+    ))
+}
+
+fn validate_attestation_scope(
+    scope: &StorageAdminScope,
+    attestation: &StorageAdminMountAttestation,
+) -> PocResult<()> {
+    require_equal("attested run id", &attestation.run_id, &scope.run_id)?;
+    require_equal(
+        "attested sandbox id",
+        &attestation.sandbox_id,
+        &scope.sandbox_id,
+    )?;
+    require_equal(
+        "attested workspace session id",
+        &attestation.workspace_session_id,
+        &scope.workspace_session_id,
+    )?;
+    require_equal(
+        "attested session id",
+        &attestation.session_id,
+        &scope.session_id,
+    )?;
+    require_equal(
+        "attested allocation id",
+        &attestation.allocation_id,
+        &scope.allocation_id,
+    )?;
+    require_equal("attested lease id", &attestation.lease_id, &scope.lease_id)?;
+    require_equal(
+        "attested lease epoch",
+        &attestation.lease_epoch,
+        &scope.lease_epoch,
+    )?;
+    require_equal(
+        "attested mount namespace",
+        &attestation.mount_namespace_id,
+        &scope.mount_namespace_id,
+    )?;
+    require_equal(
+        "attested workspace target",
+        &attestation.target.workspace_target,
+        &scope.workspace_root,
+    )
+}
+
+#[cfg(target_os = "linux")]
+fn validate_current_attested_target(
+    scope: &StorageAdminScope,
+    attestation: &StorageAdminMountAttestation,
+) -> PocResult<()> {
+    let observation = capture_storage_admin_mountinfo(scope)?;
+    let observed = observation.target.as_ref().ok_or_else(|| {
+        PocError::Integrity("attested workspace target is no longer mounted".to_owned())
+    })?;
+    let expected = &attestation.target;
+    require_equal("attested mount id", &observed.mount_id, &expected.mount_id)?;
+    require_equal(
+        "attested mountinfo digest",
+        &observation.sha256,
+        &expected.mountinfo_sha256,
+    )?;
+    require_equal(
+        "attested filesystem",
+        &observed.filesystem_type,
+        &expected.filesystem_type,
+    )?;
+    require_equal("attested source", &observed.source, &expected.source)?;
+    require_equal(
+        "attested mount options",
+        &observed.mount_options,
+        &expected.mount_options,
+    )?;
+    require_equal(
+        "attested super options",
+        &observed.super_options,
+        &expected.super_options,
+    )?;
+    require_equal(
+        "attested upperdir",
+        &storage_admin_authorized_path_sha256(observed.upper_dir.as_deref().ok_or_else(|| {
+            PocError::Integrity("current attested target is missing upperdir".to_owned())
+        })?),
+        &expected.observed_upperdir_sha256,
+    )?;
+    require_equal(
+        "attested workdir",
+        &storage_admin_authorized_path_sha256(observed.work_dir.as_deref().ok_or_else(|| {
+            PocError::Integrity("current attested target is missing workdir".to_owned())
+        })?),
+        &expected.observed_workdir_sha256,
+    )?;
+    require_equal(
+        "attested target identity",
+        &capture_path_identity(&scope.workspace_root)?,
+        &expected.target_identity,
+    )
+}
+
+#[cfg(not(target_os = "linux"))]
+fn validate_current_attested_target(
+    _scope: &StorageAdminScope,
+    _attestation: &StorageAdminMountAttestation,
+) -> PocResult<()> {
+    Err(PocError::Unsupported(
+        "storage-admin target validation requires Linux".to_owned(),
+    ))
+}
+
+#[cfg(target_os = "linux")]
+fn require_target_absent(scope: &StorageAdminScope) -> PocResult<()> {
+    if capture_storage_admin_mountinfo(scope)?.target.is_none() {
+        Ok(())
+    } else {
+        Err(PocError::Integrity(
+            "workspace target is mounted where attested absence is required".to_owned(),
+        ))
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn require_target_absent(_scope: &StorageAdminScope) -> PocResult<()> {
+    Err(PocError::Unsupported(
+        "storage-admin target validation requires Linux".to_owned(),
+    ))
 }
 
 #[cfg(target_os = "linux")]
@@ -2413,6 +3965,13 @@ fn syncfs_path(path: &Path) -> PocResult<()> {
             std::io::Error::last_os_error(),
         ))
     }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn syncfs_path(_path: &Path) -> PocResult<()> {
+    Err(PocError::Unsupported(
+        "storage-admin syncfs requires Linux".to_owned(),
+    ))
 }
 
 #[cfg(target_os = "linux")]

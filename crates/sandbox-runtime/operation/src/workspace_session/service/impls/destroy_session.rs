@@ -342,6 +342,16 @@ impl WorkspaceSessionService {
                     ),
                 });
             }
+            if binding.mount_scope.is_none()
+                || binding.mount_receipt_binding.is_none()
+                || binding.cleanup_operation_id.is_none()
+            {
+                return Err(WorkspaceSessionError::MplaLifecycle {
+                    workspace_session_id: handler.workspace_session_id.clone(),
+                    reason: "raw teardown is forbidden without complete MPLA receipt lineage"
+                        .to_owned(),
+                });
+            }
         }
         session.finalization_state = FinalizationState::Finalizing;
         Ok(DestroySnapshot {
@@ -364,6 +374,44 @@ impl WorkspaceSessionService {
             mpla_binding,
         } = snapshot;
         let workspace_session_id = handler.workspace_session_id.clone();
+        if let Some(binding) = &mpla_binding {
+            let scope = binding.mount_scope.as_ref().ok_or_else(|| {
+                WorkspaceSessionError::MplaLifecycle {
+                    workspace_session_id: workspace_session_id.clone(),
+                    reason: "MPLA destroy authority is missing its mount scope".to_owned(),
+                }
+            })?;
+            let mount_receipt_binding =
+                binding.mount_receipt_binding.as_ref().ok_or_else(|| {
+                    WorkspaceSessionError::MplaLifecycle {
+                        workspace_session_id: workspace_session_id.clone(),
+                        reason: "MPLA destroy authority is missing its mount receipt".to_owned(),
+                    }
+                })?;
+            let cleanup_operation_id = binding.cleanup_operation_id.as_ref().ok_or_else(|| {
+                WorkspaceSessionError::MplaLifecycle {
+                    workspace_session_id: workspace_session_id.clone(),
+                    reason: "MPLA destroy authority is missing its cleanup receipt".to_owned(),
+                }
+            })?;
+            let holder_pid = u32::try_from(handler.handle.holder_pid).map_err(|_| {
+                WorkspaceSessionError::MplaLifecycle {
+                    workspace_session_id: workspace_session_id.clone(),
+                    reason: "MPLA destroy authority holder pid is invalid".to_owned(),
+                }
+            })?;
+            sandbox_runtime_mpla_poc::storage_admin::validate_storage_admin_destroy_authority(
+                scope,
+                binding.storage_admin_profile,
+                mount_receipt_binding,
+                cleanup_operation_id,
+                holder_pid,
+            )
+            .map_err(|error| WorkspaceSessionError::MplaLifecycle {
+                workspace_session_id: workspace_session_id.clone(),
+                reason: format!("validate MPLA destroy authority: {error}"),
+            })?;
+        }
         let revision = handler.handle.base_revision().version;
         let command_release = self
             .release_terminal_commands(&workspace_session_id)

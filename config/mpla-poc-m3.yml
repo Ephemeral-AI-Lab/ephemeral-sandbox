@@ -28,6 +28,11 @@ runtime:
       squash_at_n_layers: 100
   command:
     max_active: 32
+  # This dedicated physical qualification fixes the single OverlayFS VFS
+  # write/search check on its internally-created mode-000 work directory.
+  # Production config retains the CAP_SYS_ADMIN-only default.
+  mpla_storage_admin:
+    profile: overlayfs_dac_override_qualification
 
 runner:
   mount_mask:

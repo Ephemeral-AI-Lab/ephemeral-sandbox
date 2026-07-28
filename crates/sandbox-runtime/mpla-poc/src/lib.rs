@@ -103,9 +103,16 @@ pub use state::{OwnerGeneration, OwnerSubject, PublicationPhase, SessionPhase};
 
 pub const INTERFACE_VERSION: &str = "m2r-iface-v1";
 pub const STORAGE_ADMIN_PROFILE_ID: &str = "mpla-storage-admin-v1";
+/// Dedicated physical-qualification profile for the one OverlayFS VFS
+/// credential contract identified in Stage 04.6.  It is not a production
+/// default and can only be selected by the loaded daemon configuration.
+pub const STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID: &str =
+    "mpla-storage-admin-overlayfs-dac-override-qualification-v1";
 pub const STORAGE_ADMIN_TRUSTED_EXECUTABLE: &str =
     "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1";
 pub const STORAGE_ADMIN_EFFECTIVE_CAPABILITIES: &[&str] = &["CAP_SYS_ADMIN"];
+pub const STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_EFFECTIVE_CAPABILITIES: &[&str] =
+    &["CAP_SYS_ADMIN", "CAP_DAC_OVERRIDE"];
 pub const STORAGE_ADMIN_PRIVILEGED_SYSCALLS: &[&str] = &["mount", "umount2", "setns", "syncfs"];
 pub const SCHEMA_VERSION: u32 = 1;
 

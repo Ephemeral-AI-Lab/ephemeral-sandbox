@@ -32,6 +32,7 @@ pub use sandbox_runtime_layerstack::service::{
 pub use sandbox_runtime_layerstack::{
     describe_layer_delta, LayerDeltaDescription, LayerDeltaEntry, LayerDeltaEntryKind,
 };
+pub use sandbox_runtime_mpla_poc::storage_admin::StorageAdminCapabilityProfile;
 pub use services::{
     CommandRuntimeConfig, FileRuntimeConfig, LayerstackRuntimeConfig, NamespaceExecutionCaps,
     NamespaceExecutionRuntimeConfig, Rfc1918Egress, RuntimeShutdownFailure, RuntimeShutdownPhase,

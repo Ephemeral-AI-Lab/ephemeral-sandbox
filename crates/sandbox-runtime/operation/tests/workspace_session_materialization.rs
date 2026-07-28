@@ -1370,6 +1370,8 @@ mod linux {
                 cgroup_root: None,
                 workload_cgroup_limits: None,
                 workload_cgroup_unavailable_reason: None,
+                mpla_storage_admin_profile:
+                    sandbox_runtime::StorageAdminCapabilityProfile::Production,
             }
         }
 
