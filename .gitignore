@@ -34,6 +34,7 @@ target-linux-container-gnu/
 /e2e/**/test-reports/
 /e2e/repo/eos-shared-workspace-base-cache/
 .cache/
+.seo-cache/
 .omc/
 **/.omc/
 /docs/class_inventory/

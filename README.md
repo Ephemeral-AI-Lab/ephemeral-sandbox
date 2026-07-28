@@ -20,12 +20,23 @@
 
 </div>
 
-Ephemeral Sandbox gives parallel coding agents isolated workspaces inside one
-shared sandbox. Agents share the same project history, work independently, and
-publish only the changes they intend to keep.
+## What is Ephemeral Sandbox and how does it isolate parallel coding agents?
 
-This repository contains the headless Rust core: gateway, manager, daemon,
-runtime, observability, CLI, and MCP components. The browser UI and its backend
+Ephemeral Sandbox is an open-source, local workspace-isolation system for teams
+running parallel coding agents against the same codebase. Each agent receives a
+private writable workspace over a stable shared project base and history, which
+lets agents work concurrently without exchanging incomplete edits. The Rust core
+combines a Docker gateway, sandbox manager and daemon, command-and-file runtime,
+observability, separate CLI groups, and an MCP server. Before a change is
+published, an operator can inspect activity and change provenance, then publish
+one complete resolved change set—or publish nothing. Use Ephemeral Sandbox when
+agent work needs a clear isolation boundary, reviewable execution, and deliberate
+promotion to the shared project. Connect through the CLI, MCP-compatible clients,
+or the separate browser console; setup guides cover Linux amd64, macOS on Apple
+silicon, and Windows amd64. This keeps the shared checkout intentional,
+traceable, and reviewable.
+
+This repository contains the headless Rust core. The browser UI and its backend
 live in the separate
 [Ephemeral Sandbox Console](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-console)
 repository.
@@ -37,6 +48,13 @@ repository.
   stable project base.
 - **Publish with confidence.** Inspect activity and change provenance before
   publishing a complete resolved change set.
+
+## When should you use Ephemeral Sandbox?
+
+- Give concurrent coding agents independent workspaces over one project base.
+- Review an agent's commands, files, and provenance before promoting its work.
+- Connect MCP-compatible clients to narrowly scoped management, runtime, or
+  observability tools.
 
 ## Quick start
 
@@ -90,7 +108,7 @@ repository. Start the gateway above, then point the console at:
 
 The console serves the browser UI at `http://127.0.0.1:7880`.
 
-## Choose an interface
+## Which interfaces can agents use?
 
 | Interface | Best for | Start with |
 |---|---|---|
@@ -111,7 +129,7 @@ sandbox-mcp --set runtime
 sandbox-mcp --set observability
 ```
 
-## How it works
+## How does Ephemeral Sandbox handle parallel work?
 
 1. **Share a stable base.** LayerStack keeps the project history available to
    every workspace session.

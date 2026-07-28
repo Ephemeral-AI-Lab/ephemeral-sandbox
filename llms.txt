@@ -1,0 +1,25 @@
+# Ephemeral Sandbox
+> Open-source local workspace isolation for parallel coding agents working on one shared project base.
+
+## Start here
+
+- [Ephemeral Sandbox README](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox): Product overview, supported host platforms, and quick-start commands.
+- [Documentation](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-docs): Architecture, CLI, MCP, and installation documentation.
+- [System overview](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-docs/blob/main/architecture/00-foundations/01-system-overview.md): Component-level architecture and request path.
+- [Ephemeral Sandbox Console](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-console): Separate browser console and backend-for-frontend.
+
+## Key facts
+
+- Each coding agent has a private writable workspace over a stable shared project base and history.
+- The core provides Docker-based gateway, manager, daemon, runtime, observability, CLI, and MCP components.
+- Operators inspect activity and provenance before publishing a complete resolved change set.
+- CLI and MCP expose separate management, runtime, and observability tool groups.
+
+## Primary terms
+
+- Parallel coding agents
+- Isolated workspaces
+- Agent sandbox
+- MCP server
+- Change provenance
+- Docker sandbox
