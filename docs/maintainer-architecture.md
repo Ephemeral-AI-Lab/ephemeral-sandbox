@@ -29,6 +29,7 @@ sandbox-runtime / sandbox-observability-query
    | command, file, workspace, layerstack, and observability behavior
    v
 sandbox-runtime-workspace / sandbox-runtime-layerstack /
+sandbox-runtime-mpla-poc /
 sandbox-runtime-namespace-execution / sandbox-runtime-namespace-process /
 sandbox-runtime-overlay / sandbox-observability-telemetry
 ```
@@ -52,6 +53,7 @@ sandbox-runtime-overlay / sandbox-observability-telemetry
 | `sandbox-runtime-workspace` | lib | Own workspace runtime lifecycle, namespace handles, capture, and destroy | Own command process state |
 | `sandbox-runtime-layerstack` | lib | Own content hashes, manifest/layer types, storage, and leases | Own command execution |
 | `sandbox-runtime-layerstack-core` | lib | Own safe, standard-library-only portable identity values, raw relative Linux path validation, canonical v2 records, bounded decoding, and narrow source/sink/digest ports | Depend on LayerStack, hashing/serde/filesystem/provider/runtime/benchmark crates, use unsafe/FFI, or own persistence, publication, capture, materialization, telemetry, or process state |
+| `sandbox-runtime-mpla-poc` | lib + 3 bins | Own the provisional MPLA storage lifecycle, qualification helpers, and independent oracle | Widen its authority beyond LayerStack and OverlayFS primitives or define public operation policy |
 | `sandbox-runtime-namespace-execution` | lib | Own the namespace execution engine, PTY I/O, and transcript read/write windowing | Own workspace lifecycle |
 | `sandbox-runtime-namespace-process` | lib | Own namespace holder/runner bodies and setns execution | Own operation dispatch |
 | `sandbox-runtime-overlay` | lib | Own low-level overlay mount and unmount primitives | Own workspace lifecycle |
@@ -122,11 +124,14 @@ package identity, or re-export layer.
 - `crates/sandbox-operations/` groups `contract/`, `catalog/`, and `client/`.
 - `crates/sandbox-observability/` groups `telemetry/` and `query/`.
 - `crates/sandbox-runtime/` groups `operation/`, `workspace/`, `layerstack/`,
-  `namespace-execution/`, `namespace-process/`, and `overlay/`.
+  `layerstack-core/`, `mpla-poc/`, `namespace-execution/`,
+  `namespace-process/`, and `overlay/`.
 - `crates/` also contains the flat CLI, config, daemon, gateway, manager, MCP,
   protocol, and Docker-provider packages.
 - `crates/sandbox-runtime/layerstack/tests/fixtures/` owns runtime CAS fixtures.
-- `e2e/` contains live CLI, MCP, gateway, manager, daemon, runtime, and
+- The separately versioned
+  [`ephemeral-sandbox-test`](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-test)
+  repository contains live CLI, MCP, gateway, manager, daemon, runtime, and
   observability coverage.
 - `config/prd.yml` is the daemon configuration baseline.
 - `dist/` contains packaged static binaries and supporting artifacts uploaded

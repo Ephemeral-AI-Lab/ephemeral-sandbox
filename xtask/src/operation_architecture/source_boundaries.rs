@@ -13,6 +13,8 @@ const PROVIDER_MANAGER_API: &[&str] = &[
     "SandboxHttpEndpoint",
     "SandboxId",
     "SandboxRecord",
+    "SandboxResourceMetrics",
+    "SandboxResourceProfile",
     "SandboxRuntime",
     "SandboxState",
     "SharedBaseMount",

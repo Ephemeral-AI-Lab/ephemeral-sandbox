@@ -320,10 +320,10 @@ fn run_behavior_proofs(root: &Path) -> Result<()> {
             "sandbox-observability-query",
             "--test",
             "query",
-            "public_registry_is_bijective_with_observability_owned_routes",
+            "sandbox_registry_is_bijective_with_observability_domain_routes",
             "--",
             "--exact",
-        ], Some("public_registry_is_bijective_with_observability_owned_routes")),
+        ], Some("sandbox_registry_is_bijective_with_observability_domain_routes")),
     ];
     for (arguments, expected) in proofs {
         let output = run_cargo(root, arguments)?;

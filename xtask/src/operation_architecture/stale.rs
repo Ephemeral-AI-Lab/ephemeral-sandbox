@@ -76,8 +76,6 @@ const STALE_PATH_REFERENCES: &[&str] = &[
 ];
 
 const CANONICAL_LITERALS: &[&str] = &[
-    "create_workspace_session",
-    "destroy_workspace_session",
     "squash_layerstack",
     "export_layerstack",
     "read_export_chunk",
@@ -220,9 +218,6 @@ fn validate_tree(root: &Path) -> Vec<String> {
             violations.push(format!("forbidden legacy tree exists: {forbidden}"));
         }
     }
-    if !root.join("e2e").is_dir() {
-        violations.push("maintained root e2e/ suite is missing".to_owned());
-    }
     compare_children(root, "crates", DIRECT_CRATE_CHILDREN, &mut violations);
     compare_children(
         root,
@@ -251,6 +246,8 @@ fn validate_tree(root: &Path) -> Vec<String> {
         "crates/sandbox-runtime",
         &[
             "layerstack",
+            "layerstack-core",
+            "mpla-poc",
             "namespace-execution",
             "namespace-process",
             "operation",
