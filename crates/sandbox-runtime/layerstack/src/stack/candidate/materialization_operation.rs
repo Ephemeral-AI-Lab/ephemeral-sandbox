@@ -119,6 +119,12 @@ pub(crate) struct MaterializationOperationBuild {
     pub(crate) provided_capabilities: CapabilityProfile,
 }
 
+struct SquashPreallocation<'a> {
+    generation: (u64, u64),
+    expected_build: MaterializationOperationBuild,
+    generations: &'a GenerationStore,
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct MaterializationOperation {
     storage_root: PathBuf,
@@ -279,7 +285,6 @@ impl MaterializationOperation {
             source_holds,
             prior_generation_hold,
             None,
-            None,
             now_unix_seconds,
         )
     }
@@ -300,8 +305,11 @@ impl MaterializationOperation {
             &operation_scope,
             Vec::new(),
             Some(prior_generation_hold),
-            Some((generation, expected_build)),
-            Some(generations),
+            Some(SquashPreallocation {
+                generation,
+                expected_build,
+                generations,
+            }),
             now_unix_seconds,
         )
     }
@@ -312,8 +320,7 @@ impl MaterializationOperation {
         operation_scope: &str,
         source_holds: Vec<MaterializationSourceHold>,
         prior_generation_hold: Option<MaterializationPublicationSubject>,
-        preallocated: Option<((u64, u64), MaterializationOperationBuild)>,
-        generations: Option<&GenerationStore>,
+        preallocated: Option<SquashPreallocation<'_>>,
         now_unix_seconds: u64,
     ) -> Result<Self, MaterializationOperationError> {
         validate_operation_scope(operation_scope)?;
@@ -328,20 +335,24 @@ impl MaterializationOperation {
                     "materialization hold set changed".to_owned(),
                 ));
             }
-            if let Some((generation, expected_build)) = preallocated.as_ref() {
+            if let Some(preallocated) = preallocated.as_ref() {
                 let has_build = operation.state.native_tree_sha256.is_some();
                 if has_build
-                    && (operation.state.generation.zip(operation.state.fence) != Some(*generation)
-                        || !state_matches_expected_build(&operation.state, expected_build))
+                    && (operation.state.generation.zip(operation.state.fence)
+                        != Some(preallocated.generation)
+                        || !state_matches_expected_build(
+                            &operation.state,
+                            &preallocated.expected_build,
+                        ))
                 {
                     return Err(MaterializationOperationError::Transition(
                         "preallocated squash generation or build expectation changed".to_owned(),
                     ));
                 }
-                if !has_build
-                    && !(operation.state.phase == MaterializationPhase::Building
+                if !(has_build
+                    || (operation.state.phase == MaterializationPhase::Building
                         && operation.state.checkpoint == MaterializationCheckpoint::Admitted
-                        && operation.state.generation.is_none())
+                        && operation.state.generation.is_none()))
                 {
                     return Err(MaterializationOperationError::Transition(
                         "existing squash operation omitted its preallocated build truth".to_owned(),
@@ -353,23 +364,20 @@ impl MaterializationOperation {
         let materialization_id = key
             .id()
             .map_err(|error| MaterializationOperationError::Invalid(error.to_string()))?;
-        if let Some(generations) = generations {
-            let generation = preallocated
-                .as_ref()
-                .map(|((generation, _), _)| *generation)
-                .ok_or_else(|| {
-                    MaterializationOperationError::Invalid(
-                        "generation guard requires a preallocated generation".to_owned(),
-                    )
-                })?;
-            generations
-                .ensure_generation_absent(materialization_id, generation)
+        if let Some(preallocated) = preallocated.as_ref() {
+            preallocated
+                .generations
+                .ensure_generation_absent(materialization_id, preallocated.generation.0)
                 .map_err(|error| MaterializationOperationError::Generation(error.to_string()))?;
         }
         let operation_id = operation_id(materialization_id, operation_scope);
         let state_path = state_path(&storage_root, &operation_id);
         let (generation, fence, expected_build) = match preallocated {
-            Some(((generation, fence), build)) => (Some(generation), Some(fence), Some(build)),
+            Some(preallocated) => (
+                Some(preallocated.generation.0),
+                Some(preallocated.generation.1),
+                Some(preallocated.expected_build),
+            ),
             None => (None, None, None),
         };
         let state = seal_state(MaterializationOperationState {
