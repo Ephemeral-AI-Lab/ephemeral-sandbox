@@ -1,8 +1,8 @@
 use crate::error::WorkspaceError;
 use crate::lifecycle::leases::next_handle_id;
 use crate::model::{
-    CreateWorkspaceRequest, LayerStackSnapshotRef, NetworkProfile, WorkspaceHandle,
-    WorkspaceSessionId,
+    CreateWorkspaceRequest, ExternalOverlayLayout, LayerStackSnapshotRef, NetworkProfile,
+    WorkspaceHandle, WorkspaceSessionId,
 };
 use crate::service::support::{ensure_absolute, workspace_error_from_manager_error};
 use crate::service::{WorkspaceRuntimeService, WorkspaceStorageMode};
@@ -25,8 +25,32 @@ impl WorkspaceRuntimeService {
         &self,
         request: CreateWorkspaceRequest,
     ) -> Result<WorkspaceHandle, WorkspaceError> {
+        self.create_workspace_with_optional_external_overlay(request, None)
+    }
+
+    /// Create a holder for a server-prepared MPLA overlay.  It deliberately
+    /// skips mounting; only the typed storage-admin helper may mount it.
+    pub fn create_workspace_with_external_overlay(
+        &self,
+        request: CreateWorkspaceRequest,
+        external_overlay: ExternalOverlayLayout,
+    ) -> Result<WorkspaceHandle, WorkspaceError> {
+        self.create_workspace_with_optional_external_overlay(request, Some(external_overlay))
+    }
+
+    fn create_workspace_with_optional_external_overlay(
+        &self,
+        request: CreateWorkspaceRequest,
+        external_overlay: Option<ExternalOverlayLayout>,
+    ) -> Result<WorkspaceHandle, WorkspaceError> {
         let _admission = self.admit_work()?;
         if let Some(hooks) = self.hooks() {
+            if external_overlay.is_some() {
+                return Err(WorkspaceError::Setup {
+                    step: "workspace runtime hooks do not implement external MPLA overlays"
+                        .to_owned(),
+                });
+            }
             return (hooks.create_workspace)(request);
         }
 
@@ -74,12 +98,13 @@ impl WorkspaceRuntimeService {
         if let Some(admission) = &candidate_admission {
             snapshot.layer_paths = vec![admission.selection.carrier_path.clone()];
         }
-        let session = match state.manager.open_with_candidate(
+        let session = match state.manager.open_with_candidate_with_external_overlay(
             request.workspace_session_id,
             snapshot,
             request.network,
             candidate_admission,
             candidate_session_lease_ttl,
+            external_overlay,
         ) {
             Ok(handle) => handle,
             Err(error) => return Err(workspace_error_from_manager_error(error)),

@@ -31,10 +31,11 @@ pub use lifecycle::{
 };
 pub use model::{
     BaseRevision, CaptureChangesRequest, CapturedWorkspaceChanges, ChangedPathKind,
-    CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, LayerStackSnapshotRef,
-    LayerStackSnapshotView, LeaseId, NetworkProfile, ProtectedPathDrop, ProtectedPathDropReason,
-    ReadonlySnapshotHandle, WorkspaceEntry, WorkspaceEntryError, WorkspaceEntryFds,
-    WorkspaceHandle, WorkspaceHolderIdentity, WorkspaceOwnershipSnapshot, WorkspaceSessionId,
+    CreateWorkspaceRequest, DestroyWorkspaceRequest, DestroyWorkspaceResult, ExternalOverlayLayout,
+    LayerStackSnapshotRef, LayerStackSnapshotView, LeaseId, NetworkProfile, ProtectedPathDrop,
+    ProtectedPathDropReason, ReadonlySnapshotHandle, WorkspaceEntry, WorkspaceEntryError,
+    WorkspaceEntryFds, WorkspaceHandle, WorkspaceHolderIdentity, WorkspaceOwnershipSnapshot,
+    WorkspaceSessionId,
 };
 #[doc(hidden)]
 pub use namespace::holder::{

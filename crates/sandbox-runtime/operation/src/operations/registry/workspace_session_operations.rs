@@ -14,6 +14,7 @@ use sha2::{Digest, Sha256};
 
 use crate::operations::dispatch::OperationEntry;
 use crate::workspace_crate::{DestroyWorkspaceResult, NetworkProfile, WorkspaceSessionId};
+use crate::workspace_session::MplaWorkspaceBinding;
 use crate::workspace_session::{
     CreateSessionRequest, FinalizePolicy, PublishWorkspaceSessionResult, WorkspaceSessionError,
     WorkspaceSessionHandler, WorkspaceSessionPublishDetails,
@@ -21,8 +22,8 @@ use crate::workspace_session::{
 use crate::SandboxRuntimeOperations;
 use sandbox_operation_catalog::internal::runtime::CREATE_WORKSPACE_SESSION_LEGACY_SCRATCH_ADAPTER;
 use sandbox_operation_catalog::runtime::{
-    CREATE_WORKSPACE_SESSION_SPEC, DESTROY_WORKSPACE_SESSION_SPEC, MPLA_STORAGE_ADMIN_SPEC,
-    PUBLISH_WORKSPACE_SESSION_SPEC,
+    CREATE_MPLA_WORKSPACE_SESSION_SPEC, CREATE_WORKSPACE_SESSION_SPEC,
+    DESTROY_WORKSPACE_SESSION_SPEC, MPLA_STORAGE_ADMIN_SPEC, PUBLISH_WORKSPACE_SESSION_SPEC,
 };
 use sandbox_operation_contract::OperationScopeKind;
 use sandbox_operation_contract::{OperationRequest, OperationResponse};
@@ -30,6 +31,10 @@ use sandbox_operation_contract::{OperationRequest, OperationResponse};
 const CREATE_WORKSPACE_SESSION_ENTRY: OperationEntry = OperationEntry::public(
     &CREATE_WORKSPACE_SESSION_SPEC,
     dispatch_create_workspace_session,
+);
+const CREATE_MPLA_WORKSPACE_SESSION_ENTRY: OperationEntry = OperationEntry::public(
+    &CREATE_MPLA_WORKSPACE_SESSION_SPEC,
+    dispatch_create_mpla_workspace_session,
 );
 const DESTROY_WORKSPACE_SESSION_ENTRY: OperationEntry = OperationEntry::public(
     &DESTROY_WORKSPACE_SESSION_SPEC,
@@ -50,6 +55,7 @@ const CREATE_WORKSPACE_SESSION_LEGACY_SCRATCH_ADAPTER_ENTRY: OperationEntry = Op
 
 const PUBLIC_OPERATIONS: &[OperationEntry] = &[
     CREATE_WORKSPACE_SESSION_ENTRY,
+    CREATE_MPLA_WORKSPACE_SESSION_ENTRY,
     PUBLISH_WORKSPACE_SESSION_ENTRY,
     DESTROY_WORKSPACE_SESSION_ENTRY,
     MPLA_STORAGE_ADMIN_ENTRY,
@@ -79,6 +85,46 @@ fn dispatch_create_workspace_session(
             finalize_policy: FinalizePolicy::NoOp,
         },
     ))
+}
+
+fn dispatch_create_mpla_workspace_session(
+    operations: &SandboxRuntimeOperations,
+    request: &OperationRequest,
+) -> OperationResponse {
+    let run_id = match request.required_string("run_id") {
+        Ok(value) if !value.trim().is_empty() => {
+            match sandbox_runtime_mpla_poc::RunId::parse(value) {
+                Ok(run_id) => run_id,
+                Err(error) => return request.invalid_argument(format!("invalid run_id: {error}")),
+            }
+        }
+        Ok(_) => return request.invalid_argument("run_id must not be empty"),
+        Err(response) => return response,
+    };
+    let sandbox_id = match request.scope.sandbox_id() {
+        Some(sandbox_id) => sandbox_id,
+        None => {
+            return request.invalid_argument("create_mpla_workspace_session requires sandbox scope")
+        }
+    };
+    match operations
+        .workspace_session
+        .create_mpla_workspace_session(run_id, OperationId::from_string(request.request_id.clone()))
+    {
+        Ok(handler) => match operations
+            .workspace_session
+            .mpla_storage_scope(&handler.workspace_session_id, sandbox_id)
+        {
+            Ok(storage_admin_scope) => OperationResponse::ok(json!({
+                "workspace_session_id": handler.workspace_session_id.0,
+                "network_profile": handler.handle.network.as_str(),
+                "finalize_policy": FinalizePolicy::NoOp.as_str(),
+                "storage_admin_scope": storage_admin_scope,
+            })),
+            Err(error) => workspace_session_error_response(error),
+        },
+        Err(error) => workspace_session_error_response(error),
+    }
 }
 
 fn dispatch_create_workspace_session_legacy_scratch_adapter(
@@ -162,13 +208,17 @@ fn dispatch_mpla_storage_admin(
         None => return request.invalid_argument("mpla_storage_admin requires sandbox scope"),
     };
     let workspace_session_id = WorkspaceSessionId(submitted.scope.workspace_session_id.clone());
-    let result = operations
-        .workspace_session
-        .with_gated_session(&workspace_session_id, |handler| {
-            bind_and_run_storage_admin(request, sandbox_id, &submitted, handler)
-        });
+    let result = operations.workspace_session.with_gated_mpla_storage_action(
+        &workspace_session_id,
+        submitted.action,
+        |handler, binding| {
+            let receipt =
+                bind_and_run_storage_admin(request, sandbox_id, &submitted, handler, binding)?;
+            Ok((receipt.clone(), receipt))
+        },
+    );
     match result {
-        Ok(Ok(receipt)) => match serde_json::to_value(receipt) {
+        Ok(receipt) => match serde_json::to_value(receipt) {
             Ok(value) => OperationResponse::ok(value),
             Err(error) => OperationResponse::fault_with_details(
                 "operation_failed",
@@ -176,11 +226,6 @@ fn dispatch_mpla_storage_admin(
                 json!({}),
             ),
         },
-        Ok(Err(error)) => OperationResponse::fault_with_details(
-            "operation_failed",
-            error,
-            json!({ "operation": MPLA_STORAGE_ADMIN_SPEC.name }),
-        ),
         Err(error) => workspace_session_error_response(error),
     }
 }
@@ -203,6 +248,7 @@ fn bind_and_run_storage_admin(
     sandbox_id: &str,
     submitted: &StorageAdminRequest,
     handler: &WorkspaceSessionHandler,
+    binding: &MplaWorkspaceBinding,
 ) -> Result<StorageAdminReceipt, String> {
     if submitted.operation_id.as_str() != request.request_id {
         return Err("storage-admin operation_id must equal the routed request_id".to_owned());
@@ -230,7 +276,7 @@ fn bind_and_run_storage_admin(
     if submitted.scope.mount_namespace_id != mount_namespace_id {
         return Err("storage-admin mount namespace does not match the live holder".to_owned());
     }
-    require_scoped_mpla_paths(submitted, handler)?;
+    require_scoped_mpla_paths(submitted, handler, binding)?;
     validate_active_storage_admin_lease(
         &submitted.scope.allocation_root,
         &submitted.scope.allocation_id,
@@ -274,7 +320,14 @@ fn bind_and_run_storage_admin(
         workload_cgroup_procs,
         mount_namespace_holder_pid: holder_pid,
     };
-    run_fixed_storage_admin(&invocation)
+    let receipt = run_fixed_storage_admin(&invocation)?;
+    if receipt.scope != submitted.scope
+        || receipt.action != submitted.action
+        || receipt.operation_id != submitted.operation_id
+    {
+        return Err("storage-admin receipt does not match the bound request".to_owned());
+    }
+    Ok(receipt)
 }
 
 fn trusted_storage_admin_executable_sha256() -> Result<String, String> {
@@ -302,28 +355,29 @@ fn trusted_storage_admin_executable_sha256() -> Result<String, String> {
 fn require_scoped_mpla_paths(
     submitted: &StorageAdminRequest,
     handler: &WorkspaceSessionHandler,
+    binding: &MplaWorkspaceBinding,
 ) -> Result<(), String> {
     let entry = handler
         .handle
         .entry()
         .map_err(|error| format!("read live workspace launch material: {error}"))?;
     let workspace_root = &handler.handle.workspace_root;
-    if entry.workspace_root != *workspace_root || submitted.scope.workspace_root != *workspace_root
+    if entry.workspace_root != *workspace_root
+        || submitted.scope.workspace_root != *workspace_root
+        || submitted.scope.workspace_root != binding.prepared.workspace_root()
     {
         return Err("storage-admin workspace target is not server-owned".to_owned());
     }
-    let allocation_root = entry
-        .upperdir
-        .parent()
-        .ok_or_else(|| "live workspace upper directory has no allocation root".to_owned())?;
-    if entry.upperdir != allocation_root.join("upper")
-        || entry.workdir != allocation_root.join("work")
+    let allocation_root = &binding.allocation.allocation_root;
+    if entry.upperdir != binding.allocation.upper_dir
+        || entry.workdir != binding.allocation.work_dir
     {
         return Err("live workspace allocation layout is not MPLA-owned".to_owned());
     }
     if allocation_root.file_name().and_then(|part| part.to_str())
         != Some(submitted.scope.allocation_id.as_str())
-        || submitted.scope.allocation_root != allocation_root
+        || submitted.scope.allocation_root != *allocation_root
+        || submitted.scope.allocation_id != binding.allocation.descriptor.allocation_id
     {
         return Err("storage-admin allocation root is not the live MPLA allocation".to_owned());
     }
@@ -337,7 +391,9 @@ fn require_scoped_mpla_paths(
     let payload_root = allocations_root
         .parent()
         .ok_or_else(|| "live MPLA allocations root has no payload root".to_owned())?;
-    if submitted.scope.payload_root != payload_root {
+    if submitted.scope.payload_root != payload_root
+        || submitted.scope.payload_root != binding.payload_root
+    {
         return Err(
             "storage-admin payload root is not derived from the live allocation".to_owned(),
         );
@@ -360,12 +416,23 @@ fn require_scoped_mpla_paths(
     let control_root = sessions_root
         .parent()
         .ok_or_else(|| "live MPLA sessions root has no control root".to_owned())?;
-    if submitted.scope.control_root != control_root {
+    if submitted.scope.control_root != control_root
+        || submitted.scope.control_root != binding.control_root
+    {
         return Err("storage-admin control root is not derived from the live session".to_owned());
     }
     if submitted.scope.lower_dirs_newest_first != entry.layer_paths {
         return Err(
             "storage-admin lower directories do not match the live workspace layers".to_owned(),
+        );
+    }
+    if submitted.scope.run_id != binding.run_id
+        || submitted.scope.session_id != binding.lease.session_id
+        || submitted.scope.lease_id != binding.lease_operation_id.as_str()
+        || submitted.scope.lease_epoch != binding.lease.lease_epoch
+    {
+        return Err(
+            "storage-admin request is not bound to the server-owned MPLA run and lease".to_owned(),
         );
     }
     Ok(())

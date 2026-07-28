@@ -131,7 +131,7 @@ impl WorkspaceSessionService {
         })
     }
 
-    fn commit_created_session(
+    pub(super) fn commit_created_session(
         &self,
         handler: &WorkspaceSessionHandler,
     ) -> Result<(), WorkspaceSessionError> {

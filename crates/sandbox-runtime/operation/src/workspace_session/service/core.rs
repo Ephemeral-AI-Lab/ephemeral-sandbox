@@ -18,6 +18,14 @@ use super::model::{
     HolderLifecycleSnapshot, WorkspaceSession, WorkspaceSessionHandler,
 };
 
+/// Fixed public-runtime roots from which dedicated MPLA sessions are created.
+/// They are derived solely from the loaded sandbox configuration.
+#[derive(Debug, Clone)]
+pub struct MplaLifecycleRoots {
+    pub payload_root: PathBuf,
+    pub control_root: PathBuf,
+}
+
 const HOLDER_LIFECYCLE_EVENT_CAPACITY: usize = 128;
 const HOLDER_LIFECYCLE_DETAIL_CAPACITY: usize = 512;
 
@@ -171,6 +179,7 @@ pub struct WorkspaceSessionService {
     cgroup_root: Option<PathBuf>,
     pub(super) workload_cgroup_limits: Option<WorkloadCgroupLimits>,
     pub(super) workload_cgroup_unavailable_reason: Option<String>,
+    pub(super) mpla_lifecycle_roots: Option<MplaLifecycleRoots>,
     obs: Observer,
 }
 
@@ -209,6 +218,7 @@ impl WorkspaceSessionService {
             workload_cgroup_unavailable_reason: Some(
                 "workload cgroup limits are not configured".to_owned(),
             ),
+            mpla_lifecycle_roots: None,
             obs,
         }
     }
@@ -233,6 +243,7 @@ impl WorkspaceSessionService {
             cgroup_root: Some(cgroup_root),
             workload_cgroup_limits: Some(limits),
             workload_cgroup_unavailable_reason: None,
+            mpla_lifecycle_roots: None,
             obs,
         }
     }
@@ -257,8 +268,16 @@ impl WorkspaceSessionService {
             cgroup_root: None,
             workload_cgroup_limits: Some(limits),
             workload_cgroup_unavailable_reason: Some(reason),
+            mpla_lifecycle_roots: None,
             obs,
         }
+    }
+
+    /// Enable the dedicated MPLA lifecycle API for this configured runtime.
+    #[must_use]
+    pub fn with_mpla_lifecycle_roots(mut self, roots: MplaLifecycleRoots) -> Self {
+        self.mpla_lifecycle_roots = Some(roots);
+        self
     }
 
     /// The per-session admission gate: the single serializer for command

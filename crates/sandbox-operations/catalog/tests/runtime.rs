@@ -42,6 +42,7 @@ fn runtime_catalog_is_the_exact_public_runtime_surface() {
             "file_edit",
             "file_blame",
             "create_workspace_session",
+            "create_mpla_workspace_session",
             "publish_workspace_session",
             "destroy_workspace_session",
             "mpla_storage_admin",
@@ -79,6 +80,20 @@ fn runtime_catalog_is_the_exact_public_runtime_surface() {
         })
         .expect("create_workspace_session network_profile argument");
     assert_eq!(network_profile.default, Some("shared"));
+
+    let mpla_create = catalog
+        .operations
+        .iter()
+        .find(|operation| operation.name == "create_mpla_workspace_session")
+        .expect("create_mpla_workspace_session operation");
+    assert_eq!(
+        mpla_create
+            .args
+            .iter()
+            .map(|argument| (argument.name, argument.kind, argument.required))
+            .collect::<Vec<_>>(),
+        [("run_id", ArgKind::String, true)]
+    );
 
     let publish = catalog
         .operations

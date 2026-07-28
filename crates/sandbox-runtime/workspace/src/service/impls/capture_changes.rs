@@ -25,6 +25,13 @@ impl WorkspaceRuntimeService {
                 .handles
                 .get(&handle.id)
                 .ok_or(WorkspaceError::NotOpen)?;
+            if session.external_overlay_authority {
+                return Err(WorkspaceError::Capture {
+                    message:
+                        "external MPLA overlays are captured only by the typed storage lifecycle"
+                            .to_owned(),
+                });
+            }
             if !handle.matches_mounted_workspace(session) || !handle.holder_is_live() {
                 return Err(WorkspaceError::NotOpen);
             }
@@ -51,6 +58,13 @@ impl WorkspaceRuntimeService {
                 .handles
                 .get(&handle.id)
                 .ok_or(WorkspaceError::NotOpen)?;
+            if session.external_overlay_authority {
+                return Err(WorkspaceError::Capture {
+                    message:
+                        "external MPLA overlays are captured only by the typed storage lifecycle"
+                            .to_owned(),
+                });
+            }
             if !handle.matches_mounted_workspace(session)
                 || !handle
                     .holder_registration()

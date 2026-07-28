@@ -54,6 +54,9 @@ Workspace session
   create_workspace_session
     Create an explicit workspace session.
 
+  create_mpla_workspace_session
+    Create an unmounted MPLA-backed workspace session.
+
   publish_workspace_session
     Publish an explicit workspace session and close it.
 

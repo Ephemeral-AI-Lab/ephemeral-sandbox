@@ -15,6 +15,41 @@ use sandbox_runtime_mpla_poc::{
     ReceiptHitSealInput, SCHEMA_VERSION,
 };
 
+#[test]
+fn external_session_preparation_persists_open_state_without_mounting() {
+    let root = TestDirectory::new("external-session-preparation");
+    let allocation_operation = OperationId::from_string("allocate-external-session");
+    let allocation = sandbox_runtime_mpla_poc::allocation::create_allocation(
+        &root.0.join("payload/allocations"),
+        &allocation_operation,
+    )
+    .expect("create permanent allocation");
+    let lease = sandbox_runtime_mpla_poc::lease::issue_workspace_lease(
+        &allocation,
+        sandbox_runtime_mpla_poc::SessionId::new(),
+        &allocation_operation,
+    )
+    .expect("issue workspace lease");
+
+    let prepared = sandbox_runtime_mpla_poc::prepare_external_session(
+        &root.0.join("control"),
+        &allocation,
+        &lease,
+    )
+    .expect("prepare external session without mounting");
+
+    assert!(prepared.session_dir().join("SESSION.json").is_file());
+    assert!(prepared.workspace_root().is_dir());
+    let record: sandbox_runtime_mpla_poc::SessionRecord = serde_json::from_slice(
+        &fs::read(prepared.session_dir().join("SESSION.json")).expect("read session record"),
+    )
+    .expect("parse session record");
+    assert_eq!(record.session_id, lease.session_id);
+    assert_eq!(record.allocation_id, allocation.descriptor.allocation_id);
+    assert_eq!(record.phase, sandbox_runtime_mpla_poc::SessionPhase::Open);
+    assert_eq!(record.workspace_root, prepared.workspace_root());
+}
+
 struct TestDirectory(PathBuf);
 
 impl TestDirectory {

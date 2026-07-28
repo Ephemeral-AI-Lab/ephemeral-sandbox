@@ -95,6 +95,12 @@ pub enum WorkspaceSessionError {
         diagnostic: String,
         rollback_diagnostic: Option<String>,
     },
+
+    #[error("MPLA storage lifecycle rejected for {workspace_session_id:?}: {reason}")]
+    MplaLifecycle {
+        workspace_session_id: WorkspaceSessionId,
+        reason: String,
+    },
 }
 
 impl WorkspaceSessionError {

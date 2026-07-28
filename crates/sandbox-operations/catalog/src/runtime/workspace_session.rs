@@ -11,6 +11,11 @@ pub const CREATE_WORKSPACE_SESSION: RoutedOperation = RoutedOperation {
     routing: RUNTIME_OWNED,
 };
 
+pub const CREATE_MPLA_WORKSPACE_SESSION: RoutedOperation = RoutedOperation {
+    spec: &CREATE_MPLA_WORKSPACE_SESSION_SPEC,
+    routing: RUNTIME_OWNED,
+};
+
 pub const PUBLISH_WORKSPACE_SESSION: RoutedOperation = RoutedOperation {
     spec: &PUBLISH_WORKSPACE_SESSION_SPEC,
     routing: RUNTIME_OWNED,
@@ -41,6 +46,25 @@ pub const CREATE_WORKSPACE_SESSION_SPEC: OperationSpec = OperationSpec {
     args: CREATE_WORKSPACE_SESSION_ARGS,
     related: &["destroy_workspace_session", "exec_command"],
 };
+
+pub const CREATE_MPLA_WORKSPACE_SESSION_SPEC: OperationSpec = OperationSpec {
+    name: "create_mpla_workspace_session",
+    family: "workspace_session",
+    summary: "Create an unmounted MPLA-backed workspace session.",
+    description: "Create a dedicated MPLA allocation and an explicit shared-network workspace holder with no mounted overlay. The returned storage_admin_scope is server-derived and must be used with mpla_storage_admin to mount, quiesce, strictly unmount, and clean up the session. Ordinary commands and file operations are rejected until a successful mount receipt.",
+    args: CREATE_MPLA_WORKSPACE_SESSION_ARGS,
+    related: &[
+        "mpla_storage_admin",
+        "destroy_workspace_session",
+        "exec_command",
+    ],
+};
+
+const CREATE_MPLA_WORKSPACE_SESSION_ARGS: &[ArgSpec] = &[ArgSpec::required(
+    "run_id",
+    ArgKind::String,
+    "MPLA qualification run identity bound permanently to the allocation lease.",
+)];
 
 const CREATE_WORKSPACE_SESSION_ARGS: &[ArgSpec] = &[ArgSpec::optional(
     "network_profile",
@@ -106,7 +130,7 @@ pub const MPLA_STORAGE_ADMIN_SPEC: OperationSpec = OperationSpec {
     description: "Submit one m2r-iface-v1 storage lifecycle request for a live explicit workspace session. The daemon authenticates and binds the request to the sandbox, workspace session, allocation, lease, mount namespace, and exact MPLA roots before invoking the fixed mpla-storage-admin-v1 executable. Caller-selected executables, capabilities, syscalls, or path widening are never accepted.",
     args: MPLA_STORAGE_ADMIN_ARGS,
     related: &[
-        "create_workspace_session",
+        "create_mpla_workspace_session",
         "destroy_workspace_session",
         "exec_command",
     ],

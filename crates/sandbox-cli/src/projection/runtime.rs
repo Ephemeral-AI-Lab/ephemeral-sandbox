@@ -47,6 +47,9 @@ const CREATE_WORKSPACE_SESSION_ARGUMENTS: &[ArgumentProjection] = &[ArgumentProj
     "--network-profile",
 )];
 
+const CREATE_MPLA_WORKSPACE_SESSION_ARGUMENTS: &[ArgumentProjection] =
+    &[ArgumentProjection::flag("run_id", "--run-id")];
+
 const PUBLISH_WORKSPACE_SESSION_ARGUMENTS: &[ArgumentProjection] = &[
     ArgumentProjection::flag("workspace_session_id", "--workspace-session-id"),
     ArgumentProjection::flag("grace_s", "--grace-s"),
@@ -139,6 +142,15 @@ const OPERATIONS: &[OperationProjection] = &[
             "sandbox-runtime-cli --sandbox-id ID create_workspace_session --network-profile isolated",
         ],
         arguments: CREATE_WORKSPACE_SESSION_ARGUMENTS,
+    },
+    OperationProjection {
+        name: "create_mpla_workspace_session",
+        path: &["runtime", "create_mpla_workspace_session"],
+        usage: "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID create_mpla_workspace_session --run-id RUN_ID",
+        examples: &[
+            "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID create_mpla_workspace_session --run-id mpla-poc-20260728",
+        ],
+        arguments: CREATE_MPLA_WORKSPACE_SESSION_ARGUMENTS,
     },
     OperationProjection {
         name: "publish_workspace_session",

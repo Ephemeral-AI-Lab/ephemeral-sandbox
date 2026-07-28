@@ -12,7 +12,10 @@ use crate::workspace_session::{WorkspaceSessionError, WorkspaceSessionService};
 
 use super::super::cgroup::cleanup_workspace_cgroup;
 use super::super::core::{DestroyFlight, DestroyFlightTerminal, HolderDestroyPlan};
-use super::super::model::{FinalizationState, HolderExitDisposition, WorkspaceSessionHandler};
+use super::super::model::{
+    FinalizationState, HolderExitDisposition, MplaStoragePhase, MplaWorkspaceBinding,
+    WorkspaceSessionHandler,
+};
 
 /// The state a destroy needs, snapshotted under a brief `sessions` lock so the
 /// lock is never held across the workspace teardown I/O (§2.3 hard rule).
@@ -20,6 +23,7 @@ pub(crate) struct DestroySnapshot {
     pub(crate) handler: WorkspaceSessionHandler,
     pub(crate) workspace_destroy_result: Option<DestroyWorkspaceResult>,
     pub(crate) cgroup_cleanup_complete: bool,
+    pub(crate) mpla_binding: Option<MplaWorkspaceBinding>,
 }
 
 impl WorkspaceSessionService {
@@ -328,11 +332,23 @@ impl WorkspaceSessionService {
                 &handler.workspace_session_id,
             ));
         }
+        if let Some(binding) = &session.mpla_binding {
+            if binding.phase != MplaStoragePhase::Cleaned {
+                return Err(WorkspaceSessionError::MplaLifecycle {
+                    workspace_session_id: handler.workspace_session_id.clone(),
+                    reason: format!(
+                        "raw teardown is forbidden before MPLA cleanup (current phase: {})",
+                        binding.phase.as_str()
+                    ),
+                });
+            }
+        }
         session.finalization_state = FinalizationState::Finalizing;
         Ok(DestroySnapshot {
             handler: handler.clone(),
             workspace_destroy_result: session.workspace_destroy_result.clone(),
             cgroup_cleanup_complete: session.cgroup_cleanup_complete,
+            mpla_binding: session.mpla_binding.clone(),
         })
     }
 
@@ -345,6 +361,7 @@ impl WorkspaceSessionService {
             handler,
             workspace_destroy_result,
             cgroup_cleanup_complete,
+            mpla_binding,
         } = snapshot;
         let workspace_session_id = handler.workspace_session_id.clone();
         let revision = handler.handle.base_revision().version;
@@ -419,6 +436,18 @@ impl WorkspaceSessionService {
                 workspace_session_id,
                 failures: vec![format!("workload-cgroup: {error}")],
             });
+        }
+
+        if let Some(binding) = &mpla_binding {
+            sandbox_runtime_mpla_poc::allocation::destroy_workspace_allocation(
+                &binding.payload_root.join("allocations"),
+                &binding.allocation.descriptor.allocation_id,
+                &binding.lease.deleter,
+            )
+            .map_err(|error| WorkspaceSessionError::MplaLifecycle {
+                workspace_session_id: workspace_session_id.clone(),
+                reason: format!("delete cleaned MPLA allocation: {error}"),
+            })?;
         }
 
         let result = workspace_result.expect("no failures requires workspace teardown success");

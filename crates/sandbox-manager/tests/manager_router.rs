@@ -16,9 +16,10 @@ use sandbox_operation_catalog::{
     observability::{CGROUP_SPEC, DAEMON_SPEC, SNAPSHOT_SPEC},
     routes,
     runtime::{
-        CREATE_WORKSPACE_SESSION_SPEC, DESTROY_WORKSPACE_SESSION_SPEC, EXEC_COMMAND_SPEC,
-        FILE_BLAME_SPEC, FILE_EDIT_SPEC, FILE_READ_SPEC, FILE_WRITE_SPEC,
-        PUBLISH_WORKSPACE_SESSION_SPEC, READ_LINES_SPEC, WRITE_STDIN_SPEC,
+        CREATE_MPLA_WORKSPACE_SESSION_SPEC, CREATE_WORKSPACE_SESSION_SPEC,
+        DESTROY_WORKSPACE_SESSION_SPEC, EXEC_COMMAND_SPEC, FILE_BLAME_SPEC, FILE_EDIT_SPEC,
+        FILE_READ_SPEC, FILE_WRITE_SPEC, MPLA_STORAGE_ADMIN_SPEC, PUBLISH_WORKSPACE_SESSION_SPEC,
+        READ_LINES_SPEC, WRITE_STDIN_SPEC,
     },
 };
 use sandbox_operation_contract::{
@@ -703,8 +704,10 @@ async fn activity_revision_advances_only_after_successful_daemon_mutations() {
         FILE_WRITE_SPEC.name,
         FILE_EDIT_SPEC.name,
         CREATE_WORKSPACE_SESSION_SPEC.name,
+        CREATE_MPLA_WORKSPACE_SESSION_SPEC.name,
         PUBLISH_WORKSPACE_SESSION_SPEC.name,
         DESTROY_WORKSPACE_SESSION_SPEC.name,
+        MPLA_STORAGE_ADMIN_SPEC.name,
     ]
     .into_iter()
     .enumerate()
@@ -734,7 +737,7 @@ async fn activity_revision_advances_only_after_successful_daemon_mutations() {
             .lock()
             .expect("invocations lock")
             .len(),
-        11
+        13
     );
 }
 

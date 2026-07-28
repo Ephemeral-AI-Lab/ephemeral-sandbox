@@ -37,8 +37,8 @@ fn public_catalogs_are_route_complete() {
         );
     }
 
-    assert_eq!(operation_count, 26);
-    assert_eq!(routes::public_routes().count(), 28);
+    assert_eq!(operation_count, 28);
+    assert_eq!(routes::public_routes().count(), 30);
 }
 
 #[test]
@@ -180,6 +180,13 @@ fn public_route_manifest_is_exact_and_policy_consistent() {
                 OperationVisibility::Public
             ),
             (
+                "create_mpla_workspace_session",
+                OperationScopePolicy::SandboxRequired,
+                OperationScopeKind::Sandbox,
+                OperationExecutionOwner::Runtime,
+                OperationVisibility::Public
+            ),
+            (
                 "publish_workspace_session",
                 OperationScopePolicy::SandboxRequired,
                 OperationScopeKind::Sandbox,
@@ -188,6 +195,13 @@ fn public_route_manifest_is_exact_and_policy_consistent() {
             ),
             (
                 "destroy_workspace_session",
+                OperationScopePolicy::SandboxRequired,
+                OperationScopeKind::Sandbox,
+                OperationExecutionOwner::Runtime,
+                OperationVisibility::Public
+            ),
+            (
+                "mpla_storage_admin",
                 OperationScopePolicy::SandboxRequired,
                 OperationScopeKind::Sandbox,
                 OperationExecutionOwner::Runtime,

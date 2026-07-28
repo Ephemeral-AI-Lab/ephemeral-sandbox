@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
+use sandbox_runtime_mpla_poc::{
+    AllocationHandle, MutableLease, OperationId, PreparedExternalSession, RunId,
+};
 use sandbox_runtime_namespace_execution::NamespaceExecutionId;
 
 use crate::layerstack::LayerStackRevision;
@@ -120,6 +123,45 @@ pub enum FinalizationState {
     FinalizeFailed,
 }
 
+/// The only storage state in which an MPLA-backed workspace may admit an
+/// ordinary workload.  Storage actions advance this state while holding the
+/// same per-session admission gate used by commands and destruction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MplaStoragePhase {
+    Prepared,
+    Mounted,
+    Quiesced,
+    Unmounted,
+    Cleaned,
+}
+
+impl MplaStoragePhase {
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Prepared => "prepared",
+            Self::Mounted => "mounted",
+            Self::Quiesced => "quiesced",
+            Self::Unmounted => "unmounted",
+            Self::Cleaned => "cleaned",
+        }
+    }
+}
+
+/// Server-owned binding for one externally mounted MPLA workspace.  It is
+/// intentionally private to the operation layer: callers submit an exact
+/// typed request, but never choose its roots, allocation, lease, or session.
+#[derive(Debug, Clone)]
+pub(crate) struct MplaWorkspaceBinding {
+    pub(crate) run_id: RunId,
+    pub(crate) payload_root: PathBuf,
+    pub(crate) control_root: PathBuf,
+    pub(crate) allocation: AllocationHandle,
+    pub(crate) lease: MutableLease,
+    pub(crate) lease_operation_id: OperationId,
+    pub(crate) prepared: PreparedExternalSession,
+    pub(crate) phase: MplaStoragePhase,
+}
+
 /// The converged result for a holder-death cleanup transaction.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HolderExitDisposition {
@@ -195,6 +237,9 @@ pub(crate) struct WorkspaceSession {
     /// cleanup remains pending.
     pub workspace_destroy_result: Option<DestroyWorkspaceResult>,
     pub cgroup_cleanup_complete: bool,
+    /// Present only for sessions created through the dedicated MPLA public
+    /// operation. Generic workspaces are never retrofitted into this mode.
+    pub(crate) mpla_binding: Option<MplaWorkspaceBinding>,
 }
 
 impl WorkspaceSession {
@@ -219,7 +264,23 @@ impl WorkspaceSession {
             holder_cleanup_attempts: 0,
             workspace_destroy_result: None,
             cgroup_cleanup_complete,
+            mpla_binding: None,
         }
+    }
+
+    pub(crate) fn from_mpla_handle(
+        handle: WorkspaceHandle,
+        cgroup_path: Option<PathBuf>,
+        binding: MplaWorkspaceBinding,
+    ) -> Self {
+        let mut session = Self::from_handle(
+            handle,
+            cgroup_path,
+            FinalizePolicy::NoOp,
+            ExecutionScratchRoute::WorkspaceScoped,
+        );
+        session.mpla_binding = Some(binding);
+        session
     }
 
     pub(crate) fn handler(&self) -> WorkspaceSessionHandler {

@@ -38,6 +38,7 @@ async fn help_lists_exact_runtime_catalog() {
             "file_edit",
             "file_blame",
             "create_workspace_session",
+            "create_mpla_workspace_session",
             "publish_workspace_session",
             "destroy_workspace_session",
             "mpla_storage_admin",

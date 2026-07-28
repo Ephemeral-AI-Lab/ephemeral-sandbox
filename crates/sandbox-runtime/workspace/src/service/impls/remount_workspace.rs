@@ -38,6 +38,15 @@ impl WorkspaceRuntimeService {
                     reason: "unsupported:strict_candidate_generation_is_session_stable".to_owned(),
                 }));
             }
+            if state
+                .manager
+                .handle(workspace_session_id)
+                .is_some_and(|handle| handle.external_overlay_authority)
+            {
+                return Ok(Some(RemountOutcome::Leased {
+                    reason: "unsupported:external_mpla_overlay_is_storage_admin_managed".to_owned(),
+                }));
+            }
             let Some(inputs) = state.manager.remount_snapshot(workspace_session_id) else {
                 return Ok(None);
             };

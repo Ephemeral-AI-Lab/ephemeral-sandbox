@@ -1,4 +1,5 @@
 mod admission;
+mod create_mpla_workspace_session;
 mod create_workspace_session;
 mod destroy_session;
 mod finalize_session;

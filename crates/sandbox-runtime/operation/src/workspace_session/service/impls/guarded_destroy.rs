@@ -3,6 +3,8 @@ use std::sync::PoisonError;
 use crate::workspace_crate::{DestroyWorkspaceRequest, DestroyWorkspaceResult, WorkspaceSessionId};
 use crate::workspace_session::{WorkspaceSessionError, WorkspaceSessionService};
 
+use super::super::model::MplaStoragePhase;
+
 impl WorkspaceSessionService {
     /// Guarded explicit destroy. A live holder still rejects a non-empty
     /// command ledger. A dead holder instead claims (or joins) the shared
@@ -35,6 +37,17 @@ impl WorkspaceSessionService {
                 self.discard_resurrected_gate(&workspace_session_id, &gate);
                 return Err(WorkspaceSessionError::not_found(&workspace_session_id));
             };
+            if let Some(binding) = &session.mpla_binding {
+                if binding.phase != MplaStoragePhase::Cleaned {
+                    return Err(WorkspaceSessionError::MplaLifecycle {
+                        workspace_session_id: workspace_session_id.clone(),
+                        reason: format!(
+                            "destroy requires a successful MPLA cleanup receipt (current phase: {})",
+                            binding.phase.as_str()
+                        ),
+                    });
+                }
+            }
             (
                 session.handler(),
                 self.workspace().holder_is_live(&session.handle),

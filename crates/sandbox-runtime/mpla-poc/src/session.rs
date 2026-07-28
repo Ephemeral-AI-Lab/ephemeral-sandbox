@@ -26,6 +26,76 @@ pub struct SessionRecord {
     pub updated_unix_ms: u64,
 }
 
+/// Durable MPLA session control state prepared by the public runtime before
+/// the storage-admin helper mounts the allocation into a holder namespace.
+///
+/// This deliberately contains no mount or process-tree authority.  The
+/// caller may pass its exact `workspace_root` to the typed storage-admin
+/// request, but only the helper is allowed to make it a mountpoint.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PreparedExternalSession {
+    session_dir: PathBuf,
+    workspace_root: PathBuf,
+}
+
+impl PreparedExternalSession {
+    #[must_use]
+    pub fn session_dir(&self) -> &Path {
+        &self.session_dir
+    }
+
+    #[must_use]
+    pub fn workspace_root(&self) -> &Path {
+        &self.workspace_root
+    }
+}
+
+/// Create the durable control-plane state for a lease-backed MPLA session
+/// without mounting the allocation or admitting a workload.
+pub fn prepare_external_session(
+    control_root: &Path,
+    allocation: &AllocationHandle,
+    lease: &MutableLease,
+) -> PocResult<PreparedExternalSession> {
+    if allocation.descriptor.allocation_id != lease.allocation_id {
+        return Err(PocError::Integrity(
+            "session lease allocation does not match allocation handle".to_owned(),
+        ));
+    }
+    let activation_root = control_root.join("activations");
+    std::fs::create_dir_all(control_root)
+        .map_err(|error| PocError::io("create session control root", control_root, error))?;
+    match std::fs::create_dir(&activation_root) {
+        Ok(()) => durable::fsync_dir(control_root)?,
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            if !activation_root.is_dir() {
+                return Err(PocError::Integrity(format!(
+                    "activation control root is not a directory: {}",
+                    activation_root.display()
+                )));
+            }
+        }
+        Err(error) => {
+            return Err(PocError::io(
+                "create activation control root",
+                &activation_root,
+                error,
+            ));
+        }
+    }
+    let session_dir = control_root
+        .join("sessions")
+        .join(lease.session_id.as_str());
+    let workspace_root = session_dir.join("mount");
+    std::fs::create_dir_all(&workspace_root)
+        .map_err(|error| PocError::io("create session mount directory", &workspace_root, error))?;
+    persist_session_record(&session_dir, lease, SessionPhase::Open, &workspace_root)?;
+    Ok(PreparedExternalSession {
+        session_dir,
+        workspace_root,
+    })
+}
+
 /// M0 session binding. Payload state lives only in `allocation`; the session
 /// directory holds control metadata plus a disposable mountpoint.
 #[derive(Debug)]
@@ -46,43 +116,16 @@ impl MplaSession {
         lower_dirs_newest_first: Vec<PathBuf>,
         cgroup_procs_path: Option<PathBuf>,
     ) -> PocResult<Self> {
-        if allocation.descriptor.allocation_id != lease.allocation_id {
-            return Err(PocError::Integrity(
-                "session lease allocation does not match allocation handle".to_owned(),
-            ));
-        }
-        let activation_root = control_root.join("activations");
-        std::fs::create_dir_all(control_root)
-            .map_err(|error| PocError::io("create session control root", control_root, error))?;
-        match std::fs::create_dir(&activation_root) {
-            Ok(()) => durable::fsync_dir(control_root)?,
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                if !activation_root.is_dir() {
-                    return Err(PocError::Integrity(format!(
-                        "activation control root is not a directory: {}",
-                        activation_root.display()
-                    )));
-                }
-            }
-            Err(error) => {
-                return Err(PocError::io(
-                    "create activation control root",
-                    &activation_root,
-                    error,
-                ));
-            }
-        }
-        let session_dir = control_root
-            .join("sessions")
-            .join(lease.session_id.as_str());
-        let workspace_root = session_dir.join("mount");
-        std::fs::create_dir_all(&session_dir)
-            .map_err(|error| PocError::io("create session directory", &session_dir, error))?;
-        let overlay =
-            mount_permanent_overlay(&allocation, lower_dirs_newest_first, &workspace_root)?;
-        let process_tree = ManagedProcessTree::new(workspace_root.clone(), cgroup_procs_path);
+        let prepared = prepare_external_session(control_root, &allocation, &lease)?;
+        let overlay = mount_permanent_overlay(
+            &allocation,
+            lower_dirs_newest_first,
+            prepared.workspace_root(),
+        )?;
+        let process_tree =
+            ManagedProcessTree::new(prepared.workspace_root.clone(), cgroup_procs_path);
         let session = Self {
-            session_dir,
+            session_dir: prepared.session_dir,
             allocation,
             lease,
             phase: SessionPhase::Open,
@@ -329,20 +372,29 @@ impl MplaSession {
             .as_ref()
             .map(|overlay| overlay.workspace_root().to_path_buf())
             .unwrap_or_else(|| self.session_dir.join("mount"));
-        durable::replace_json(
-            &self.session_dir.join("SESSION.json"),
-            &SessionRecord {
-                schema_version: SCHEMA_VERSION,
-                session_id: self.lease.session_id.clone(),
-                allocation_id: self.lease.allocation_id.clone(),
-                lease_epoch: self.lease.lease_epoch,
-                owner_epoch: self.lease.owner_epoch,
-                phase: self.phase,
-                workspace_root,
-                updated_unix_ms: unix_time_ms()?,
-            },
-        )
+        persist_session_record(&self.session_dir, &self.lease, self.phase, &workspace_root)
     }
+}
+
+fn persist_session_record(
+    session_dir: &Path,
+    lease: &MutableLease,
+    phase: SessionPhase,
+    workspace_root: &Path,
+) -> PocResult<()> {
+    durable::replace_json(
+        &session_dir.join("SESSION.json"),
+        &SessionRecord {
+            schema_version: SCHEMA_VERSION,
+            session_id: lease.session_id.clone(),
+            allocation_id: lease.allocation_id.clone(),
+            lease_epoch: lease.lease_epoch,
+            owner_epoch: lease.owner_epoch,
+            phase,
+            workspace_root: workspace_root.to_path_buf(),
+            updated_unix_ms: unix_time_ms()?,
+        },
+    )
 }
 
 impl Drop for MplaSession {

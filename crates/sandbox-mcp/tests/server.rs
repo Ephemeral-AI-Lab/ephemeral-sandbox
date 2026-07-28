@@ -245,8 +245,10 @@ fn expected_names(set: OperationSet) -> &'static [&'static str] {
             "file_edit",
             "file_blame",
             "create_workspace_session",
+            "create_mpla_workspace_session",
             "publish_workspace_session",
             "destroy_workspace_session",
+            "mpla_storage_admin",
         ],
         OperationSet::Observability => &[
             "snapshot",
@@ -543,6 +545,11 @@ fn mcp_requests_match_the_shared_builder() {
         ),
         (
             OperationSet::Runtime,
+            "create_mpla_workspace_session",
+            json!({"sandbox_id": "sbox-runtime", "run_id": "mpla-poc-20260728"}),
+        ),
+        (
+            OperationSet::Runtime,
             "publish_workspace_session",
             json!({
                 "sandbox_id": "sbox-runtime",
@@ -554,6 +561,11 @@ fn mcp_requests_match_the_shared_builder() {
             OperationSet::Runtime,
             "destroy_workspace_session",
             json!({"sandbox_id": "sbox-runtime", "workspace_session_id": "workspace-1"}),
+        ),
+        (
+            OperationSet::Runtime,
+            "mpla_storage_admin",
+            json!({"sandbox_id": "sbox-runtime", "request_json": "{}"}),
         ),
         (
             OperationSet::Observability,
@@ -797,6 +809,16 @@ fn invalid_and_hidden_calls_fail_before_gateway_dispatch() {
             "create_workspace_session",
             json!({"sandbox_id": "sbox", "network_profile": 7}),
             "network_profile must be a string",
+        ),
+        (
+            "create_mpla_workspace_session",
+            json!({"sandbox_id": "sbox", "run_id": 7}),
+            "run_id must be a string",
+        ),
+        (
+            "mpla_storage_admin",
+            json!({"sandbox_id": "sbox"}),
+            "request_json is required for mpla_storage_admin",
         ),
         (
             "destroy_workspace_session",

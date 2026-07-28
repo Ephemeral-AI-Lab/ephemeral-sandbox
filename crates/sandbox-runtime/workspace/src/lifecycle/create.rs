@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use crate::lifecycle::leases::monotonic_seconds;
-use crate::model::{LayerStackSnapshotRef, NetworkProfile, WorkspaceSessionId};
+use crate::model::{
+    ExternalOverlayLayout, LayerStackSnapshotRef, NetworkProfile, WorkspaceSessionId,
+};
 use crate::namespace::NamespacePlan;
 use crate::overlay::dirs::{create_overlay_dirs, OverlayDirs};
 use crate::session::manager::WorkspaceManagerError;
@@ -36,9 +38,11 @@ impl WorkspaceManager {
             self.setup_isolated_network_after_namespace(handle, &mut phases_ms)?;
         }
 
-        phase_start = Instant::now();
-        self.runtime.mount_overlay(handle, &layer_paths)?;
-        super::record_phase_ms(&mut phases_ms, "mount_overlay", phase_start);
+        if !handle.external_overlay_authority {
+            phase_start = Instant::now();
+            self.runtime.mount_overlay(handle, &layer_paths)?;
+            super::record_phase_ms(&mut phases_ms, "mount_overlay", phase_start);
+        }
 
         if handle.network == NetworkProfile::Isolated {
             self.setup_isolated_network_after_mount(handle)?;
@@ -123,13 +127,46 @@ impl WorkspaceManager {
         >,
         candidate_session_lease_ttl: Option<Duration>,
     ) -> Result<MountedWorkspace, WorkspaceManagerError> {
+        self.open_with_candidate_with_external_overlay(
+            workspace_id,
+            snapshot,
+            network,
+            candidate_admission,
+            candidate_session_lease_ttl,
+            None,
+        )
+    }
+
+    pub(crate) fn open_with_candidate_with_external_overlay(
+        &mut self,
+        workspace_id: WorkspaceSessionId,
+        snapshot: LayerStackSnapshotRef,
+        network: NetworkProfile,
+        candidate_admission: Option<
+            sandbox_runtime_layerstack::service::CandidateGenerationAdmission,
+        >,
+        candidate_session_lease_ttl: Option<Duration>,
+        external_overlay: Option<ExternalOverlayLayout>,
+    ) -> Result<MountedWorkspace, WorkspaceManagerError> {
         self.ensure_workspace_available(&workspace_id)?;
+        if external_overlay.is_some() && network != NetworkProfile::Shared {
+            return Err(WorkspaceManagerError::InvalidArgument(
+                "external MPLA overlays require the shared network profile".to_owned(),
+            ));
+        }
         let run_dir = self.workspace_session_root(&workspace_id);
-        let dirs = OverlayDirs {
-            upperdir: run_dir.join("upper"),
-            workdir: run_dir.join("work"),
-            run_dir,
-        };
+        let dirs = external_overlay.as_ref().map_or_else(
+            || OverlayDirs {
+                upperdir: run_dir.join("upper"),
+                workdir: run_dir.join("work"),
+                run_dir: run_dir.clone(),
+            },
+            |layout| OverlayDirs {
+                upperdir: layout.upperdir.clone(),
+                workdir: layout.workdir.clone(),
+                run_dir: run_dir.clone(),
+            },
+        );
         let now = monotonic_seconds();
         let mut handle = MountedWorkspace {
             workspace_id: workspace_id.clone(),
@@ -138,6 +175,7 @@ impl WorkspaceManager {
             candidate_admission,
             workspace_root: self.workspace_root.trim().to_owned(),
             dirs,
+            external_overlay_authority: external_overlay.is_some(),
             ns_fds: Default::default(),
             holder_pid: 0,
             holder_registration: crate::namespace::holder::HolderRegistration::unmanaged(
@@ -152,9 +190,29 @@ impl WorkspaceManager {
             parked_lease_id: None,
         };
 
-        match self.validated_workspace_root() {
-            Ok(workspace_root) => handle.workspace_root = workspace_root,
-            Err(error) => return Err(self.fail_after_partial_create(&handle, error)),
+        match external_overlay {
+            Some(layout) => {
+                let workspace_root = layout.workspace_root.to_string_lossy().into_owned();
+                match validate_workspace_root(&workspace_root) {
+                    Ok(()) => handle.workspace_root = workspace_root,
+                    Err(error) => return Err(self.fail_after_partial_create(&handle, error)),
+                }
+                for path in [&handle.dirs.upperdir, &handle.dirs.workdir] {
+                    if !path.is_dir() {
+                        return Err(self.fail_after_partial_create(
+                            &handle,
+                            WorkspaceManagerError::InvalidArgument(format!(
+                                "external MPLA overlay path is not a directory: {}",
+                                path.display()
+                            )),
+                        ));
+                    }
+                }
+            }
+            None => match self.validated_workspace_root() {
+                Ok(workspace_root) => handle.workspace_root = workspace_root,
+                Err(error) => return Err(self.fail_after_partial_create(&handle, error)),
+            },
         }
         if handle.candidate_admission.is_some() {
             self.handles.insert(workspace_id.clone(), handle.clone());
@@ -170,14 +228,18 @@ impl WorkspaceManager {
             };
             return Err(self.fail_after_partial_create(&handle, error));
         }
-        match create_overlay_dirs(handle.dirs.run_dir.clone()) {
-            Ok(dirs) => handle.dirs = dirs,
-            Err(error) => {
+        if handle.external_overlay_authority {
+            if let Err(error) = std::fs::create_dir_all(&handle.dirs.run_dir) {
                 let error = WorkspaceManagerError::SetupFailed {
-                    step: format!("create overlay scratch: {error}"),
+                    step: format!("create external workspace bookkeeping scratch: {error}"),
                 };
                 return Err(self.fail_after_partial_create(&handle, error));
             }
+        } else if let Err(error) = create_overlay_dirs(handle.dirs.run_dir.clone()) {
+            let error = WorkspaceManagerError::SetupFailed {
+                step: format!("create overlay scratch: {error}"),
+            };
+            return Err(self.fail_after_partial_create(&handle, error));
         }
 
         if let Err(err) = self.initialize_handle(&mut handle) {

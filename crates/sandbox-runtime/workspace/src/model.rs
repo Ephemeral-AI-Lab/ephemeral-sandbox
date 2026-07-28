@@ -478,6 +478,15 @@ pub struct CreateWorkspaceRequest {
     pub network: NetworkProfile,
 }
 
+/// Server-owned MPLA overlay paths prepared before a namespace holder is
+/// created. The typed MPLA lifecycle is the only caller of this path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExternalOverlayLayout {
+    pub workspace_root: PathBuf,
+    pub upperdir: PathBuf,
+    pub workdir: PathBuf,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureChangesRequest {
     pub include_stats: bool,

@@ -98,7 +98,7 @@ pub use report::{
 pub use resources::{
     AdmissionController, AdmissionGuard, AdmissionReceipt, AdmissionTier, ResourceSnapshot,
 };
-pub use session::{MplaSession, SessionRecord};
+pub use session::{prepare_external_session, MplaSession, PreparedExternalSession, SessionRecord};
 pub use state::{OwnerGeneration, OwnerSubject, PublicationPhase, SessionPhase};
 
 pub const INTERFACE_VERSION: &str = "m2r-iface-v1";

@@ -50,6 +50,12 @@ impl WorkspaceSessionService {
                 if session.finalization_state != FinalizationState::Active {
                     return Err(WorkspaceSessionError::not_found(&workspace_session_id));
                 }
+                if session.mpla_binding.is_some() {
+                    return Err(WorkspaceSessionError::MplaLifecycle {
+                        workspace_session_id,
+                        reason: "MPLA sessions are finalized through storage-admin cleanup and destroy, not generic publish".to_owned(),
+                    });
+                }
                 if session.finalize_policy != FinalizePolicy::NoOp {
                     return Err(WorkspaceSessionError::not_found(&workspace_session_id));
                 }

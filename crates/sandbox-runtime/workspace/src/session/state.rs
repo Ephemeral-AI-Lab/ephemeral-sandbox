@@ -15,6 +15,9 @@ pub struct MountedWorkspace {
         Option<sandbox_runtime_layerstack::service::CandidateGenerationAdmission>,
     pub workspace_root: String,
     pub dirs: OverlayDirs,
+    /// The typed MPLA storage helper, rather than the ordinary runtime, owns
+    /// this overlay's mount lifecycle.
+    pub external_overlay_authority: bool,
     pub ns_fds: HolderNsFds,
     pub holder_pid: i32,
     #[doc(hidden)]

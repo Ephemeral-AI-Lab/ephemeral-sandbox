@@ -319,6 +319,10 @@ impl SandboxRuntimeOperations {
     pub fn from_config(config: SandboxRuntimeConfig, observer: Observer) -> Self {
         let layer_stack_root = config.workspace.layer_stack_root.clone();
         let workspace_scratch_root = config.workspace.scratch_root.clone();
+        let mpla_lifecycle_roots = crate::workspace_session::MplaLifecycleRoots {
+            payload_root: layer_stack_root.join("mpla-poc/payload"),
+            control_root: workspace_scratch_root.join("mpla-poc/control"),
+        };
         let scratch_locator =
             crate::workspace_crate::WorkspaceScratchLocator::new(workspace_scratch_root.clone())
                 .expect("workspace scratch locator initialization failed");
@@ -412,7 +416,8 @@ impl SandboxRuntimeOperations {
                     cgroup_root,
                     observer.clone(),
                 ),
-            },
+            }
+            .with_mpla_lifecycle_roots(mpla_lifecycle_roots),
         );
         let command = Arc::new(CommandOperationService::new_with_locators(
             Arc::clone(&workspace_session),
