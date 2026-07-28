@@ -17,7 +17,7 @@ case "${command_name}" in
     exec cargo build --manifest-path "${repo_root}/Cargo.toml" -p sandbox-runtime-mpla-poc "$@"
     ;;
   config|qualification|suite|test|crash|evidence-seal|evidence-verify|catalog-bind|fixture-prepare|fixture-populate|lifecycle-metadata)
-    exec cargo run --quiet --manifest-path "${repo_root}/Cargo.toml" -p sandbox-runtime-mpla-poc -- "${command_name}" "$@"
+    exec cargo run --quiet --manifest-path "${repo_root}/Cargo.toml" -p sandbox-runtime-mpla-poc --bin mpla-poc -- "${command_name}" "$@"
     ;;
   *)
     echo "unsupported mpla-poc command: ${command_name}" >&2
