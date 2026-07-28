@@ -319,6 +319,20 @@ impl ManagerConfig {
     }
 }
 
+/// Cgroup namespace presented to a sandbox container.
+///
+/// The default private namespace protects the host hierarchy. A trusted
+/// physical-validation environment can explicitly opt into `host` when the
+/// daemon must create its managed workload cgroup and Docker's private
+/// namespace exposes `/sys/fs/cgroup` read-only.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DockerCgroupNamespaceMode {
+    #[default]
+    Private,
+    Host,
+}
+
 /// Configuration for the Docker-backed sandbox runtime + daemon installer.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -353,6 +367,10 @@ pub struct DockerRuntimeConfig {
     pub daemon_http_port: u16,
     /// Identifies the owning gateway; recovery filters containers by this label.
     pub gateway_instance_id: String,
+    /// Cgroup namespace assigned to sandbox containers. Defaults to a private
+    /// namespace; `host` is an explicit trusted-environment exception for
+    /// workload-cgroup-capable physical validation.
+    pub cgroup_namespace_mode: DockerCgroupNamespaceMode,
     /// Readiness deadline for the authenticated daemon check.
     pub readiness_timeout_ms: u64,
     /// Docker Engine API connect timeout, in seconds.
@@ -400,6 +418,7 @@ impl Default for DockerRuntimeConfig {
             daemon_port: DEFAULT_DAEMON_PORT,
             daemon_http_port: DEFAULT_DAEMON_HTTP_PORT,
             gateway_instance_id: DEFAULT_GATEWAY_INSTANCE_ID.to_owned(),
+            cgroup_namespace_mode: DockerCgroupNamespaceMode::Private,
             readiness_timeout_ms: DEFAULT_READINESS_TIMEOUT_MS,
             connect_timeout_s: 120,
             stop_timeout_s: 5,

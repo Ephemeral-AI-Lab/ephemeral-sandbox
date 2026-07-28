@@ -21,7 +21,7 @@ use bollard::Docker;
 use bytes::Bytes;
 use futures_util::{future::join_all, StreamExt as _};
 
-use sandbox_config::configs::manager::DockerRuntimeConfig;
+use sandbox_config::configs::manager::{DockerCgroupNamespaceMode, DockerRuntimeConfig};
 use sandbox_manager::SandboxResourceProfile;
 
 use crate::labels;
@@ -61,6 +61,7 @@ pub(crate) struct ContainerSpec {
     pub(crate) daemon_port: u16,
     pub(crate) daemon_http_port: u16,
     pub(crate) privileged: bool,
+    pub(crate) cgroup_namespace_mode: DockerCgroupNamespaceMode,
     pub(crate) platform: Option<String>,
     pub(crate) memory_high_bytes: i64,
     pub(crate) memory_max_bytes: i64,
@@ -232,7 +233,10 @@ impl DockerEngine {
                 privileged: Some(spec.privileged),
                 cap_add: deprivileged_cap_add(spec.privileged),
                 security_opt: deprivileged_security_opt(spec.privileged),
-                cgroupns_mode: Some(HostConfigCgroupnsModeEnum::PRIVATE),
+                cgroupns_mode: Some(match spec.cgroup_namespace_mode {
+                    DockerCgroupNamespaceMode::Private => HostConfigCgroupnsModeEnum::PRIVATE,
+                    DockerCgroupNamespaceMode::Host => HostConfigCgroupnsModeEnum::HOST,
+                }),
                 init: Some(true),
                 memory_reservation: Some(spec.memory_high_bytes),
                 memory: Some(spec.memory_max_bytes),

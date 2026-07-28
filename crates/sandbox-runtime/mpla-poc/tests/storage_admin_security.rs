@@ -336,6 +336,12 @@ fn exact_server_bound_namespace_holder_is_validated_before_setns_and_reverified(
     let profile = StorageAdminProcessProfile;
     assert_eq!(
         profile
+            .user_namespace_path(NAMESPACE_HOLDER_PID)
+            .expect("trusted holder path"),
+        PathBuf::from("/proc/4242/ns/user")
+    );
+    assert_eq!(
+        profile
             .mount_namespace_path(NAMESPACE_HOLDER_PID)
             .expect("trusted holder path"),
         PathBuf::from("/proc/4242/ns/mnt")
@@ -356,12 +362,15 @@ fn exact_server_bound_namespace_holder_is_validated_before_setns_and_reverified(
     assert_eq!(
         profile.preparation_steps(),
         &[
+            StorageAdminPreparationStep::OpenAndValidateBoundUserNamespace,
+            StorageAdminPreparationStep::OpenAndValidateBoundMountNamespace,
+            StorageAdminPreparationStep::EnterBoundUserNamespace,
+            StorageAdminPreparationStep::VerifyEnteredUserNamespace,
+            StorageAdminPreparationStep::EnterBoundMountNamespace,
+            StorageAdminPreparationStep::VerifyEnteredMountNamespace,
             StorageAdminPreparationStep::NarrowCapabilityMasks,
             StorageAdminPreparationStep::SetNoNewPrivileges,
             StorageAdminPreparationStep::VerifyExecutableAndCapabilityIdentity,
-            StorageAdminPreparationStep::OpenAndValidateBoundMountNamespace,
-            StorageAdminPreparationStep::EnterBoundMountNamespace,
-            StorageAdminPreparationStep::VerifyEnteredMountNamespace,
         ]
     );
 
@@ -487,7 +496,7 @@ fn ordinary_command_and_workload_policy_has_no_mount_authority() {
 }
 
 #[test]
-fn helper_narrows_inherited_sys_admin_and_net_admin_before_identity_verification() {
+fn helper_enters_the_bound_namespaces_before_narrowing_inherited_capabilities() {
     const CAP_NET_ADMIN_BIT: u64 = 1 << 12;
     const CAP_SYS_ADMIN_BIT: u64 = 1 << 21;
 
@@ -501,15 +510,15 @@ fn helper_narrows_inherited_sys_admin_and_net_admin_before_identity_verification
     assert_eq!(profile.effective_capability_mask() & CAP_NET_ADMIN_BIT, 0);
     assert_eq!(profile.permitted_capability_mask() & CAP_NET_ADMIN_BIT, 0);
     assert_eq!(
-        profile.preparation_steps().first(),
+        profile.preparation_steps().get(6),
         Some(&StorageAdminPreparationStep::NarrowCapabilityMasks)
     );
     assert_eq!(
-        profile.preparation_steps().get(1),
+        profile.preparation_steps().get(7),
         Some(&StorageAdminPreparationStep::SetNoNewPrivileges)
     );
     assert_eq!(
-        profile.preparation_steps().get(2),
+        profile.preparation_steps().get(8),
         Some(&StorageAdminPreparationStep::VerifyExecutableAndCapabilityIdentity)
     );
 }

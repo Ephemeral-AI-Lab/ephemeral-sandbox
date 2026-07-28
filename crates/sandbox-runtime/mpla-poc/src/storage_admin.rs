@@ -12,6 +12,8 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path, PathBuf};
 
+#[cfg(target_os = "linux")]
+use sandbox_runtime_overlay::{mount_overlay as mount_kernel_overlay, OverlayHandle};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -230,12 +232,15 @@ pub struct StorageAdminProcessProfile;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StorageAdminPreparationStep {
+    OpenAndValidateBoundUserNamespace,
+    OpenAndValidateBoundMountNamespace,
+    EnterBoundUserNamespace,
+    VerifyEnteredUserNamespace,
+    EnterBoundMountNamespace,
+    VerifyEnteredMountNamespace,
     NarrowCapabilityMasks,
     SetNoNewPrivileges,
     VerifyExecutableAndCapabilityIdentity,
-    OpenAndValidateBoundMountNamespace,
-    EnterBoundMountNamespace,
-    VerifyEnteredMountNamespace,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -343,13 +348,20 @@ impl StorageAdminProcessProfile {
     #[must_use]
     pub const fn preparation_steps(self) -> &'static [StorageAdminPreparationStep] {
         &[
+            StorageAdminPreparationStep::OpenAndValidateBoundUserNamespace,
+            StorageAdminPreparationStep::OpenAndValidateBoundMountNamespace,
+            StorageAdminPreparationStep::EnterBoundUserNamespace,
+            StorageAdminPreparationStep::VerifyEnteredUserNamespace,
+            StorageAdminPreparationStep::EnterBoundMountNamespace,
+            StorageAdminPreparationStep::VerifyEnteredMountNamespace,
             StorageAdminPreparationStep::NarrowCapabilityMasks,
             StorageAdminPreparationStep::SetNoNewPrivileges,
             StorageAdminPreparationStep::VerifyExecutableAndCapabilityIdentity,
-            StorageAdminPreparationStep::OpenAndValidateBoundMountNamespace,
-            StorageAdminPreparationStep::EnterBoundMountNamespace,
-            StorageAdminPreparationStep::VerifyEnteredMountNamespace,
         ]
+    }
+
+    pub fn user_namespace_path(self, holder_pid: u32) -> PocResult<PathBuf> {
+        user_namespace_path(holder_pid)
     }
 
     pub fn mount_namespace_path(self, holder_pid: u32) -> PocResult<PathBuf> {
@@ -1455,6 +1467,29 @@ fn parse_mount_namespace_inode(value: &str) -> PocResult<u64> {
     Ok(inode)
 }
 
+#[cfg(target_os = "linux")]
+fn parse_user_namespace_inode(value: &str) -> PocResult<u64> {
+    let inode = value
+        .strip_prefix("user:[")
+        .and_then(|value| value.strip_suffix(']'))
+        .ok_or_else(|| {
+            PocError::Integrity(
+                "storage-admin user namespace id is not a kernel namespace identity".to_owned(),
+            )
+        })?;
+    let inode = inode.parse::<u64>().map_err(|error| {
+        PocError::Integrity(format!(
+            "storage-admin user namespace id is invalid: {error}"
+        ))
+    })?;
+    if inode == 0 {
+        return Err(PocError::Integrity(
+            "storage-admin user namespace id must be non-zero".to_owned(),
+        ));
+    }
+    Ok(inode)
+}
+
 fn validate_mount_namespace_holder_pid(holder_pid: u32) -> PocResult<()> {
     if holder_pid == 0 || holder_pid > i32::MAX as u32 {
         return Err(PocError::Integrity(
@@ -1467,6 +1502,11 @@ fn validate_mount_namespace_holder_pid(holder_pid: u32) -> PocResult<()> {
 fn mount_namespace_path(holder_pid: u32) -> PocResult<PathBuf> {
     validate_mount_namespace_holder_pid(holder_pid)?;
     Ok(PathBuf::from(format!("/proc/{holder_pid}/ns/mnt")))
+}
+
+fn user_namespace_path(holder_pid: u32) -> PocResult<PathBuf> {
+    validate_mount_namespace_holder_pid(holder_pid)?;
+    Ok(PathBuf::from(format!("/proc/{holder_pid}/ns/user")))
 }
 
 pub fn validate_opened_mount_namespace(
@@ -1482,6 +1522,16 @@ pub fn validate_opened_mount_namespace(
     )?;
     require_equal(
         "opened mount namespace inode",
+        &opened_inode,
+        &expected_inode,
+    )
+}
+
+#[cfg(target_os = "linux")]
+fn validate_opened_user_namespace(opened_namespace_id: &str, opened_inode: u64) -> PocResult<()> {
+    let expected_inode = parse_user_namespace_inode(opened_namespace_id)?;
+    require_equal(
+        "opened user namespace inode",
         &opened_inode,
         &expected_inode,
     )
@@ -1799,15 +1849,15 @@ fn validate_object_keys(
 
 #[cfg(target_os = "linux")]
 fn prepare_platform_process(invocation: &StorageAdminInvocation) -> PocResult<()> {
-    narrow_process_capabilities()?;
-    set_no_new_privileges()?;
-    install_storage_admin_seccomp_profile()?;
-    verify_process_identity(&invocation.workload_cgroup_procs)?;
-    enter_bound_mount_namespace(
+    enter_bound_user_and_mount_namespaces(
         invocation.mount_namespace_holder_pid,
         &invocation.request.scope.mount_namespace_id,
         &invocation.workload_cgroup_procs,
-    )
+    )?;
+    narrow_process_capabilities()?;
+    set_no_new_privileges()?;
+    install_storage_admin_seccomp_profile()?;
+    verify_process_identity(&invocation.workload_cgroup_procs)
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -2130,11 +2180,44 @@ fn verify_process_identity(workload_cgroup_procs: &Path) -> PocResult<()> {
 }
 
 #[cfg(target_os = "linux")]
-fn enter_bound_mount_namespace(
+fn enter_bound_user_and_mount_namespaces(
     holder_pid: u32,
     expected_namespace_id: &str,
     workload_cgroup_procs: &Path,
 ) -> PocResult<()> {
+    // A mount namespace is owned by a user namespace.  Open and bind both
+    // namespace descriptors from the server-validated holder before changing
+    // this process so a helper cannot be redirected by later path changes.
+    let user_namespace_path = user_namespace_path(holder_pid)?;
+    let user_namespace_file = File::open(&user_namespace_path).map_err(|error| {
+        PocError::io(
+            "open bound storage-admin user namespace",
+            &user_namespace_path,
+            error,
+        )
+    })?;
+    let opened_user_fd_path =
+        PathBuf::from(format!("/proc/self/fd/{}", user_namespace_file.as_raw_fd()));
+    let opened_user_namespace = fs::read_link(&opened_user_fd_path).map_err(|error| {
+        PocError::io(
+            "read opened storage-admin user namespace identity",
+            &opened_user_fd_path,
+            error,
+        )
+    })?;
+    let opened_user_namespace_id = opened_user_namespace.to_string_lossy().into_owned();
+    let opened_user_inode = user_namespace_file
+        .metadata()
+        .map_err(|error| {
+            PocError::io(
+                "stat opened storage-admin user namespace",
+                &user_namespace_path,
+                error,
+            )
+        })?
+        .ino();
+    validate_opened_user_namespace(&opened_user_namespace_id, opened_user_inode)?;
+
     let namespace_path = mount_namespace_path(holder_pid)?;
     let namespace_file = File::open(&namespace_path).map_err(|error| {
         PocError::io(
@@ -2165,6 +2248,31 @@ fn enter_bound_mount_namespace(
         expected_namespace_id,
         opened_namespace.to_string_lossy().as_ref(),
         opened_inode,
+    )?;
+
+    // SAFETY: setns receives an owned namespace fd from the validated holder
+    // and the fixed user-namespace type.  Joining it first is required before
+    // the holder's mount namespace can be entered.
+    let setns_user_result =
+        unsafe { libc::setns(user_namespace_file.as_raw_fd(), libc::CLONE_NEWUSER) };
+    if setns_user_result != 0 {
+        return Err(PocError::Integrity(format!(
+            "failed to enter bound storage-admin user namespace: {}",
+            std::io::Error::last_os_error()
+        )));
+    }
+    let current_user_namespace_path = Path::new("/proc/self/ns/user");
+    let current_user_namespace = fs::read_link(current_user_namespace_path).map_err(|error| {
+        PocError::io(
+            "read entered storage-admin user namespace",
+            current_user_namespace_path,
+            error,
+        )
+    })?;
+    require_equal(
+        "entered user namespace",
+        current_user_namespace.to_string_lossy().as_ref(),
+        opened_user_namespace_id.as_str(),
     )?;
 
     // SAFETY: setns receives an owned namespace fd and the fixed mount-namespace type.
@@ -2260,43 +2368,20 @@ fn mount_overlay(
             error,
         )
     })?;
-    let mut lower = Vec::new();
-    for (index, path) in scope.lower_dirs_newest_first.iter().enumerate() {
-        if index > 0 {
-            lower.push(b':');
-        }
-        lower.extend_from_slice(path.as_os_str().as_bytes());
-    }
-    let mut options = Vec::new();
-    options.extend_from_slice(b"lowerdir=");
-    options.extend_from_slice(&lower);
-    options.extend_from_slice(b",upperdir=");
-    options.extend_from_slice(upper_dir.as_os_str().as_bytes());
-    options.extend_from_slice(b",workdir=");
-    options.extend_from_slice(work_dir.as_os_str().as_bytes());
-    let source = std::ffi::CString::new("overlay")
-        .map_err(|error| PocError::Integrity(format!("invalid overlay source: {error}")))?;
-    let filesystem = std::ffi::CString::new("overlay")
-        .map_err(|error| PocError::Integrity(format!("invalid overlay filesystem: {error}")))?;
-    let target = path_c_string(&scope.workspace_root)?;
-    let options = std::ffi::CString::new(options)
-        .map_err(|error| PocError::Integrity(format!("invalid overlay mount options: {error}")))?;
-    let result = unsafe {
-        libc::mount(
-            source.as_ptr(),
-            target.as_ptr(),
-            filesystem.as_ptr(),
-            libc::MS_NODEV | libc::MS_NOSUID,
-            options.as_ptr().cast(),
-        )
-    };
-    if result != 0 {
-        return Err(PocError::io(
-            "mount storage-admin OverlayFS workspace",
-            &scope.workspace_root,
-            std::io::Error::last_os_error(),
-        ));
-    }
+    // Use the production raw mount API rather than legacy mount(2).  It
+    // configures `userxattr` and is the kernel path qualified for the nested
+    // user namespace that owns the MPLA holder mount namespace.
+    let mount = mount_kernel_overlay(
+        &scope.workspace_root,
+        &OverlayHandle {
+            upperdir: upper_dir,
+            workdir: work_dir,
+            layer_paths: scope.lower_dirs_newest_first.clone(),
+        },
+    )?;
+    // The helper exits after issuing its receipt; the mount intentionally
+    // outlives that process and is later torn down by strict_unmount/cleanup.
+    std::mem::forget(mount);
     *mounted_by_this_process = Some(scope.workspace_root.clone());
     Ok(())
 }

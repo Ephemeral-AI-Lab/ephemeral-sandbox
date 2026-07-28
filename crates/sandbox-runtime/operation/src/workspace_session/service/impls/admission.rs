@@ -255,10 +255,21 @@ impl WorkspaceSessionService {
                 workspace_session_id: workspace_session_id.clone(),
                 reason,
             })?;
-        if receipt.action != action || receipt.outcome != StorageAdminOutcome::Succeeded {
+        if receipt.action != action {
             return Err(WorkspaceSessionError::MplaLifecycle {
                 workspace_session_id: workspace_session_id.clone(),
-                reason: "storage-admin did not return a matching successful receipt".to_owned(),
+                reason: "storage-admin receipt action does not match the requested action"
+                    .to_owned(),
+            });
+        }
+        if receipt.outcome != StorageAdminOutcome::Succeeded {
+            let reason = receipt.failure.as_deref().map_or_else(
+                || "storage-admin returned an unsuccessful receipt".to_owned(),
+                |failure| format!("storage-admin returned an unsuccessful receipt: {failure}"),
+            );
+            return Err(WorkspaceSessionError::MplaLifecycle {
+                workspace_session_id: workspace_session_id.clone(),
+                reason,
             });
         }
         let mut sessions = self.lock_sessions()?;

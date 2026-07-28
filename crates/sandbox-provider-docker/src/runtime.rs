@@ -281,6 +281,7 @@ impl SandboxRuntime for DockerSandboxRuntime {
             daemon_port: config.daemon_port,
             daemon_http_port: config.daemon_http_port,
             privileged: config.privileged,
+            cgroup_namespace_mode: config.cgroup_namespace_mode,
             platform: config.platform.clone(),
             memory_high_bytes: limits.memory_high_bytes,
             memory_max_bytes: limits.memory_max_bytes,

@@ -13,6 +13,7 @@ use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 
+use sandbox_config::configs::manager::DockerCgroupNamespaceMode;
 use sandbox_manager::{
     CreateSandboxRequest, ManagerError, SandboxRecord, SandboxRuntime, SandboxState,
     SharedBaseMount,
@@ -98,6 +99,7 @@ fn container_creation_persists_the_exact_resolved_resource_profile() {
         daemon_config_yaml_path: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../config/prd.yml"),
         resource_profile: "build-heavy".to_owned(),
+        cgroup_namespace_mode: DockerCgroupNamespaceMode::Host,
         ..DockerRuntimeConfig::default()
     };
     let runtime = DockerSandboxRuntime::new(config);
@@ -150,6 +152,7 @@ fn container_creation_persists_the_exact_resolved_resource_profile() {
     assert_eq!(document["HostConfig"]["Memory"], 4_294_967_296_i64);
     assert_eq!(document["HostConfig"]["NanoCpus"], 4_000_000_000_i64);
     assert_eq!(document["HostConfig"]["PidsLimit"], 1024);
+    assert_eq!(document["HostConfig"]["CgroupnsMode"], "host");
 
     std::fs::remove_dir_all(root).expect("remove fixture");
 }

@@ -42,11 +42,18 @@ observability:
 
 manager:
   docker:
-    privileged: false
+    # MPLA storage administration creates and confines the daemon-owned
+    # workload cgroup. This dedicated physical-validation gateway is trusted;
+    # ordinary production sandboxes remain de-privileged in config/prd.yml.
+    privileged: true
     daemon_binary_path: dist/sandbox-daemon-linux-arm64
     daemon_config_yaml_path: config/mpla-poc-m3.yml
     platform: linux/arm64
     gateway_instance_id: mpla-poc-m3
+    # The MPLA storage-admin gate needs a writable managed workload cgroup.
+    # Docker Desktop exposes the private cgroup namespace read-only, so this
+    # trusted gateway intentionally inherits the host cgroup view.
+    cgroup_namespace_mode: host
     resource_profile: build-heavy
     resource_profiles:
       standard:

@@ -11,6 +11,10 @@ fn config_prd_manager_docker_section_deserializes_and_validates() {
     assert_eq!(docker.readiness_timeout_ms, 60_000);
     assert_eq!(docker.container_workspace_root, PathBuf::from("/workspace"));
     assert_eq!(docker.gateway_instance_id, "eos-gateway");
+    assert_eq!(
+        docker.cgroup_namespace_mode,
+        DockerCgroupNamespaceMode::Private
+    );
     // Phase 3: prd runs the de-privileged container boundary.
     assert!(!docker.privileged);
     assert_eq!(docker.resource_profile, "standard");
