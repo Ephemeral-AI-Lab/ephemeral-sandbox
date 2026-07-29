@@ -53,8 +53,8 @@ fn execute_shell_inner(request: &NamespaceRunnerRequest) -> Result<RunResult, Ru
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
-    shell_security::prepare_shell_security_policy()?;
-    install_command_process_group(&mut command);
+    shell_security::prepare_shell_security_policy(request.command_security_profile)?;
+    install_command_process_group(&mut command, request.command_security_profile);
 
     let mut child = spawn_child(&mut command, request)?;
     let child_pgid = child_process_group(&child)?;
@@ -89,7 +89,10 @@ const fn result_status(exit_code: i32, timed_out: bool) -> &'static str {
 }
 
 #[cfg(target_os = "linux")]
-fn install_command_process_group(command: &mut Command) {
+fn install_command_process_group(
+    command: &mut Command,
+    profile: crate::runner::protocol::CommandSecurityProfile,
+) {
     // SAFETY: `pre_exec` runs in the forked shell-exec child immediately before
     // `exec`. The closure only calls async-signal-safe syscalls over state
     // prepared before forking and returns the OS error if one fails.
@@ -98,7 +101,7 @@ fn install_command_process_group(command: &mut Command) {
             if libc::setpgid(0, 0) != 0 {
                 return Err(std::io::Error::last_os_error());
             }
-            shell_security::apply_shell_security_policy()
+            shell_security::apply_shell_security_policy(profile)
         });
     }
 }

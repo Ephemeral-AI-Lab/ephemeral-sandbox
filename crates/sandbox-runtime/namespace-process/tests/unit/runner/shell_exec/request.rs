@@ -79,5 +79,6 @@ fn request(args: serde_json::Value) -> NamespaceRunnerRequest {
         trace: None,
         parent: None,
         observability_log_path: None,
+        command_security_profile: Default::default(),
     }
 }

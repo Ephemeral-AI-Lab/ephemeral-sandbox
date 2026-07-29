@@ -871,6 +871,7 @@ pub struct NamespaceExecutionCaps {
     pub max_terminal_entries: usize,
     pub max_transcript_window_bytes: u64,
     pub max_runner_result_bytes: usize,
+    pub command_security_profile: crate::CommandSecurityProfile,
 }
 
 impl Default for NamespaceExecutionCaps {
@@ -881,6 +882,7 @@ impl Default for NamespaceExecutionCaps {
             max_terminal_entries: 512,
             max_transcript_window_bytes: 1024 * 1024,
             max_runner_result_bytes: 8 * 1024 * 1024,
+            command_security_profile: crate::CommandSecurityProfile::Standard,
         }
     }
 }

@@ -1,7 +1,7 @@
 use crate::workspace_crate::WorkspaceSessionId;
 
 pub use sandbox_runtime_namespace_execution::{
-    NamespaceExecutionId, NamespaceExecutionTerminalStatus,
+    CommandSecurityProfile, NamespaceExecutionId, NamespaceExecutionTerminalStatus,
 };
 
 /// Move-only evidence that command ownership reached zero for one workspace.

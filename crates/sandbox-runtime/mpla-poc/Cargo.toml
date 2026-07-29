@@ -13,6 +13,10 @@ path = "src/bin/mpla-poc.rs"
 name = "mpla-poc-oracle"
 path = "src/bin/mpla-poc-oracle/main.rs"
 
+[[bin]]
+name = "mpla-speed-poc-v1"
+path = "src/bin/mpla-speed-poc-v1.rs"
+
 [dependencies]
 clap.workspace = true
 libc.workspace = true

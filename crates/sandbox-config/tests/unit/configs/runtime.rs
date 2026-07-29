@@ -19,6 +19,26 @@ fn config_default_workspace_section_is_valid() {
 }
 
 #[test]
+fn command_security_profile_is_server_owned_and_explicit() {
+    let defaulted = layerstack_config("").expect("default runtime config");
+    assert_eq!(
+        defaulted.namespace_execution.command_security_profile,
+        CommandSecurityProfile::Standard
+    );
+
+    let configured =
+        layerstack_config("    command_security_profile: mpla_benchmark_qualification\n")
+            .expect("qualification command profile parses");
+    assert_eq!(
+        configured.namespace_execution.command_security_profile,
+        CommandSecurityProfile::MplaBenchmarkQualification
+    );
+    configured
+        .validate()
+        .expect("qualification command profile validates");
+}
+
+#[test]
 fn mpla_storage_admin_profile_is_explicit_and_defaults_to_production() {
     let defaulted = layerstack_config("").expect("default runtime config");
     assert_eq!(

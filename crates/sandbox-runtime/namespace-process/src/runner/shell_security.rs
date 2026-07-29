@@ -15,6 +15,8 @@ use seccompiler::{
     SeccompFilter, SeccompRule, TargetArch,
 };
 
+use super::protocol::CommandSecurityProfile;
+
 const PR_CAPBSET_DROP: libc::c_int = 24;
 const PR_SET_NO_NEW_PRIVS: libc::c_int = 38;
 const PR_CAP_AMBIENT: libc::c_int = 47;
@@ -34,6 +36,7 @@ const CAP_SETGID: u32 = 6;
 const CAP_SETUID: u32 = 7;
 const CAP_NET_BIND_SERVICE: u32 = 10;
 const CAP_NET_RAW: u32 = 13;
+const CAP_SYS_ADMIN: u32 = 21;
 const CAP_MKNOD: u32 = 27;
 const CAP_SETFCAP: u32 = 31;
 
@@ -144,6 +147,7 @@ struct CapData {
 }
 
 static ENFORCE_PROGRAMS: OnceLock<SeccompPrograms> = OnceLock::new();
+static MPLA_BENCHMARK_PROGRAMS: OnceLock<SeccompPrograms> = OnceLock::new();
 
 #[cfg(target_arch = "x86_64")]
 const SYS_CAPSET: libc::c_long = 126;
@@ -155,21 +159,31 @@ const SYS_CAPSET: libc::c_long = 91;
 #[cfg(target_arch = "aarch64")]
 const SYS_SECCOMP: libc::c_long = 277;
 
-pub(crate) fn prepare_shell_security_policy() -> io::Result<()> {
-    prepare_seccomp_program(&ENFORCE_PROGRAMS)
+pub(crate) fn prepare_shell_security_policy(profile: CommandSecurityProfile) -> io::Result<()> {
+    prepare_seccomp_program(seccomp_slot(profile), profile)
 }
 
-pub(crate) fn apply_shell_security_policy() -> io::Result<()> {
+pub(crate) fn apply_shell_security_policy(profile: CommandSecurityProfile) -> io::Result<()> {
     set_no_new_privs()?;
-    drop_capabilities()?;
-    install_prepared_filters(&ENFORCE_PROGRAMS)
+    drop_capabilities(profile)?;
+    install_prepared_filters(seccomp_slot(profile))
 }
 
-fn prepare_seccomp_program(slot: &'static OnceLock<SeccompPrograms>) -> io::Result<()> {
+const fn seccomp_slot(profile: CommandSecurityProfile) -> &'static OnceLock<SeccompPrograms> {
+    match profile {
+        CommandSecurityProfile::Standard => &ENFORCE_PROGRAMS,
+        CommandSecurityProfile::MplaBenchmarkQualification => &MPLA_BENCHMARK_PROGRAMS,
+    }
+}
+
+fn prepare_seccomp_program(
+    slot: &'static OnceLock<SeccompPrograms>,
+    profile: CommandSecurityProfile,
+) -> io::Result<()> {
     if slot.get().is_some() {
         return Ok(());
     }
-    let programs = build_seccomp_programs()?;
+    let programs = build_seccomp_programs(profile)?;
     let _ = slot.set(programs);
     Ok(())
 }
@@ -184,16 +198,29 @@ fn install_prepared_filters(slot: &'static OnceLock<SeccompPrograms>) -> io::Res
     Ok(())
 }
 
-pub(crate) fn build_seccomp_programs() -> io::Result<SeccompPrograms> {
-    let filters = vec![build_errno_filter(libc::EPERM)?, build_clone3_filter()?];
+pub(crate) fn build_seccomp_programs(
+    profile: CommandSecurityProfile,
+) -> io::Result<SeccompPrograms> {
+    let filters = vec![
+        build_errno_filter(libc::EPERM, profile)?,
+        build_clone3_filter()?,
+    ];
     Ok(SeccompPrograms {
         filters: filters.into_boxed_slice(),
     })
 }
 
-fn build_errno_filter(errno: i32) -> io::Result<BpfProgram> {
+fn build_errno_filter(errno: i32, profile: CommandSecurityProfile) -> io::Result<BpfProgram> {
     let mut rules = BTreeMap::new();
     for name in FILESYSTEM_DENY_SYSCALLS {
+        if matches!(profile, CommandSecurityProfile::MplaBenchmarkQualification)
+            && matches!(
+                *name,
+                "mount" | "umount2" | "fsopen" | "fsconfig" | "fsmount" | "move_mount"
+            )
+        {
+            continue;
+        }
         add_syscall_rule(&mut rules, name, vec![])?;
     }
     for name in NAMESPACE_DENY_SYSCALLS {
@@ -331,7 +358,7 @@ fn set_no_new_privs() -> io::Result<()> {
     syscall_result(rc)
 }
 
-fn drop_capabilities() -> io::Result<()> {
+fn drop_capabilities(profile: CommandSecurityProfile) -> io::Result<()> {
     // SAFETY: prctl is called with fixed integer arguments and no borrowed memory.
     let ambient_rc = unsafe {
         libc::prctl(
@@ -344,11 +371,11 @@ fn drop_capabilities() -> io::Result<()> {
     };
     syscall_result(ambient_rc)?;
     for cap in 0..=MAX_CAPABILITY {
-        if !capability_is_kept(cap) {
+        if !capability_is_kept(cap, profile) {
             drop_bounding_capability(cap)?;
         }
     }
-    capset_keep_set()
+    capset_keep_set(profile)
 }
 
 fn drop_bounding_capability(capability: u32) -> io::Result<()> {
@@ -373,7 +400,7 @@ fn drop_bounding_capability(capability: u32) -> io::Result<()> {
     }
 }
 
-fn capset_keep_set() -> io::Result<()> {
+fn capset_keep_set(profile: CommandSecurityProfile) -> io::Result<()> {
     let header = CapHeader {
         version: LINUX_CAPABILITY_VERSION_3,
         pid: 0,
@@ -383,9 +410,13 @@ fn capset_keep_set() -> io::Result<()> {
         permitted: 0,
         inheritable: 0,
     }; CAP_WORDS];
-    for capability in KEEP_CAPABILITIES {
-        let word = (*capability / 32) as usize;
-        let bit = 1u32 << (*capability % 32);
+    for capability in KEEP_CAPABILITIES
+        .iter()
+        .copied()
+        .chain(qualification_capability(profile))
+    {
+        let word = (capability / 32) as usize;
+        let bit = 1u32 << (capability % 32);
         data[word].effective |= bit;
         data[word].permitted |= bit;
         data[word].inheritable |= bit;
@@ -428,8 +459,15 @@ fn seccomp_build_error(err: impl std::fmt::Display) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, err.to_string())
 }
 
-fn capability_is_kept(capability: u32) -> bool {
+fn qualification_capability(profile: CommandSecurityProfile) -> impl Iterator<Item = u32> {
+    matches!(profile, CommandSecurityProfile::MplaBenchmarkQualification)
+        .then_some(CAP_SYS_ADMIN)
+        .into_iter()
+}
+
+fn capability_is_kept(capability: u32, profile: CommandSecurityProfile) -> bool {
     KEEP_CAPABILITIES.contains(&capability)
+        || qualification_capability(profile).any(|kept| kept == capability)
 }
 
 #[cfg(target_arch = "x86_64")]

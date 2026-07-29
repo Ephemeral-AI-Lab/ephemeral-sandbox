@@ -5,7 +5,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use sandbox_observability_telemetry::{SpanStatus, TerminalHook, TraceContext};
-use sandbox_runtime_namespace_process::runner::protocol::{NamespaceRunnerRequest, RunResult};
+use sandbox_runtime_namespace_process::runner::protocol::{
+    CommandSecurityProfile, NamespaceRunnerRequest, RunResult,
+};
 use serde_json::Value;
 
 use crate::caps::ExecutionCaps;
@@ -38,6 +40,7 @@ pub struct NamespaceExecutionEngine<V = ()> {
     teardown_deadline_total: AtomicU64,
     scratch_bytes_high_water: AtomicU64,
     setup_timeout_s: f64,
+    command_security_profile: CommandSecurityProfile,
 }
 
 impl<V: Send + 'static> NamespaceExecutionEngine<V> {
@@ -70,6 +73,7 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
             teardown_deadline_total: AtomicU64::new(0),
             scratch_bytes_high_water: AtomicU64::new(0),
             setup_timeout_s: caps.setup_timeout_s,
+            command_security_profile: caps.command_security_profile,
         }
     }
 
@@ -197,12 +201,41 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         cgroup_procs_path: Option<PathBuf>,
         trace_handoff: Option<(TraceContext, PathBuf)>,
     ) -> Result<InteractiveExecution<S::Output>, NamespaceExecutionError> {
+        self.run_shell_interactive_attached_with_security_profile(
+            op,
+            target,
+            id,
+            on_ready,
+            on_complete,
+            cgroup_procs_path,
+            trace_handoff,
+            self.command_security_profile,
+        )
+    }
+
+    /// Launch one shell operation with a server-selected child security
+    /// profile. The operation layer uses this narrow override for the frozen
+    /// MPLA benchmark executable; ordinary commands retain the standard
+    /// profile even when that qualification lane is configured.
+    #[allow(clippy::too_many_arguments)]
+    pub fn run_shell_interactive_attached_with_security_profile<S: ShellOperation>(
+        &self,
+        op: S,
+        target: NamespaceTarget,
+        id: NamespaceExecutionId,
+        on_ready: impl FnOnce(InteractiveExecution<S::Output>),
+        on_complete: impl FnOnce(&Result<S::Output, NamespaceExecutionError>) + Send + 'static,
+        cgroup_procs_path: Option<PathBuf>,
+        trace_handoff: Option<(TraceContext, PathBuf)>,
+        command_security_profile: CommandSecurityProfile,
+    ) -> Result<InteractiveExecution<S::Output>, NamespaceExecutionError> {
         let request = build_request(
             &target,
             &id,
             shell_args(op.command()),
             op.timeout_seconds(),
             trace_handoff,
+            command_security_profile,
         );
         let transcript_path = op.transcript_path().map(Path::to_path_buf);
         let cancelled = Arc::new(AtomicBool::new(false));
@@ -237,7 +270,14 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         target: NamespaceTarget,
         id: NamespaceExecutionId,
     ) -> Result<ExecutionHandle<()>, NamespaceExecutionError> {
-        let request = build_request(&target, &id, serde_json::json!({}), None, None);
+        let request = build_request(
+            &target,
+            &id,
+            serde_json::json!({}),
+            None,
+            None,
+            CommandSecurityProfile::Standard,
+        );
         let child = self.reserve_spawn(&id, || {
             self.launcher.spawn_overlay_mount(
                 request,
@@ -267,7 +307,14 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         target: NamespaceTarget,
         id: NamespaceExecutionId,
     ) -> Result<ExecutionHandle<RunResult>, NamespaceExecutionError> {
-        let request = build_request(&target, &id, serde_json::json!({}), None, None);
+        let request = build_request(
+            &target,
+            &id,
+            serde_json::json!({}),
+            None,
+            None,
+            CommandSecurityProfile::Standard,
+        );
         let child = self.reserve_spawn(&id, || {
             self.launcher.spawn_remount_overlay(
                 request,
@@ -299,7 +346,14 @@ impl<V: Send + 'static> NamespaceExecutionEngine<V> {
         args: Value,
         cgroup_procs_path: Option<PathBuf>,
     ) -> Result<ExecutionHandle<RunResult>, NamespaceExecutionError> {
-        let request = build_request(&target, &id, args, None, None);
+        let request = build_request(
+            &target,
+            &id,
+            args,
+            None,
+            None,
+            CommandSecurityProfile::Standard,
+        );
         let child = self.reserve_spawn(&id, || {
             self.launcher.spawn_file_op(
                 request,
@@ -461,6 +515,7 @@ fn build_request(
     args: Value,
     timeout_seconds: Option<f64>,
     trace_handoff: Option<(TraceContext, PathBuf)>,
+    command_security_profile: CommandSecurityProfile,
 ) -> NamespaceRunnerRequest {
     let (trace, parent, observability_log_path) = match trace_handoff {
         Some((trace, path)) => (
@@ -482,5 +537,6 @@ fn build_request(
         trace,
         parent,
         observability_log_path,
+        command_security_profile,
     }
 }

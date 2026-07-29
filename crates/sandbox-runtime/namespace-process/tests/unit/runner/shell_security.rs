@@ -1,3 +1,4 @@
+use crate::runner::protocol::CommandSecurityProfile;
 use crate::runner::shell_security::{
     build_seccomp_programs, syscall_number, CLONE_NEW_FLAGS, KEEP_CAPABILITIES,
 };
@@ -236,7 +237,8 @@ fn kept_capabilities_match_command_policy() {
 
 #[test]
 fn seccomp_programs_build_with_arch_guard_first() {
-    let programs = build_seccomp_programs().expect("programs build");
+    let programs =
+        build_seccomp_programs(CommandSecurityProfile::Standard).expect("programs build");
     assert_eq!(programs.filters.len(), 2);
     for program in programs.filters {
         assert!(!program.is_empty());
@@ -249,7 +251,8 @@ fn seccomp_programs_build_with_arch_guard_first() {
 
 #[test]
 fn explicit_denies_return_eperm_in_enforce() {
-    let programs = build_seccomp_programs().expect("programs build");
+    let programs =
+        build_seccomp_programs(CommandSecurityProfile::Standard).expect("programs build");
     let errno_filter = &programs.filters[0];
     for name in COMMON_DENIED_SYSCALLS {
         assert_eq!(
@@ -261,8 +264,58 @@ fn explicit_denies_return_eperm_in_enforce() {
 }
 
 #[test]
+fn benchmark_profile_opens_only_the_mpla_mount_syscall_set() {
+    let standard =
+        build_seccomp_programs(CommandSecurityProfile::Standard).expect("standard programs build");
+    let qualification =
+        build_seccomp_programs(CommandSecurityProfile::MplaBenchmarkQualification)
+            .expect("qualification programs build");
+    let standard_errno = &standard.filters[0];
+    let qualification_errno = &qualification.filters[0];
+
+    for name in [
+        "mount",
+        "umount2",
+        "fsopen",
+        "fsconfig",
+        "fsmount",
+        "move_mount",
+    ] {
+        assert_eq!(
+            run_bpf(standard_errno, data(name, [0; 6])),
+            errno_action(libc::EPERM),
+            "{name} must remain denied for standard commands"
+        );
+        assert_eq!(
+            run_bpf(qualification_errno, data(name, [0; 6])),
+            SECCOMP_RET_ALLOW,
+            "{name} must be allowed only for the qualification profile"
+        );
+    }
+
+    for name in [
+        "pivot_root",
+        "open_tree",
+        "fspick",
+        "mount_setattr",
+        "setns",
+        "unshare",
+        "reboot",
+        "bpf",
+        "open_by_handle_at",
+    ] {
+        assert_eq!(
+            run_bpf(qualification_errno, data(name, [0; 6])),
+            errno_action(libc::EPERM),
+            "{name} must remain denied for qualification commands"
+        );
+    }
+}
+
+#[test]
 fn clone3_returns_enosys() {
-    let programs = build_seccomp_programs().expect("programs build");
+    let programs =
+        build_seccomp_programs(CommandSecurityProfile::Standard).expect("programs build");
     let clone3_filter = &programs.filters[1];
     assert_eq!(
         run_bpf(clone3_filter, data("clone3", [0; 6])),
@@ -272,7 +325,8 @@ fn clone3_returns_enosys() {
 
 #[test]
 fn exec_syscalls_remain_allowed() {
-    let programs = build_seccomp_programs().expect("programs build");
+    let programs =
+        build_seccomp_programs(CommandSecurityProfile::Standard).expect("programs build");
     for name in [
         "execve",
         "execveat",
@@ -290,7 +344,8 @@ fn exec_syscalls_remain_allowed() {
 
 #[test]
 fn namespace_creation_is_denied_in_enforce() {
-    let programs = build_seccomp_programs().expect("programs build");
+    let programs =
+        build_seccomp_programs(CommandSecurityProfile::Standard).expect("programs build");
     let errno_filter = &programs.filters[0];
     let clone_args = [clone_namespace_mask(), 0, 0, 0, 0, 0];
     assert_eq!(
@@ -314,7 +369,8 @@ fn namespace_creation_is_denied_in_enforce() {
 
 #[test]
 fn each_clone_namespace_flag_is_denied_in_enforce() {
-    let programs = build_seccomp_programs().expect("programs build");
+    let programs =
+        build_seccomp_programs(CommandSecurityProfile::Standard).expect("programs build");
     let errno_filter = &programs.filters[0];
     for flag in CLONE_NEW_FLAGS {
         let clone_args = [*flag, 0, 0, 0, 0, 0];
@@ -328,7 +384,8 @@ fn each_clone_namespace_flag_is_denied_in_enforce() {
 
 #[test]
 fn device_mknod_is_denied_but_regular_nodes_are_not() {
-    let programs = build_seccomp_programs().expect("programs build");
+    let programs =
+        build_seccomp_programs(CommandSecurityProfile::Standard).expect("programs build");
     let errno_filter = &programs.filters[0];
     assert_eq!(
         run_bpf(errno_filter, data("mknodat", [0, 0, S_IFCHR, 0, 0, 0])),

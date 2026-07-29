@@ -19,7 +19,8 @@ pub mod workspace_session;
 pub use command::CommandOperationService;
 pub use layerstack::LayerStackService;
 pub use namespace_execution::{
-    NamespaceExecutionId, NamespaceExecutionTerminalStatus, RuntimeNamespaceExecutionSnapshot,
+    CommandSecurityProfile, NamespaceExecutionId, NamespaceExecutionTerminalStatus,
+    RuntimeNamespaceExecutionSnapshot,
 };
 pub use observability::{
     RuntimeObservabilitySnapshot, RuntimeOwnershipSnapshot, RuntimeOwnershipTopologySnapshot,

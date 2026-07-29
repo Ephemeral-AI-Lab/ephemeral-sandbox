@@ -94,6 +94,7 @@ impl CommandOperationService {
                 max_terminal_entries: config.execution.max_terminal_entries,
                 max_transcript_window_bytes: config.execution.max_transcript_window_bytes,
                 max_runner_result_bytes: config.execution.max_runner_result_bytes,
+                command_security_profile: config.execution.command_security_profile,
             },
         ));
         Self::with_engine_and_locators(

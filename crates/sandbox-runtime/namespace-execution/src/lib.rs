@@ -28,6 +28,7 @@ pub use launcher::{NsRunnerLauncher, RunnerChild, RunnerPlacement};
 pub use promise::{CompletionPromise, CompletionWaiter};
 pub use pty::{open_pty_pair, OutputActivity, OutputActivitySnapshot, PtyMaster};
 pub use registry::{ExecutionRegistry, RegistryValueMetrics};
+pub use sandbox_runtime_namespace_process::runner::protocol::CommandSecurityProfile;
 pub use shell::{NamespaceExecutionTerminalStatus, RunnerOutcome, ShellOperation};
 pub use transcript_rows::{
     required_transcript_window, transcript_window, CommandStream, CommandTranscriptRow,

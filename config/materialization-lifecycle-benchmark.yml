@@ -1,8 +1,6 @@
-# Dedicated Stage 04.6 M3 physical-campaign configuration.
-#
-# M2 evidence is sealed under its original configuration. M3 must recover only
-# its own Docker resources, so this configuration uses a dedicated gateway
-# ownership label rather than the shared default.
+# Dedicated configuration for the 1.72 GiB lifecycle benchmark. The campaign
+# uses a separate gateway socket/cache and this ownership label, so recovery
+# cannot adopt sandboxes belonging to another gateway.
 
 daemon:
   server:
@@ -22,6 +20,10 @@ runtime:
     rfc1918_egress: allow
   namespace_execution:
     scratch_root: /eos/namespace_execution
+    # Explicit user requirement: keep the frozen qualification profile armed.
+    # The Docker provider retains CAP_SYS_ADMIN in the sandbox daemon for real
+    # OverlayFS mounts; ordinary user commands still receive the standard,
+    # capability-dropped profile.
     command_security_profile: mpla_benchmark_qualification
   layerstack:
     rollout_mode: legacy
@@ -29,9 +31,6 @@ runtime:
       squash_at_n_layers: 100
   command:
     max_active: 32
-  # This dedicated physical qualification fixes the single OverlayFS VFS
-  # write/search check on its internally-created mode-000 work directory.
-  # Production config retains the CAP_SYS_ADMIN-only default.
   mpla_storage_admin:
     profile: overlayfs_dac_override_qualification
 
@@ -43,23 +42,18 @@ runner:
 observability:
   resource_stats:
     enabled: true
-    sample_interval_ms: 2000
+    sample_interval_ms: 1000
     max_disk_bytes: 4194304
 
 manager:
   docker:
-    # MPLA storage administration creates and confines the daemon-owned
-    # workload cgroup. This dedicated physical-validation gateway is trusted;
-    # ordinary production sandboxes remain de-privileged in config/prd.yml.
-    privileged: true
+    # Keep the Docker boundary non-privileged. The provider grants the daemon
+    # SYS_ADMIN/NET_ADMIN/SETPCAP, including SYS_ADMIN for OverlayFS mounting.
+    privileged: false
     daemon_binary_path: dist/sandbox-daemon-linux-arm64
-    daemon_config_yaml_path: config/mpla-poc-m3.yml
+    daemon_config_yaml_path: config/materialization-lifecycle-benchmark.yml
     platform: linux/arm64
-    gateway_instance_id: mpla-poc-m3
-    # The MPLA storage-admin gate needs a writable managed workload cgroup.
-    # Docker Desktop exposes the private cgroup namespace read-only, so this
-    # trusted gateway intentionally inherits the host cgroup view.
-    cgroup_namespace_mode: host
+    gateway_instance_id: materialization-lifecycle-benchmark-20260729
     resource_profile: build-heavy
     resource_profiles:
       standard:

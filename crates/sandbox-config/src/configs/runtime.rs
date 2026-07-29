@@ -321,6 +321,16 @@ pub struct NamespaceExecutionConfig {
     /// ns-runner result-pipe drain cap in bytes.
     #[serde(default = "default_max_runner_result_bytes")]
     pub max_runner_result_bytes: usize,
+    #[serde(default)]
+    pub command_security_profile: CommandSecurityProfile,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommandSecurityProfile {
+    #[default]
+    Standard,
+    MplaBenchmarkQualification,
 }
 
 impl Default for NamespaceExecutionConfig {
@@ -332,6 +342,7 @@ impl Default for NamespaceExecutionConfig {
             max_terminal_entries: default_max_terminal_entries(),
             max_transcript_window_bytes: default_max_transcript_window_bytes(),
             max_runner_result_bytes: default_max_runner_result_bytes(),
+            command_security_profile: CommandSecurityProfile::Standard,
         }
     }
 }

@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use sandbox_runtime_namespace_process::runner::protocol::CommandSecurityProfile;
+
 /// Execution-engine caps, injected by the operation layer from
 /// `runtime.{command,namespace_execution}` config; `Default` preserves the
 /// shipped policy. This crate never reads configuration.
@@ -17,6 +19,8 @@ pub struct ExecutionCaps {
     pub max_transcript_window_bytes: u64,
     /// Runner result-pipe drain cap.
     pub max_runner_result_bytes: usize,
+    /// Server-owned command-child capability and seccomp profile.
+    pub command_security_profile: CommandSecurityProfile,
 }
 
 impl Default for ExecutionCaps {
@@ -28,6 +32,7 @@ impl Default for ExecutionCaps {
             max_terminal_entries: 512,
             max_transcript_window_bytes: 1024 * 1024,
             max_runner_result_bytes: 8 * 1024 * 1024,
+            command_security_profile: CommandSecurityProfile::Standard,
         }
     }
 }

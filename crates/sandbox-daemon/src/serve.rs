@@ -139,6 +139,18 @@ pub(crate) fn build_runtime_config(
                     .namespace_execution
                     .max_transcript_window_bytes,
                 max_runner_result_bytes: config.runtime.namespace_execution.max_runner_result_bytes,
+                command_security_profile: match config
+                    .runtime
+                    .namespace_execution
+                    .command_security_profile
+                {
+                    sandbox_config::configs::runtime::CommandSecurityProfile::Standard => {
+                        sandbox_runtime::CommandSecurityProfile::Standard
+                    }
+                    sandbox_config::configs::runtime::CommandSecurityProfile::MplaBenchmarkQualification => {
+                        sandbox_runtime::CommandSecurityProfile::MplaBenchmarkQualification
+                    }
+                },
             },
         },
         layerstack: sandbox_runtime::LayerstackRuntimeConfig {

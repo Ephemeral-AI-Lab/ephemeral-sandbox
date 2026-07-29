@@ -6,6 +6,14 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommandSecurityProfile {
+    #[default]
+    Standard,
+    MplaBenchmarkQualification,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct Fd(pub RawFd);
@@ -39,6 +47,8 @@ pub struct NamespaceRunnerRequest {
     pub parent: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub observability_log_path: Option<PathBuf>,
+    #[serde(default)]
+    pub command_security_profile: CommandSecurityProfile,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
