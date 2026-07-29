@@ -1,9 +1,9 @@
 <div align="center">
 
 
-# Ephemeral Sandbox: Coding-Agent Swarm Infrastructure
+# Ephemeral Sandbox: Agent Infrastructure for Coding-Agent Swarms
 
-**Raise the concurrency ceiling for coding-agent swarms with isolated workspace
+**Raise the concurrency ceiling for agent swarms with isolated workspace
 sessions inside one shared sandbox.**
 
 [Docs](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-docs) ·
@@ -23,10 +23,14 @@ sessions inside one shared sandbox.**
 
 ## What is Ephemeral Sandbox?
 
-Ephemeral Sandbox is open-source coding-agent swarm infrastructure for running
+Ephemeral Sandbox is open-source sandbox and agent infrastructure for running
 many parallel coding agents against the same codebase. Each agent works through
 an isolated workspace session inside one shared sandbox, then publishes a safe,
 reviewable change set.
+
+As the execution and workspace layer for a multi-agent system, Ephemeral
+Sandbox complements agent inbox coordination and coding-agent orchestrators
+without forcing every agent into one mutable checkout.
 
 This repository contains the headless Rust core: gateway, manager, daemon,
 runtime, observability, CLI, and MCP components. The browser UI and its backend
@@ -39,6 +43,8 @@ repository.
 - **Work in parallel.** Run multiple coding agents at the same time.
 - **Stay isolated.** Give every agent a private writable workspace session over
   one stable project base.
+- **Coordinate an agent swarm.** Pair the sandbox with an agent inbox or
+  orchestrator while each coding agent keeps its own workspace session.
 - **Publish with confidence.** Inspect activity and change provenance before
   publishing a complete resolved change set.
 
