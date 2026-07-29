@@ -6,11 +6,12 @@
 **Raise the concurrency ceiling for agent swarms with isolated workspace
 sessions inside one shared sandbox.**
 
-[Docs](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-docs) ·
-[Quick start](#quick-start) ·
-[MCP](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-docs/tree/main/mcp) ·
-[CLI](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-docs/tree/main/cli) ·
-[Architecture](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-docs/blob/main/architecture/00-foundations/01-system-overview.md) ·
+[Website](https://ephemeral-sandbox.com/) ·
+[Docs](https://ephemeral-sandbox.com/docs) ·
+[Quick start](https://ephemeral-sandbox.com/docs/quickstart) ·
+[MCP](https://ephemeral-sandbox.com/docs/mcp) ·
+[CLI](https://ephemeral-sandbox.com/docs/cli) ·
+[Architecture](https://ephemeral-sandbox.com/architecture) ·
 [Tests](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-test)
 
 <img src="assets/mascot.png" alt="Ephemeral Sandbox mascot: a Siamese cat in a sandbox" width="280">
@@ -131,11 +132,11 @@ sandbox-mcp --set observability
    publishing the complete resolved change set, or publishes nothing.
 
 For the deeper design, see the
-[architecture overview](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-docs/blob/main/architecture/00-foundations/01-system-overview.md).
+[architecture overview](https://ephemeral-sandbox.com/architecture).
 
 ## Documentation
 
-- [Documentation](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-docs)
+- [Documentation](https://ephemeral-sandbox.com/docs)
   covers the overview, CLI, MCP, and architecture.
 - [External tests and benchmarks](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-test)
   live in their own repository.
