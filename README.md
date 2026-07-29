@@ -16,7 +16,7 @@ sessions inside one shared sandbox.**
 
 <img src="assets/mascot.png" alt="Ephemeral Sandbox mascot: a Siamese cat in a sandbox" width="280">
 
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-111111.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-111111.svg)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.com/invite/WdDJ3tru9)
 
 
@@ -169,4 +169,4 @@ you verified it in the pull request.
 
 ## License
 
-Ephemeral Sandbox is available under the [Apache License 2.0](LICENSE).
+Ephemeral Sandbox is available under the [MIT License](LICENSE).
