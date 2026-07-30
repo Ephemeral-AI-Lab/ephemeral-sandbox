@@ -13,7 +13,12 @@ pub(crate) fn snapshot(
     let Some(context) = input.query_context() else {
         return observability_unconfigured();
     };
-    let mut value = response::snapshot_value(&context, input.observability_snapshot());
+    let resource_context = input.resource_query_context();
+    let mut value = response::snapshot_value(
+        &context,
+        resource_context.as_ref().map(|context| &context.reader),
+        input.observability_snapshot(),
+    );
     if let (Ok(observation), Value::Object(object)) = (input.observe_layerstack(), &mut value) {
         object.insert(
             "stack".to_owned(),
