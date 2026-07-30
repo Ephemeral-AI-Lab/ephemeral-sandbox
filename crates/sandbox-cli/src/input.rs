@@ -1,8 +1,11 @@
 //! CLI-owned argv projection and request input construction.
 
+use std::fs::File;
+use std::io::Read;
+
 use sandbox_operation_client::{
     build_request_from_values, build_request_from_values_with_id, BuildRequestValueInput,
-    RequestBuildError,
+    RequestBuildError, MAX_REQUEST_BYTES,
 };
 use sandbox_operation_contract::{
     operation_domain_name, ArgKind, ArgSpecDocument, OperationCatalogDocument, OperationDomain,
@@ -192,7 +195,8 @@ fn build_args(
             let value = argv
                 .get(index)
                 .ok_or_else(|| build_error(format!("{token} requires a value")))?;
-            insert_arg_value(&mut values, arg, projected_arg, value)?;
+            let value = read_projected_value(projected_arg, token, value)?;
+            insert_arg_value(&mut values, arg, projected_arg, &value)?;
         } else {
             let projected_arg = positional_args.get(next_positional).ok_or_else(|| {
                 build_error(format!(
@@ -209,6 +213,37 @@ fn build_args(
 
     require_cli_args(spec, projection, &values)?;
     Ok(Value::Object(values))
+}
+
+fn read_projected_value(
+    projection: &ArgumentProjection,
+    flag: &str,
+    value: &str,
+) -> Result<String, RequestBuildError> {
+    if projection.value_file_flag != Some(flag) {
+        return Ok(value.to_owned());
+    }
+    let file = File::open(value)
+        .map_err(|error| build_error(format!("{flag} could not read {value}: {error}")))?;
+    let length = file
+        .metadata()
+        .map_err(|error| build_error(format!("{flag} could not inspect {value}: {error}")))?
+        .len();
+    if length > MAX_REQUEST_BYTES as u64 {
+        return Err(build_error(format!(
+            "{flag} exceeds the {MAX_REQUEST_BYTES}-byte gateway request limit"
+        )));
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_REQUEST_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| build_error(format!("{flag} could not read {value}: {error}")))?;
+    if bytes.len() > MAX_REQUEST_BYTES {
+        return Err(build_error(format!(
+            "{flag} exceeds the {MAX_REQUEST_BYTES}-byte gateway request limit"
+        )));
+    }
+    String::from_utf8(bytes).map_err(|_| build_error(format!("{flag} must contain valid UTF-8")))
 }
 
 fn require_cli_args(

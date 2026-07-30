@@ -19,10 +19,10 @@ Events
     List domain-fact events across traces.
 
 Resources
-  Inspect manager-owned resource metrics.
+  Inspect bounded resource metrics.
 
   resources
-    Read manager-owned sandbox resource metrics.
+    Read bounded sandbox or fleet resource metrics.
 
 Daemon
   Inspect daemon self-metrics.

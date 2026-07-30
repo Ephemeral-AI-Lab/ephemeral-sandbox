@@ -14,6 +14,7 @@ pub struct ArgumentProjection {
     pub name: &'static str,
     pub flag: Option<&'static str>,
     pub additional_flags: &'static [&'static str],
+    pub value_file_flag: Option<&'static str>,
     pub positional: Option<&'static str>,
 }
 
@@ -24,6 +25,22 @@ impl ArgumentProjection {
             name,
             flag: Some(flag),
             additional_flags: &[],
+            value_file_flag: None,
+            positional: None,
+        }
+    }
+
+    #[must_use]
+    pub const fn flag_with_value_file(
+        name: &'static str,
+        flag: &'static str,
+        value_file_flag: &'static str,
+    ) -> Self {
+        Self {
+            name,
+            flag: Some(flag),
+            additional_flags: &[],
+            value_file_flag: Some(value_file_flag),
             positional: None,
         }
     }
@@ -38,6 +55,7 @@ impl ArgumentProjection {
             name,
             flag: Some(flag),
             additional_flags,
+            value_file_flag: None,
             positional: None,
         }
     }
@@ -48,13 +66,16 @@ impl ArgumentProjection {
             name,
             flag: None,
             additional_flags: &[],
+            value_file_flag: None,
             positional: Some(positional),
         }
     }
 
     #[must_use]
     pub fn accepts_flag(&self, flag: &str) -> bool {
-        self.flag == Some(flag) || self.additional_flags.contains(&flag)
+        self.flag == Some(flag)
+            || self.additional_flags.contains(&flag)
+            || self.value_file_flag == Some(flag)
     }
 }
 

@@ -115,10 +115,8 @@ fn unknown_operation_errors_and_exit_codes_match_phase_zero_fixture() {
         .map(|(name, binary, argv)| invocation(name, binary, argv))
         .collect::<Vec<_>>();
 
-    assert_eq!(
-        format!("{}\n", Value::Array(actual)),
-        include_str!("fixtures/unknown-operation-errors.json")
-    );
+    let expected = include_str!("fixtures/unknown-operation-errors.json").replace("\r\n", "\n");
+    assert_eq!(format!("{}\n", Value::Array(actual)), expected);
 }
 
 fn invocation(name: &str, binary: &str, argv: &[&str]) -> Value {

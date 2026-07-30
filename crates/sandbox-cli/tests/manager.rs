@@ -48,7 +48,10 @@ async fn help_lists_exact_management_catalog() {
     let (code, stdout, stderr) = run(&["sandbox-manager-cli", "help"]).await;
     assert_eq!(code, 0);
     assert!(stderr.is_empty());
-    assert_eq!(stdout, include_str!("fixtures/manager-help.txt"));
+    assert_eq!(
+        stdout,
+        include_str!("fixtures/manager-help.txt").replace("\r\n", "\n")
+    );
     assert_eq!(
         help_operation_names(&stdout),
         [
