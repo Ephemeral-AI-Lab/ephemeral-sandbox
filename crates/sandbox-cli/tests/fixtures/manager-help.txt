@@ -28,4 +28,4 @@ Management
     Export a sandbox's published changes to a host path.
 
 Use:
-  sandbox-manager-cli OPERATION
+  sandbox-manager-cli [--request-id VALUE] OPERATION

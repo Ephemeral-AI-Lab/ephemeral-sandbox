@@ -42,7 +42,7 @@ async fn help_lists_exact_observability_catalog() {
             "layerstack"
         ]
     );
-    assert!(stdout.contains("Use:\n  sandbox-observability-cli OPERATION"));
+    assert!(stdout.contains("Use:\n  sandbox-observability-cli [--request-id VALUE] OPERATION"));
 }
 
 #[tokio::test]
@@ -81,6 +81,27 @@ async fn aggregate_snapshot_uses_system_scope() {
     assert_eq!(request["scope"], json!({"kind": "system"}));
     assert_eq!(request["args"], json!({}));
     assert_eq!(request["_stream_logs"], false);
+}
+
+#[tokio::test]
+async fn explicit_request_id_is_forwarded_unchanged() {
+    let response = json!({"sandboxes": []});
+    let (addr, received) = fake_gateway(response).await;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-observability-cli",
+        "--gateway-socket",
+        &addr,
+        "--request-id",
+        "exp1.observability.snapshot.001",
+        "snapshot",
+    ])
+    .await;
+
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), json!({"sandboxes": []}));
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(request["request_id"], "exp1.observability.snapshot.001");
 }
 
 #[tokio::test]

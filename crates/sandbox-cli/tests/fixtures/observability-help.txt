@@ -55,4 +55,4 @@ Resource efficiency
   Qualify sandbox resource efficiency.
 
 Use:
-  sandbox-observability-cli OPERATION
+  sandbox-observability-cli [--request-id VALUE] OPERATION

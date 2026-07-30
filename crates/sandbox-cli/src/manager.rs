@@ -12,16 +12,16 @@ use std::process::ExitCode;
 use clap::error::ErrorKind;
 use clap::Parser;
 
-use crate::input::BuildRequestInput;
+use crate::input::{validate_request_id, BuildRequestInput};
 use crate::output::{
     discover_config, render_error, render_help_command, render_request_error,
-    run_request_from_catalog, take_progress_flag, EXIT_SUCCESS, EXIT_USAGE,
+    run_request_from_catalog_with_id, take_progress_flag, EXIT_SUCCESS, EXIT_USAGE,
 };
 use crate::projection::document::{catalog_document, CatalogDocument};
 use sandbox_operation_client::{GatewayClient, GatewayConfigOverrides, RequestBuildError};
 use sandbox_operation_contract::OperationDomain;
 
-const PROGRAM: &str = "sandbox-manager-cli";
+const PROGRAM: &str = "sandbox-manager-cli [--request-id VALUE]";
 const HELP_OP: &str = "help";
 const CREATE_SANDBOX_OP: &str = "create_sandbox";
 
@@ -36,6 +36,14 @@ struct Cli {
 
     #[arg(long = "progress", global = true)]
     progress: bool,
+
+    #[arg(
+        long = "request-id",
+        value_name = "VALUE",
+        global = true,
+        allow_hyphen_values = true
+    )]
+    request_id: Option<String>,
 
     operation: Option<String>,
 
@@ -78,6 +86,13 @@ where
             return EXIT_USAGE;
         }
     };
+    let request_id = match validate_request_id(cli.request_id) {
+        Ok(request_id) => request_id,
+        Err(error) => {
+            let _ = render_request_error(&error, stderr);
+            return EXIT_USAGE;
+        }
+    };
 
     let overrides = GatewayConfigOverrides {
         gateway_socket_path: cli.gateway_socket_path,
@@ -97,6 +112,7 @@ where
         cli.operation_argv,
         overrides,
         global_progress,
+        request_id,
         stdout,
         stderr,
     )
@@ -108,6 +124,7 @@ async fn run_manager<WOut, WErr>(
     mut operation_argv: Vec<String>,
     overrides: GatewayConfigOverrides,
     global_progress: bool,
+    request_id: Option<String>,
     stdout: &mut WOut,
     stderr: &mut WErr,
 ) -> u8
@@ -133,7 +150,16 @@ where
         operation_argv,
         sandbox_id: None,
     };
-    run_request_from_catalog(&client, request_input, &catalog, progress, stdout, stderr).await
+    run_request_from_catalog_with_id(
+        &client,
+        request_input,
+        request_id,
+        &catalog,
+        progress,
+        stdout,
+        stderr,
+    )
+    .await
 }
 
 fn manager_catalog<WErr>(stderr: &mut WErr) -> Result<CatalogDocument, u8>

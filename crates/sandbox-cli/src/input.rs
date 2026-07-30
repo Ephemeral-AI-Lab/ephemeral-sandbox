@@ -16,6 +16,9 @@ use serde_json::{Map, Number, Value};
 use crate::projection::document::{operation_projection, CatalogDocument};
 use crate::projection::{ArgumentProjection, OperationProjection};
 
+pub const REQUEST_ID_ERROR: &str =
+    "--request-id must be 1-128 ASCII letters, digits, period, underscore, colon, or dash";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuildRequestInput {
     pub execution_space: OperationDomain,
@@ -213,6 +216,23 @@ fn build_args(
 
     require_cli_args(spec, projection, &values)?;
     Ok(Value::Object(values))
+}
+
+pub fn validate_request_id(
+    request_id: Option<String>,
+) -> Result<Option<String>, RequestBuildError> {
+    let Some(request_id) = request_id else {
+        return Ok(None);
+    };
+    if request_id.len() > 128
+        || request_id.is_empty()
+        || !request_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"._:-".contains(&byte))
+    {
+        return Err(RequestBuildError::invalid(REQUEST_ID_ERROR));
+    }
+    Ok(Some(request_id))
 }
 
 fn read_projected_value(

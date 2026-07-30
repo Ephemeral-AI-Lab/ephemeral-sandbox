@@ -9,16 +9,16 @@ use std::process::ExitCode;
 use clap::error::ErrorKind;
 use clap::Parser;
 
-use crate::input::BuildRequestInput;
+use crate::input::{validate_request_id, BuildRequestInput};
 use crate::output::{
     discover_config, render_error, render_help_command, render_request_error,
-    run_request_from_catalog, EXIT_SUCCESS, EXIT_USAGE,
+    run_request_from_catalog_with_id, EXIT_SUCCESS, EXIT_USAGE,
 };
 use crate::projection::document::catalog_document;
 use sandbox_operation_client::{GatewayClient, GatewayConfigOverrides, RequestBuildError};
 use sandbox_operation_contract::OperationDomain;
 
-const PROGRAM: &str = "sandbox-observability-cli";
+const PROGRAM: &str = "sandbox-observability-cli [--request-id VALUE]";
 const HELP_OP: &str = "help";
 
 #[derive(Debug, Parser)]
@@ -29,6 +29,14 @@ struct Cli {
 
     #[arg(long = "gateway-auth-token", value_name = "TOKEN", global = true)]
     gateway_auth_token: Option<String>,
+
+    #[arg(
+        long = "request-id",
+        value_name = "VALUE",
+        global = true,
+        allow_hyphen_values = true
+    )]
+    request_id: Option<String>,
 
     operation: Option<String>,
 
@@ -71,6 +79,13 @@ where
             return EXIT_USAGE;
         }
     };
+    let request_id = match validate_request_id(cli.request_id) {
+        Ok(request_id) => request_id,
+        Err(error) => {
+            let _ = render_request_error(&error, stderr);
+            return EXIT_USAGE;
+        }
+    };
 
     let catalog = match catalog_document(
         sandbox_operation_catalog::observability::observability_catalog(),
@@ -104,7 +119,16 @@ where
         operation_argv: cli.operation_argv,
         sandbox_id: None,
     };
-    run_request_from_catalog(&client, request_input, &catalog, false, stdout, stderr).await
+    run_request_from_catalog_with_id(
+        &client,
+        request_input,
+        request_id,
+        &catalog,
+        false,
+        stdout,
+        stderr,
+    )
+    .await
 }
 
 fn client_from<WErr>(overrides: GatewayConfigOverrides, stderr: &mut WErr) -> Option<GatewayClient>
