@@ -1,10 +1,12 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
+use std::time::Duration;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use sandbox_config::configs::{
-    daemon::DaemonConfig, manager::ManagerConfig, runtime::RuntimeConfig,
+    daemon::DaemonConfig, manager::ManagerConfig, observability::ObservabilityConfig,
+    runtime::RuntimeConfig,
 };
 use sandbox_config::ConfigDocument;
 use sandbox_gateway::{
@@ -144,6 +146,12 @@ fn build_docker_services(
     daemon_config.validate()?;
     let runtime_config: RuntimeConfig = document.section("runtime")?;
     runtime_config.validate()?;
+    let observability_config = match document.section::<ObservabilityConfig>("observability") {
+        Ok(section) => section,
+        Err(sandbox_config::ConfigError::MissingSection { .. }) => ObservabilityConfig::default(),
+        Err(error) => return Err(error.into()),
+    };
+    observability_config.validate()?;
     if let Some(docker) = manager_config.docker.as_ref() {
         docker.validate_daemon_runtime_profile(&daemon_config, &runtime_config)?;
     }
@@ -192,7 +200,9 @@ fn build_docker_services(
     services.export_caps = export_caps;
     services.snapshot_limits = snapshot_limits;
     services.workspace_roots = workspace_roots;
-    services.start_resource_sampler();
+    services.start_resource_sampler(Duration::from_millis(
+        observability_config.resource_stats.sample_interval_ms,
+    ));
     Ok(Arc::new(services))
 }
 
