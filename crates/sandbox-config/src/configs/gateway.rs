@@ -185,7 +185,9 @@ fn parse_unix_socket(value: &str) -> Result<GatewayEndpoint, GatewayEndpointPars
             "Unix-socket path must be absolute",
         ));
     }
-    let relative = value.trim_start_matches('/');
+    let relative = value
+        .strip_prefix('/')
+        .ok_or_else(|| GatewayEndpointParseError::new("Unix-socket path must be absolute"))?;
     validate_endpoint_segments(relative, "Unix-socket path")?;
     if value.len() > 100 {
         return Err(GatewayEndpointParseError::new(

@@ -20,6 +20,10 @@ fn parses_explicit_and_legacy_tcp_endpoints() {
         GatewayEndpoint::parse("tcp://[::1]:7878").expect("explicit IPv6"),
         GatewayEndpoint::Tcp(ipv6)
     );
+    assert_eq!(
+        GatewayEndpoint::parse("tcp://localhost:7878").expect("DNS host"),
+        GatewayEndpoint::TcpHost("localhost:7878".to_owned())
+    );
 }
 
 #[test]
@@ -69,8 +73,8 @@ fn rejects_invalid_endpoint_syntax() {
             "unsupported gateway endpoint scheme",
         ),
         (
-            "tcp://localhost:7878",
-            "TCP gateway endpoint must be a valid IP socket address",
+            "tcp://localhost",
+            "TCP gateway endpoint must be a valid host:port address",
         ),
         (
             "tcp://127.0.0.1:0",
@@ -98,6 +102,10 @@ fn rejects_invalid_endpoint_syntax() {
         ),
         (
             "unix:///tmp//gateway.sock",
+            "Unix-domain socket path must not contain empty segments",
+        ),
+        (
+            "unix:////tmp/gateway.sock",
             "Unix-domain socket path must not contain empty segments",
         ),
         (

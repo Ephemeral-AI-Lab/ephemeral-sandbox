@@ -10,6 +10,7 @@ const UNIX_SOCKET_SCHEME: &str = "unix://";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GatewayEndpoint {
     Tcp(SocketAddr),
+    TcpHost(String),
     WindowsNamedPipe(String),
     UnixSocket(PathBuf),
 }
@@ -90,6 +91,7 @@ impl std::fmt::Display for GatewayEndpoint {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Tcp(address) => write!(formatter, "{TCP_SCHEME}{address}"),
+            Self::TcpHost(address) => write!(formatter, "{TCP_SCHEME}{address}"),
             Self::WindowsNamedPipe(path) => {
                 let name = path.strip_prefix(WINDOWS_NAMED_PIPE_PREFIX).unwrap_or(path);
                 write!(
@@ -114,13 +116,33 @@ impl std::fmt::Display for GatewayEndpointParseError {
 impl std::error::Error for GatewayEndpointParseError {}
 
 fn parse_tcp_address(value: &str) -> Result<GatewayEndpoint, GatewayEndpointParseError> {
-    let address = value
-        .parse::<SocketAddr>()
-        .map_err(|_| endpoint_error("TCP gateway endpoint must be a valid IP socket address"))?;
-    if address.port() == 0 {
+    if let Ok(address) = value.parse::<SocketAddr>() {
+        if address.port() == 0 {
+            return Err(endpoint_error("TCP gateway endpoint port must be non-zero"));
+        }
+        return Ok(GatewayEndpoint::Tcp(address));
+    }
+    let Some((host, port)) = value.rsplit_once(':') else {
+        return Err(endpoint_error(
+            "TCP gateway endpoint must be a valid host:port address",
+        ));
+    };
+    if host.is_empty()
+        || host
+            .chars()
+            .any(|character| character.is_whitespace() || matches!(character, ':' | '/' | '\\'))
+    {
+        return Err(endpoint_error(
+            "TCP gateway endpoint must be a valid host:port address",
+        ));
+    }
+    let port = port
+        .parse::<u16>()
+        .map_err(|_| endpoint_error("TCP gateway endpoint must be a valid host:port address"))?;
+    if port == 0 {
         return Err(endpoint_error("TCP gateway endpoint port must be non-zero"));
     }
-    Ok(GatewayEndpoint::Tcp(address))
+    Ok(GatewayEndpoint::TcpHost(format!("{host}:{port}")))
 }
 
 fn parse_unix_socket_path(value: &str) -> Result<GatewayEndpoint, GatewayEndpointParseError> {
