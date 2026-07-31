@@ -1,3 +1,4 @@
+pub mod allocation;
 pub mod attribution;
 pub mod chunk;
 pub mod record;
@@ -18,7 +19,8 @@ use uuid::Uuid;
 
 use crate::config::{
     MAX_DATA_WORKERS, RESIDENT_POOL_BYTES, SEMANTIC_MAX_DATA_FDS, SEMANTIC_MERGE_FAN_IN,
-    SEMANTIC_SCAN_WINDOW_BYTES, SEMANTIC_SPOOL_RUN_BYTES, SEMANTIC_TRIE_FAN_OUT,
+    SEMANTIC_SCAN_TRANSFER_BYTES, SEMANTIC_SCAN_WINDOW_BYTES, SEMANTIC_SPOOL_RUN_BYTES,
+    SEMANTIC_TRIE_FAN_OUT,
 };
 use crate::m1_contract::SEMANTIC_FORMAT_VERSION;
 use crate::recovery::reach_real_operation;
@@ -39,6 +41,12 @@ const DELTA_MAGIC: &[u8; 8] = b"MPLADLT1";
 const MANIFEST_VERSION: u32 = 1;
 const MAX_AFFECTED_STREAM_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_AFFECTED_RECORDS: u64 = 4_096;
+const MAX_INCREMENTAL_MUTATION_BATCH_BYTES: usize = 1024 * 1024;
+const INCREMENTAL_MUTATION_BATCH_MANAGED_BYTES: usize = 2 * 1024 * 1024;
+const SEMANTIC_SPOOL_PEAK_DATA_FDS: usize = SEMANTIC_MERGE_FAN_IN + 3;
+const IMMUTABLE_SOURCE_CHAIN_FILE: &str = "immutable-source-chain.json";
+const IMMUTABLE_SOURCE_CHAIN_VERSION: u32 = 1;
+const MAX_IMMUTABLE_SOURCE_ROOTS: usize = 64;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemanticResourceMaxima {
@@ -110,20 +118,44 @@ struct StreamRecipe {
     affected_stream_sha256: String,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct ImmutableSourceChain {
+    version: u32,
+    source_roots: Vec<PathBuf>,
+}
+
 pub fn build(request: &SemanticBuildRequest) -> PocResult<SemanticBuildReceipt> {
     build_with_output(request).map(|output| output.receipt)
 }
 
 pub fn build_with_output(request: &SemanticBuildRequest) -> PocResult<SemanticBuildOutput> {
+    build_with_output_using_scan_and_trie(request, scan::scan_tree, trie::build_from_sorted_records)
+}
+
+/// Build a semantic receipt in the holder-namespace storage helper without
+/// creating worker threads after that helper has installed its fixed seccomp
+/// policy. This is intentionally for initial fixture sealing only; regular
+/// publications retain their bounded concurrent hot path.
+pub fn build_with_output_serial(request: &SemanticBuildRequest) -> PocResult<SemanticBuildOutput> {
+    build_with_output_using_scan_and_trie(
+        request,
+        scan::scan_tree_serial,
+        trie::build_from_sorted_records_serial,
+    )
+}
+
+fn build_with_output_using_scan_and_trie(
+    request: &SemanticBuildRequest,
+    scan_tree: fn(&Path, &mut BoundedSpool, &mut BoundedSpool) -> PocResult<ScanStats>,
+    build_trie: fn(
+        &SortedSpool,
+        &AttributionInput,
+        &mut ImmutableObjectStore,
+    ) -> PocResult<TrieRoots>,
+) -> PocResult<SemanticBuildOutput> {
     validate_full_request(request)?;
     prepare_empty_directory(&request.spool_dir)?;
-    std::fs::create_dir_all(&request.canonical_object_dir).map_err(|error| {
-        PocError::io(
-            "create canonical object directory",
-            &request.canonical_object_dir,
-            error,
-        )
-    })?;
+    prepare_canonical_object_directory(&request.canonical_object_dir)?;
     validate_full_path_isolation(request)?;
     let mut named_faults = NamedFaultInjector::default().with_physical_context(
         request.operation_id.as_str(),
@@ -139,7 +171,7 @@ pub fn build_with_output(request: &SemanticBuildRequest) -> PocResult<SemanticBu
     let hardlink_spool_dir = request.spool_dir.join("hardlinks");
     let mut records = BoundedSpool::new(record_spool_dir, MAIN_SPOOL_MEMORY_BYTES)?;
     let mut hardlinks = BoundedSpool::new(hardlink_spool_dir, HARDLINK_SPOOL_MEMORY_BYTES)?;
-    let scan = scan::scan_tree(&request.sealed_tree, &mut records, &mut hardlinks)?;
+    let scan = scan_tree(&request.sealed_tree, &mut records, &mut hardlinks)?;
     scan::append_hardlink_records(&mut records, hardlinks.finish()?, &request.spool_dir)?;
     let scan_elapsed = elapsed_ns(scan_started);
 
@@ -158,7 +190,8 @@ pub fn build_with_output(request: &SemanticBuildRequest) -> PocResult<SemanticBu
         Some(&request.sealed_tree),
         true,
     )?;
-    let roots = trie::build_from_sorted_records(&sorted, &request.attribution, &mut store)?;
+    let roots = build_trie(&sorted, &request.attribution, &mut store)?;
+    store.sync_files()?;
     reach_real_operation(
         &mut named_faults,
         NamedFaultPoint::CanonicalAfterObjectFsync,
@@ -185,6 +218,7 @@ pub fn build_with_output(request: &SemanticBuildRequest) -> PocResult<SemanticBu
         Some(&request.sealed_tree),
         true,
     )?;
+    let object_set_sha256 = store.object_set_sha256()?;
     let root_manifest_path = install_manifest(&request.canonical_object_dir, &manifest)?;
     reach_real_operation(
         &mut named_faults,
@@ -195,7 +229,12 @@ pub fn build_with_output(request: &SemanticBuildRequest) -> PocResult<SemanticBu
         true,
     )?;
     let install_elapsed = elapsed_ns(install_started);
-    let durability = durability_receipt(&root_manifest_path, &store)?;
+    let durability = durability_receipt(
+        &root_manifest_path,
+        &store,
+        object_set_sha256,
+        request.attribution.clone(),
+    )?;
     let receipt = build_receipt(
         request.operation_id.clone(),
         &roots,
@@ -237,13 +276,13 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
     }
     let prior = load_manifest(&request.prior_manifest)?;
     validate_prior_manifest(request, &prior)?;
-    std::fs::create_dir_all(&request.canonical_object_dir).map_err(|error| {
-        PocError::io(
-            "create incremental canonical object directory",
-            &request.canonical_object_dir,
-            error,
-        )
-    })?;
+    // The root-manifest parent must be present before the final root-directory
+    // durability barrier below.  Creating it here keeps that preparation
+    // outside the publication interval without weakening the later
+    // data-before-reference order.
+    prepare_canonical_object_directory(&request.canonical_object_dir)?;
+    let source_roots =
+        incremental_source_roots(&request.prior_manifest, &request.canonical_object_dir)?;
     let mut named_faults = NamedFaultInjector::default().with_physical_context(
         request.operation_id.as_str(),
         [
@@ -253,8 +292,13 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
     );
 
     let started = Instant::now();
+    let affected_stream_open_started = Instant::now();
     let mut reader = DeltaStreamReader::open(&request.affected_stream)?;
-    let mut store = ImmutableObjectStore::new_incremental(&request.canonical_object_dir)?;
+    let affected_stream_open_elapsed = elapsed_ns(affected_stream_open_started);
+    let store_open_started = Instant::now();
+    let mut store =
+        ImmutableObjectStore::new_incremental(&request.canonical_object_dir, &source_roots)?;
+    let store_open_elapsed = elapsed_ns(store_open_started);
     reach_real_operation(
         &mut named_faults,
         NamedFaultPoint::CanonicalBeforeInstall,
@@ -264,10 +308,13 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
         true,
     )?;
     let mut roots = TrieRoots::from_hex(&prior.content_root, &prior.attribution_root)?;
+    let validate_apply_started = Instant::now();
     trie::validate_roots(&roots, &mut store)?;
     let mut entry_count = prior.entry_count;
     let mut affected_record_count = 0_u64;
     let mut previous_key = None;
+    let mut batch = Vec::new();
+    let mut batch_bytes = 0_usize;
     while let Some(mutation) = reader.next_mutation()? {
         let key = mutation.key_digest()?;
         if previous_key
@@ -279,20 +326,36 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
             ));
         }
         previous_key = Some(key);
-        let outcome = trie::apply_mutation(&roots, &mutation, &request.attribution, &mut store)?;
-        roots = outcome.roots;
-        match (outcome.existed, &mutation) {
-            (false, RecordMutation::Replace(_)) => entry_count = entry_count.saturating_add(1),
-            (true, RecordMutation::Delete { .. }) => entry_count = entry_count.saturating_sub(1),
-            (false, RecordMutation::Delete { .. }) => {
-                return Err(PocError::Integrity(
-                    "incremental delete names a missing canonical key".to_owned(),
-                ));
-            }
-            _ => {}
+        let mutation_bytes = mutation.encode()?.len();
+        if !batch.is_empty()
+            && batch_bytes.saturating_add(mutation_bytes) > MAX_INCREMENTAL_MUTATION_BATCH_BYTES
+        {
+            let outcome =
+                trie::apply_mutation_batch(&roots, &batch, &request.attribution, &mut store)?;
+            roots = outcome.roots;
+            entry_count = apply_entry_count_delta(entry_count, outcome.entry_count_delta)?;
+            batch.clear();
+            batch_bytes = 0;
         }
+        batch_bytes = batch_bytes.saturating_add(mutation_bytes);
+        batch.push(mutation);
         affected_record_count = affected_record_count.saturating_add(1);
     }
+    if !batch.is_empty() {
+        let outcome = trie::apply_mutation_batch(&roots, &batch, &request.attribution, &mut store)?;
+        roots = outcome.roots;
+        entry_count = apply_entry_count_delta(entry_count, outcome.entry_count_delta)?;
+    }
+    let affected_input_bytes = reader.bytes_read();
+    drop(reader);
+    let validate_apply_elapsed = elapsed_ns(validate_apply_started);
+    let staged_commit_started = Instant::now();
+    store.commit_incremental_roots(&roots)?;
+    let staged_commit_elapsed = elapsed_ns(staged_commit_started);
+    // Each newly created pack and index was individually fsynced before its
+    // immutable install, and the catalog installation below durably publishes
+    // their names.  A filesystem-wide syncfs here adds no additional
+    // data-before-reference edge; it only flushes unrelated filesystem work.
     reach_real_operation(
         &mut named_faults,
         NamedFaultPoint::CanonicalAfterObjectFsync,
@@ -305,6 +368,7 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
     let manifest = manifest_for(&roots, entry_count, &request.attribution);
     let install_started = Instant::now();
     install_incremental_stream_recipe(request, &prior, &manifest)?;
+    install_immutable_source_chain(&request.canonical_object_dir, &source_roots)?;
     store.sync_directory()?;
     reach_real_operation(
         &mut named_faults,
@@ -314,6 +378,7 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
         None,
         true,
     )?;
+    let object_set_sha256 = store.object_set_sha256()?;
     let root_manifest_path = install_manifest(&request.canonical_object_dir, &manifest)?;
     reach_real_operation(
         &mut named_faults,
@@ -324,7 +389,12 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
         true,
     )?;
     let install_elapsed = elapsed_ns(install_started);
-    let durability = durability_receipt(&root_manifest_path, &store)?;
+    let durability = durability_receipt(
+        &root_manifest_path,
+        &store,
+        object_set_sha256,
+        request.attribution.clone(),
+    )?;
     let spool_stats = SpoolStats::default();
     let receipt = SemanticBuildReceipt {
         schema_version: SCHEMA_VERSION,
@@ -333,12 +403,21 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
         roots: roots.to_root_pair()?,
         record_stream_sha256: manifest.record_stream_sha256,
         entry_count,
-        bytes_read: reader.bytes_read(),
+        bytes_read: affected_input_bytes,
         spool_runs: 0,
         spool_bytes: 0,
-        peak_open_data_fds: 3,
-        peak_data_workers: 2,
+        peak_open_data_fds: trie::INCREMENTAL_PEAK_DATA_FDS
+            .try_into()
+            .map_err(|_| PocError::Integrity("incremental FD maximum overflow".to_owned()))?,
+        peak_data_workers: trie::INCREMENTAL_DATA_WORKERS,
         phase_spans: vec![
+            phase(
+                "incremental-affected-stream-open",
+                affected_stream_open_elapsed,
+            ),
+            phase("incremental-store-open", store_open_elapsed),
+            phase("incremental-validate-apply", validate_apply_elapsed),
+            phase("incremental-staged-commit", staged_commit_elapsed),
             phase("incremental-validate-update", update_elapsed),
             phase("canonical-install", install_elapsed),
             phase("semantic-total", elapsed_ns(started)),
@@ -349,11 +428,27 @@ pub fn build_incremental(request: &IncrementalBuildRequest) -> PocResult<Increme
         receipt,
         root_manifest_path,
         affected_record_count,
-        affected_input_bytes: reader.bytes_read(),
+        affected_input_bytes,
         prior_node_bytes_read: store.bytes_read(),
         immutable_payload_bytes_read: 0,
-        resource_maxima: resource_maxima(&spool_stats, 3, 2),
+        resource_maxima: resource_maxima(
+            &spool_stats,
+            trie::INCREMENTAL_PEAK_DATA_FDS,
+            trie::INCREMENTAL_DATA_WORKERS,
+        ),
     })
+}
+
+fn apply_entry_count_delta(entry_count: u64, delta: i64) -> PocResult<u64> {
+    if delta >= 0 {
+        entry_count
+            .checked_add(u64::try_from(delta).unwrap_or(u64::MAX))
+            .ok_or_else(|| PocError::Integrity("incremental entry count overflow".to_owned()))
+    } else {
+        entry_count
+            .checked_sub(delta.unsigned_abs())
+            .ok_or_else(|| PocError::Integrity("incremental entry count underflow".to_owned()))
+    }
 }
 
 pub fn write_affected_stream(
@@ -513,9 +608,11 @@ pub fn materialize_record_stream(
     canonical_object_dir: &Path,
 ) -> PocResult<PathBuf> {
     let manifest = load_manifest(manifest_path)?;
+    let source_roots = materialization_source_roots(canonical_object_dir)?;
     materialize_record_stream_id(
         &manifest.record_stream_sha256,
         canonical_object_dir,
+        &source_roots,
         Some((&manifest.content_root, &manifest.attribution_root)),
         Some(manifest.entry_count),
         0,
@@ -525,6 +622,7 @@ pub fn materialize_record_stream(
 fn materialize_record_stream_id(
     record_stream_sha256: &str,
     canonical_object_dir: &Path,
+    source_roots: &[PathBuf],
     legacy_roots: Option<(&str, &str)>,
     expected_count: Option<u64>,
     depth: usize,
@@ -541,8 +639,18 @@ fn materialize_record_stream_id(
     if path.exists() {
         return Ok(path);
     }
-    let recipe_path = streams.join(format!("{record_stream_sha256}.recipe.json"));
-    if recipe_path.exists() {
+    if let Some(source_path) = find_stream_artifact(
+        canonical_object_dir,
+        source_roots,
+        &format!("{record_stream_sha256}.records"),
+    ) {
+        return Ok(source_path);
+    }
+    if let Some(recipe_path) = find_stream_artifact(
+        canonical_object_dir,
+        source_roots,
+        &format!("{record_stream_sha256}.recipe.json"),
+    ) {
         let bytes = std::fs::read(&recipe_path)
             .map_err(|error| PocError::io("read semantic stream recipe", &recipe_path, error))?;
         let recipe: StreamRecipe = serde_json::from_slice(&bytes)?;
@@ -551,7 +659,12 @@ fn materialize_record_stream_id(
                 "semantic stream recipe has unsupported version".to_owned(),
             ));
         }
-        let affected = streams.join(format!("{record_stream_sha256}.delta"));
+        let affected = recipe_path
+            .parent()
+            .ok_or_else(|| {
+                PocError::Integrity("semantic stream recipe has no streams directory".to_owned())
+            })?
+            .join(format!("{record_stream_sha256}.delta"));
         if sha256_file(&affected)? != recipe.affected_stream_sha256 {
             return Err(PocError::Integrity(
                 "semantic stream recipe delta digest mismatch".to_owned(),
@@ -560,6 +673,7 @@ fn materialize_record_stream_id(
         let prior = materialize_record_stream_id(
             &recipe.prior_record_stream_sha256,
             canonical_object_dir,
+            source_roots,
             None,
             None,
             depth + 1,
@@ -579,7 +693,8 @@ fn materialize_record_stream_id(
         .open(&temporary)
         .map_err(|error| PocError::io("create semantic record stream", &temporary, error))?;
     let mut writer = BufWriter::new(file);
-    let mut store = ImmutableObjectStore::new(canonical_object_dir)?;
+    let mut store =
+        ImmutableObjectStore::new_with_read_only_sources(canonical_object_dir, source_roots)?;
     trie::visit_records(&roots, &mut store, |record| {
         let frame = record.encode_frame()?;
         writer
@@ -587,6 +702,17 @@ fn materialize_record_stream_id(
             .map_err(|error| PocError::io("write semantic record stream", &temporary, error))
     })?;
     finish_record_stream_install(writer, &temporary, &path, &streams)
+}
+
+fn find_stream_artifact(
+    canonical_object_dir: &Path,
+    source_roots: &[PathBuf],
+    file_name: &str,
+) -> Option<PathBuf> {
+    std::iter::once(canonical_object_dir)
+        .chain(source_roots.iter().map(PathBuf::as_path))
+        .map(|root| root.join("streams").join(file_name))
+        .find(|path| path.exists())
 }
 
 fn materialize_sorted_record_stream(
@@ -959,10 +1085,23 @@ fn manifest_for(
     }
 }
 
-fn install_manifest(object_dir: &Path, manifest: &RootManifest) -> PocResult<PathBuf> {
+fn prepare_canonical_object_directory(object_dir: &Path) -> PocResult<()> {
+    std::fs::create_dir_all(object_dir)
+        .map_err(|error| PocError::io("create canonical object directory", object_dir, error))?;
     let manifests = object_dir.join("manifests");
     std::fs::create_dir_all(&manifests)
-        .map_err(|error| PocError::io("create root manifest directory", &manifests, error))?;
+        .map_err(|error| PocError::io("create root manifest directory", &manifests, error))
+}
+
+fn install_manifest(object_dir: &Path, manifest: &RootManifest) -> PocResult<PathBuf> {
+    let manifests = object_dir.join("manifests");
+    let metadata = std::fs::metadata(&manifests)
+        .map_err(|error| PocError::io("stat root manifest directory", &manifests, error))?;
+    if !metadata.is_dir() {
+        return Err(PocError::Integrity(
+            "root manifest parent is not a directory".to_owned(),
+        ));
+    }
     let path = manifests.join(format!(
         "{}-{}.json",
         manifest.content_root, manifest.attribution_root
@@ -1050,6 +1189,132 @@ fn validate_prior_manifest(
     Ok(())
 }
 
+fn incremental_source_roots(
+    prior_manifest: &Path,
+    canonical_object_dir: &Path,
+) -> PocResult<Vec<PathBuf>> {
+    let manifests = prior_manifest.parent().ok_or_else(|| {
+        PocError::Integrity("incremental prior manifest has no manifest directory".to_owned())
+    })?;
+    if manifests.file_name().and_then(|name| name.to_str()) != Some("manifests") {
+        return Err(PocError::Integrity(
+            "incremental prior manifest has an unexpected parent directory".to_owned(),
+        ));
+    }
+    let prior_root = manifests.parent().ok_or_else(|| {
+        PocError::Integrity("incremental prior manifest has no canonical directory".to_owned())
+    })?;
+    let destination = std::fs::canonicalize(canonical_object_dir).map_err(|error| {
+        PocError::io(
+            "canonicalize incremental canonical object directory",
+            canonical_object_dir,
+            error,
+        )
+    })?;
+    let prior_root = canonical_source_root(prior_root)?;
+    let mut sources = Vec::with_capacity(MAX_IMMUTABLE_SOURCE_ROOTS);
+    if prior_root != destination {
+        sources.push(prior_root.clone());
+    }
+    sources.extend(load_immutable_source_chain(&prior_root)?);
+    normalize_source_roots(sources, &destination)
+}
+
+fn materialization_source_roots(canonical_object_dir: &Path) -> PocResult<Vec<PathBuf>> {
+    let destination = std::fs::canonicalize(canonical_object_dir).map_err(|error| {
+        PocError::io(
+            "canonicalize materialization canonical object directory",
+            canonical_object_dir,
+            error,
+        )
+    })?;
+    normalize_source_roots(load_immutable_source_chain(&destination)?, &destination)
+}
+
+fn canonical_source_root(path: &Path) -> PocResult<PathBuf> {
+    let canonical = std::fs::canonicalize(path)
+        .map_err(|error| PocError::io("canonicalize immutable semantic source", path, error))?;
+    let metadata = std::fs::metadata(&canonical)
+        .map_err(|error| PocError::io("stat immutable semantic source", &canonical, error))?;
+    if !metadata.is_dir() {
+        return Err(PocError::Integrity(
+            "immutable semantic source is not a directory".to_owned(),
+        ));
+    }
+    Ok(canonical)
+}
+
+fn load_immutable_source_chain(canonical_object_dir: &Path) -> PocResult<Vec<PathBuf>> {
+    let path = canonical_object_dir.join(IMMUTABLE_SOURCE_CHAIN_FILE);
+    let bytes = match std::fs::read(&path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => {
+            return Err(PocError::io(
+                "read immutable semantic source chain",
+                &path,
+                error,
+            ));
+        }
+    };
+    if bytes.len() > 16 * 1024 {
+        return Err(PocError::Integrity(
+            "immutable semantic source chain exceeds fixed bound".to_owned(),
+        ));
+    }
+    let chain: ImmutableSourceChain = serde_json::from_slice(&bytes)?;
+    if chain.version != IMMUTABLE_SOURCE_CHAIN_VERSION
+        || chain.source_roots.len() > MAX_IMMUTABLE_SOURCE_ROOTS
+    {
+        return Err(PocError::Integrity(
+            "immutable semantic source chain has an unsupported shape".to_owned(),
+        ));
+    }
+    chain
+        .source_roots
+        .iter()
+        .map(|root| {
+            if !root.is_absolute() {
+                return Err(PocError::Integrity(
+                    "immutable semantic source chain has a relative root".to_owned(),
+                ));
+            }
+            canonical_source_root(root)
+        })
+        .collect()
+}
+
+fn normalize_source_roots(roots: Vec<PathBuf>, destination: &Path) -> PocResult<Vec<PathBuf>> {
+    let mut normalized = Vec::with_capacity(roots.len());
+    for root in roots {
+        if root == destination || normalized.iter().any(|existing| existing == &root) {
+            continue;
+        }
+        normalized.push(root);
+        if normalized.len() > MAX_IMMUTABLE_SOURCE_ROOTS {
+            return Err(PocError::Integrity(
+                "immutable semantic source chain exceeds fixed depth".to_owned(),
+            ));
+        }
+    }
+    Ok(normalized)
+}
+
+fn install_immutable_source_chain(
+    canonical_object_dir: &Path,
+    source_roots: &[PathBuf],
+) -> PocResult<()> {
+    if source_roots.is_empty() {
+        return Ok(());
+    }
+    let chain = ImmutableSourceChain {
+        version: IMMUTABLE_SOURCE_CHAIN_VERSION,
+        source_roots: source_roots.to_vec(),
+    };
+    let path = canonical_object_dir.join(IMMUTABLE_SOURCE_CHAIN_FILE);
+    install_immutable_bytes(&serde_json::to_vec(&chain)?, &path)
+}
+
 fn build_receipt(
     operation_id: OperationId,
     roots: &TrieRoots,
@@ -1059,7 +1324,10 @@ fn build_receipt(
     durability: CanonicalDurabilityReceipt,
     phase_spans: Vec<SemanticPhaseSpan>,
 ) -> PocResult<SemanticBuildReceipt> {
-    let peak_open_data_fds = scan.peak_open_data_fds.max(spool.peak_open_files);
+    let peak_open_data_fds = scan
+        .peak_open_data_fds
+        .max(spool.peak_open_files)
+        .max(SEMANTIC_SPOOL_PEAK_DATA_FDS);
     if peak_open_data_fds > SEMANTIC_MAX_DATA_FDS {
         return Err(PocError::Integrity(format!(
             "semantic FD maximum {peak_open_data_fds} exceeds fixed limit {SEMANTIC_MAX_DATA_FDS}"
@@ -1087,12 +1355,15 @@ fn build_receipt(
 fn durability_receipt(
     manifest_path: &Path,
     store: &ImmutableObjectStore,
+    object_set_sha256: String,
+    semantic_attribution: AttributionInput,
 ) -> PocResult<CanonicalDurabilityReceipt> {
     Ok(CanonicalDurabilityReceipt {
         root_manifest: manifest_path.to_path_buf(),
+        semantic_attribution,
         immutable_object_count: store.objects_written(),
         immutable_object_bytes: store.bytes_written(),
-        object_set_sha256: store.object_set_sha256(),
+        object_set_sha256,
         files_fsynced: true,
         object_directory_fsynced: true,
         manifest_fsynced: true,
@@ -1107,18 +1378,24 @@ fn resource_maxima(
 ) -> SemanticResourceMaxima {
     let scan_managed_bytes = MAIN_SPOOL_MEMORY_BYTES
         + HARDLINK_SPOOL_MEMORY_BYTES
-        + SEMANTIC_SCAN_WINDOW_BYTES.saturating_mul(usize::from(peak_data_workers))
+        + SEMANTIC_SCAN_TRANSFER_BYTES.saturating_mul(usize::from(peak_data_workers))
         + scan::MAX_XATTR_TRANSIENT_BYTES;
+    let incremental_apply_managed_bytes = INCREMENTAL_MUTATION_BATCH_MANAGED_BYTES;
     SemanticResourceMaxima {
         application_pool_bytes: RESIDENT_POOL_BYTES,
         peak_managed_bytes: u64::try_from(scan_managed_bytes)
             .unwrap_or(u64::MAX)
+            .max(u64::try_from(incremental_apply_managed_bytes).unwrap_or(u64::MAX))
             .max(u64::try_from(trie::EXISTING_OBJECT_CACHE_BYTES).unwrap_or(u64::MAX)),
         scan_window_bytes: SEMANTIC_SCAN_WINDOW_BYTES,
         spool_run_bytes: SEMANTIC_SPOOL_RUN_BYTES,
         merge_fan_in: SEMANTIC_MERGE_FAN_IN,
-        peak_open_data_fds: u16::try_from(scan_peak_fds.max(spool.peak_open_files))
-            .unwrap_or(u16::MAX),
+        peak_open_data_fds: u16::try_from(
+            scan_peak_fds
+                .max(spool.peak_open_files)
+                .max(SEMANTIC_SPOOL_PEAK_DATA_FDS),
+        )
+        .unwrap_or(u16::MAX),
         peak_data_workers: MAX_DATA_WORKERS.min(peak_data_workers),
         trie_fan_out: SEMANTIC_TRIE_FAN_OUT,
     }

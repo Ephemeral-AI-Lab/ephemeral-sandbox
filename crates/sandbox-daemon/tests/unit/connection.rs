@@ -5,10 +5,15 @@ use crate::rpc::SandboxDaemonError;
 use sandbox_protocol::ProtocolLimits;
 use serde_json::json;
 
-fn limits(max_request_bytes: usize, request_read_timeout_s: f64) -> ProtocolLimits {
+fn limits(
+    max_request_bytes: usize,
+    request_read_timeout_s: f64,
+    response_write_timeout_s: f64,
+) -> ProtocolLimits {
     ProtocolLimits {
         max_request_bytes,
         request_read_timeout_s,
+        response_write_timeout_s,
     }
 }
 
@@ -21,7 +26,7 @@ async fn read_request_line_rejects_oversized_payloads() {
             .expect("max request bytes fits u64")
             .saturating_add(1),
     );
-    let err = read_request_line_with_limits(&mut reader, limits(max_request_bytes, 0.5))
+    let err = read_request_line_with_limits(&mut reader, limits(max_request_bytes, 0.5, 0.5))
         .await
         .expect_err("oversized request rejected");
     assert!(
@@ -36,7 +41,7 @@ async fn read_request_line_accepts_within_lowered_cap() {
     tokio::io::AsyncWriteExt::write_all(&mut writer, b"{\"op\":\"ping\"}\n")
         .await
         .expect("write request line");
-    let line = read_request_line_with_limits(&mut reader, limits(64 * 1024, 0.5))
+    let line = read_request_line_with_limits(&mut reader, limits(64 * 1024, 0.5, 0.5))
         .await
         .expect("request within cap accepted");
     assert!(line.ends_with(b"\n"));
@@ -47,10 +52,22 @@ async fn read_request_line_times_out_waiting_for_line() {
     let (_writer, mut reader) = tokio::io::duplex(64);
     let err = read_request_line_with_limits(
         &mut reader,
-        limits(ProtocolLimits::DEFAULT_MAX_REQUEST_BYTES, 0.1),
+        limits(ProtocolLimits::DEFAULT_MAX_REQUEST_BYTES, 0.1, 0.1),
     )
     .await
     .expect_err("hanging request times out");
+    assert!(
+        matches!(err, SandboxDaemonError::Io(ref source) if source.kind() == std::io::ErrorKind::TimedOut),
+        "{err:?}"
+    );
+}
+
+#[tokio::test]
+async fn response_write_times_out_when_the_peer_stops_reading() {
+    let (_reader, mut writer) = tokio::io::duplex(1);
+    let err = write_response_with_limits(&mut writer, b"response", limits(64 * 1024, 0.5, 0.05))
+        .await
+        .expect_err("a stalled peer must not pin the daemon response task");
     assert!(
         matches!(err, SandboxDaemonError::Io(ref source) if source.kind() == std::io::ErrorKind::TimedOut),
         "{err:?}"

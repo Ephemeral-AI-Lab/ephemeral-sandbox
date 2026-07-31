@@ -63,8 +63,8 @@ use stack::candidate::generation::{
     GenerationError, GenerationManifest, GenerationSelection, GenerationStore, MaterializationKey,
 };
 use stack::candidate::materialization::{
-    MaterializationCoordinator, MaterializationDisposition, MaterializationError,
-    MaterializationRequest, MaterializationStage,
+    same_native_carrier_identity, MaterializationCoordinator, MaterializationDisposition,
+    MaterializationError, MaterializationRequest, MaterializationStage,
 };
 use stack::candidate::materialization_operation::{
     MaterializationCheckpoint, MaterializationOperation, MaterializationOperationBuild,
@@ -85,6 +85,31 @@ use stack::candidate::tree::{
 };
 
 static NEXT_ROOT: AtomicU64 = AtomicU64::new(0);
+
+#[test]
+fn native_carrier_identity_allows_allocation_telemetry_to_change(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let built = NativeBuildResult {
+        native_tree_sha256: "a".repeat(64),
+        entry_count: 7,
+        logical_bytes: 131_072,
+        allocated_bytes: 135_168,
+        maximum_buffer_bytes: 16_384,
+    };
+    let allocation_changed = NativeBuildResult {
+        allocated_bytes: 126_976,
+        maximum_buffer_bytes: 32_768,
+        ..built.clone()
+    };
+    assert!(same_native_carrier_identity(&built, &allocation_changed));
+
+    let identity_changed = NativeBuildResult {
+        logical_bytes: 131_073,
+        ..allocation_changed
+    };
+    assert!(!same_native_carrier_identity(&built, &identity_changed));
+    Ok(())
+}
 
 struct TestRoot(PathBuf);
 
@@ -495,7 +520,6 @@ fn frozen_external_fixture_reconstructs_verified_native_carrier(
     assert_eq!(verified.native_tree_sha256, built.native_tree_sha256);
     assert_eq!(verified.entry_count, built.entry_count);
     assert_eq!(verified.logical_bytes, built.logical_bytes);
-    assert_eq!(verified.allocated_bytes, built.allocated_bytes);
     assert!(verified.maximum_buffer_bytes <= 256 * 1024);
     benchmark_phase_boundary("verification_complete", false)?;
     Ok(())
@@ -912,7 +936,6 @@ fn depth_64_native_reconstruction_and_verification_stay_within_fd_reservation(
         assert_eq!(verified.native_tree_sha256, built.native_tree_sha256);
         assert_eq!(verified.entry_count, built.entry_count);
         assert_eq!(verified.logical_bytes, built.logical_bytes);
-        assert_eq!(verified.allocated_bytes, built.allocated_bytes);
         Ok(())
     })();
     running.store(false, Ordering::Release);
@@ -1130,7 +1153,6 @@ fn prepare_second_generation_with(
     assert_eq!(verified.native_tree_sha256, build.native_tree_sha256);
     assert_eq!(verified.entry_count, build.entry_count);
     assert_eq!(verified.logical_bytes, build.logical_bytes);
-    assert_eq!(verified.allocated_bytes, build.allocated_bytes);
     let mut manifest: GenerationManifest = first.manifest.clone();
     manifest.generation = generation;
     manifest.fence = fence;
@@ -2476,6 +2498,25 @@ fn supervisor_rejects_owner_65_waiter_17_and_queue_64() -> Result<(), Box<dyn st
         }))?
     );
     Ok(())
+}
+
+#[test]
+fn materialization_store_peak_error_carries_capacity_evidence() {
+    let error = supervisor::SupervisorError::MaterializationStorePeak {
+        requested_bytes: 1_008_093_799,
+        aggregate_bytes: 1_008_093_799,
+        available_bytes: 900_000_000,
+        capacity_bytes: 10_000_000_000,
+        workspace_limit_bytes: 1_000_000_000,
+    };
+
+    assert_eq!(
+        error.to_string(),
+        "storage resource exhausted: predicted materialization store peak \\
+         (requested_bytes=1008093799, aggregate_bytes=1008093799, \\
+         available_bytes=900000000, capacity_bytes=10000000000, \\
+         workspace_limit_bytes=1000000000)"
+    );
 }
 
 #[test]

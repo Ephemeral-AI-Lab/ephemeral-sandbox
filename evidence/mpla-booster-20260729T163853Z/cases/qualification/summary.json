@@ -1,0 +1,12 @@
+{
+  "fork_isolation": true,
+  "helper_receipt_valid": true,
+  "ordinary_workload_denied_privilege": true,
+  "result_bytes": 136836,
+  "result_path": "/workspace/scorecard-qualification-result.json",
+  "result_sha256": "2316c1dec532b3e79c8640d5c9b38ec44fa8b414e9111d3dde020d1575960c49",
+  "rollback_correctness": true,
+  "session_restart_durability": true,
+  "wrong_namespace_rejected": true,
+  "wrong_profile_rejected": true
+}

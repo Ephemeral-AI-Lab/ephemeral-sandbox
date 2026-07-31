@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+autobins = false
 
 [[bin]]
 name = "mpla-poc"
@@ -16,6 +17,10 @@ path = "src/bin/mpla-poc-oracle/main.rs"
 [[bin]]
 name = "mpla-speed-poc-v1"
 path = "src/bin/mpla-speed-poc-v1.rs"
+
+[[bin]]
+name = "mpla-storage-admin-v1"
+path = "src/bin/mpla-storage-admin-v1.rs"
 
 [dependencies]
 clap.workspace = true

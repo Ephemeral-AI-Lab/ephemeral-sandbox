@@ -13,6 +13,7 @@ use std::os::unix::ffi::OsStrExt;
 #[cfg(target_os = "linux")]
 use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path, PathBuf};
+use std::time::Instant;
 
 #[cfg(target_os = "linux")]
 use rustix::fs::{statx, AtFlags, StatxFlags};
@@ -24,11 +25,14 @@ use sandbox_runtime_overlay::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::durable::{read_json, write_immutable_json, FileLock};
+use crate::durable::{
+    begin_durability_batch, read_json, write_immutable_json, DurabilityBatch, FileLock,
+};
 use crate::{
-    unix_time_ms, OperationId, PocError, PocResult, StorageAdminAction, StorageAdminAuthorization,
-    StorageAdminOutcome, StorageAdminReceipt, StorageAdminRequest, StorageAdminScope,
-    INTERFACE_VERSION, SCHEMA_VERSION, STORAGE_ADMIN_EFFECTIVE_CAPABILITIES,
+    unix_time_ms, OperationId, PocError, PocResult, SemanticBuildReceipt, SemanticBuildRequest,
+    StorageAdminAction, StorageAdminAuthorization, StorageAdminDurability, StorageAdminOutcome,
+    StorageAdminReceipt, StorageAdminRequest, StorageAdminScope, INTERFACE_VERSION, SCHEMA_VERSION,
+    STORAGE_ADMIN_EFFECTIVE_CAPABILITIES,
     STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_EFFECTIVE_CAPABILITIES,
     STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID,
     STORAGE_ADMIN_PRIVILEGED_SYSCALLS, STORAGE_ADMIN_PROFILE_ID, STORAGE_ADMIN_TRUSTED_EXECUTABLE,
@@ -36,10 +40,15 @@ use crate::{
 
 const STORAGE_ADMIN_DIRECTORY: &str = "storage-admin";
 const ATTEMPT_FILE: &str = "ATTEMPT.json";
+const PUBLICATION_SEQUENCE_DIRECTORY: &str = "publication-sequences";
+const PUBLICATION_SEQUENCE_ATTEMPTS_FILE: &str = "ATTEMPTS.json";
 const RECEIPT_VALIDATION_DIAGNOSTIC_FILE: &str = "RECEIPT_VALIDATION_DIAGNOSTIC.json";
 const RECEIPT_FILE: &str = "RECEIPT.json";
 const LOCK_FILE: &str = "LOCK";
 const MAX_INVOCATION_BYTES: usize = 1024 * 1024;
+const MAX_INVOCATION_SEQUENCE_BYTES: usize = 3 * MAX_INVOCATION_BYTES;
+pub const HOLDER_NAMESPACE_SEMANTIC_SNAPSHOT_FORMAT: &str =
+    "mpla-holder-namespace-semantic-snapshot-v1";
 const MAX_RECEIPT_DIAGNOSTIC_FIELD_BYTES: usize = 1024;
 const MAX_RECEIPT_DIAGNOSTIC_MOUNT_OPTIONS: usize = 32;
 const RAW_OVERLAY_MOUNTINFO_SOURCE: &str = "none";
@@ -127,6 +136,7 @@ pub struct StorageAdminInvocation {
     pub request: StorageAdminRequest,
     pub authorization: StorageAdminAuthorization,
     pub trusted_actor_id: String,
+    pub durability: StorageAdminDurability,
     /// Hash measured by the public runtime immediately before it executes the
     /// fixed helper.  The helper re-measures `/proc/self/exe` before mounting,
     /// closing the otherwise unrecorded executable-substitution gap.
@@ -137,6 +147,28 @@ pub struct StorageAdminInvocation {
     pub workload_cgroup_procs: PathBuf,
     pub mount_namespace_holder_pid: u32,
     pub mount_receipt_binding: Option<StorageAdminMountReceiptBinding>,
+}
+
+/// A fixed, server-bound request to scan the mounted OverlayFS tree from the
+/// holder mount namespace.  It deliberately reuses the authenticated storage
+/// authority rather than treating an arbitrary service-side path as a
+/// semantic source.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct HolderNamespaceSemanticSnapshotInvocation {
+    pub format: String,
+    pub storage_admin: StorageAdminInvocation,
+    pub semantic: SemanticBuildRequest,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct HolderNamespaceSemanticSnapshotReceipt {
+    pub format: String,
+    pub semantic: SemanticBuildReceipt,
+    /// Evidence measured after the helper joined the holder namespace and
+    /// installed its fixed privilege and syscall policy.
+    pub process: StorageAdminProcessEvidence,
 }
 
 /// The only authority profiles the fixed storage helper understands.  The
@@ -618,11 +650,26 @@ struct StorageAdminAttempt {
     request_sha256: String,
     request: StorageAdminRequest,
     authorization: StorageAdminAuthorization,
+    #[serde(default)]
+    durability: StorageAdminDurability,
     trusted_executable_sha256: String,
     workload_cgroup_procs: PathBuf,
     mount_namespace_holder_pid: u32,
     mount_receipt_binding: Option<StorageAdminMountReceiptBinding>,
     started_unix_ms: u64,
+}
+
+/// One durable authorization record covers the three fixed publication
+/// actions.  It replaces three independently-synced `ATTEMPT.json` records,
+/// but deliberately leaves the canonical per-operation `RECEIPT.json` files
+/// unchanged: external publication validation can therefore continue to
+/// authenticate each action at its established path.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+struct PublicationSequenceAttempts {
+    schema_version: u32,
+    interface_version: String,
+    attempts: Vec<StorageAdminAttempt>,
 }
 
 #[derive(Debug, Serialize)]
@@ -657,12 +704,34 @@ struct CapabilityData {
 #[derive(Debug, Default)]
 pub struct PlatformStorageLifecycle {
     mounted_by_this_process: Option<PathBuf>,
+    workspace_prequiesced: bool,
     authority_evidence: Option<(StorageAdminProcessEvidence, StorageAdminMountPlanEvidence)>,
     authority_evidence_error: Option<PocError>,
     selection: Option<StorageAdminSelection>,
     mount_attestation: Option<StorageAdminMountAttestation>,
     trusted_mount_attestation: Option<StorageAdminMountAttestation>,
     mount_receipt_binding: Option<StorageAdminMountReceiptBinding>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PlatformPublicationUnmountResult {
+    pub receipts: Vec<StorageAdminReceipt>,
+    pub input_decode_elapsed_ns: u64,
+    pub validation_elapsed_ns: u64,
+    pub process_preparation_elapsed_ns: u64,
+    pub quiesce_lifecycle_elapsed_ns: u64,
+    pub quiesce_operation_elapsed_ns: u64,
+    pub strict_unmount_lifecycle_elapsed_ns: u64,
+    pub strict_unmount_operation_elapsed_ns: u64,
+}
+
+/// Immutable mount authority shared only by the three fixed actions of a
+/// single publication helper invocation.  The action receipts still record
+/// independently captured mount plans and are committed independently; this
+/// object only avoids reopening the same already-validated mount receipt.
+#[derive(Clone, Debug)]
+struct PublicationSequenceAuthority {
+    trusted_mount_attestation: StorageAdminMountAttestation,
 }
 
 impl PlatformStorageLifecycle {
@@ -689,6 +758,7 @@ impl PlatformStorageLifecycle {
         };
         Ok(Self {
             mounted_by_this_process: None,
+            workspace_prequiesced: false,
             authority_evidence: Some((process, mount_plan)),
             authority_evidence_error: None,
             selection: Some(selection),
@@ -696,6 +766,66 @@ impl PlatformStorageLifecycle {
             trusted_mount_attestation,
             mount_receipt_binding,
         })
+    }
+
+    fn measured_with_publication_authority(
+        process: StorageAdminProcessEvidence,
+        selection: StorageAdminSelection,
+        mount_receipt_binding: Option<StorageAdminMountReceiptBinding>,
+        authority: &PublicationSequenceAuthority,
+    ) -> PocResult<Self> {
+        if selection.request.action == StorageAdminAction::Mount {
+            return Err(PocError::Integrity(
+                "publication sequence authority cannot be used for Mount".to_owned(),
+            ));
+        }
+        let scope = &selection.request.scope;
+        let binding = mount_receipt_binding.as_ref().ok_or_else(|| {
+            PocError::Integrity(
+                "storage-admin lifecycle action is missing mount receipt authority".to_owned(),
+            )
+        })?;
+        validate_mount_receipt_binding_for_action(selection.request.action, Some(binding))?;
+        validate_attestation_scope(scope, &authority.trusted_mount_attestation)?;
+        require_equal(
+            "publication sequence mount authority operation",
+            &authority.trusted_mount_attestation.storage_operation_id,
+            &binding.storage_operation_id,
+        )?;
+        require_equal(
+            "publication sequence mount authority digest",
+            &storage_admin_mount_attestation_sha256(&authority.trusted_mount_attestation)?,
+            &binding.attestation_sha256,
+        )?;
+
+        let mut mount_plan = storage_admin_mount_plan_evidence(scope)?;
+        mount_plan.mountinfo_before = capture_storage_admin_mountinfo(scope)?;
+        Ok(Self {
+            mounted_by_this_process: None,
+            workspace_prequiesced: false,
+            authority_evidence: Some((process, mount_plan)),
+            authority_evidence_error: None,
+            selection: Some(selection),
+            mount_attestation: None,
+            trusted_mount_attestation: Some(authority.trusted_mount_attestation.clone()),
+            mount_receipt_binding,
+        })
+    }
+
+    fn measured_after_quiesce_with_publication_authority(
+        process: StorageAdminProcessEvidence,
+        selection: StorageAdminSelection,
+        mount_receipt_binding: Option<StorageAdminMountReceiptBinding>,
+        authority: &PublicationSequenceAuthority,
+    ) -> PocResult<Self> {
+        let mut lifecycle = Self::measured_with_publication_authority(
+            process,
+            selection,
+            mount_receipt_binding,
+            authority,
+        )?;
+        lifecycle.workspace_prequiesced = true;
+        Ok(lifecycle)
     }
 
     fn refresh_mountinfo_after(&mut self, scope: &StorageAdminScope) {
@@ -798,14 +928,19 @@ impl StorageAdminLifecycle for PlatformStorageLifecycle {
                 })
                 .and_then(|attestation| {
                     validate_target_before_action(action, scope, &attestation)?;
-                    execute_platform_action(action, scope, &mut self.mounted_by_this_process)
-                        .and_then(|()| {
-                            if action == StorageAdminAction::Quiesce {
-                                validate_current_attested_target(scope, &attestation)
-                            } else {
-                                validate_target_after_action(action, scope)
-                            }
-                        })
+                    execute_platform_action(
+                        action,
+                        scope,
+                        &mut self.mounted_by_this_process,
+                        self.workspace_prequiesced,
+                    )
+                    .and_then(|()| {
+                        if action == StorageAdminAction::Quiesce {
+                            validate_current_attested_target(scope, &attestation)
+                        } else {
+                            validate_target_after_action(action, scope)
+                        }
+                    })
                 }),
         };
         let execution = match action_result {
@@ -961,6 +1096,7 @@ pub fn decode_invocation(bytes: &[u8]) -> PocResult<StorageAdminInvocation> {
     let value: serde_json::Value = serde_json::from_slice(bytes)?;
     validate_wire_shape(&value)?;
     let invocation: StorageAdminInvocation = serde_json::from_value(value)?;
+    validate_storage_admin_durability(invocation.request.action, invocation.durability)?;
     validate_mount_namespace_holder_pid(invocation.mount_namespace_holder_pid)?;
     validate_sha256(
         "bound trusted executable hash",
@@ -968,6 +1104,136 @@ pub fn decode_invocation(bytes: &[u8]) -> PocResult<StorageAdminInvocation> {
     )?;
     validate_workload_cgroup_procs(&invocation.workload_cgroup_procs)?;
     Ok(invocation)
+}
+
+/// Decode the one holder-namespace semantic snapshot wire format.  The
+/// request has an exact JSON shape so an untrusted caller cannot smuggle
+/// scanner paths or ambient storage authority through an ignored field.
+pub fn decode_holder_namespace_semantic_snapshot_invocation(
+    bytes: &[u8],
+) -> PocResult<HolderNamespaceSemanticSnapshotInvocation> {
+    if bytes.len() > MAX_INVOCATION_BYTES {
+        return Err(PocError::Integrity(format!(
+            "holder-namespace semantic snapshot exceeds {MAX_INVOCATION_BYTES} bytes"
+        )));
+    }
+    let value: serde_json::Value = serde_json::from_slice(bytes)?;
+    validate_holder_namespace_semantic_snapshot_wire_shape(&value)?;
+    let invocation: HolderNamespaceSemanticSnapshotInvocation = serde_json::from_value(value)?;
+    if invocation.format != HOLDER_NAMESPACE_SEMANTIC_SNAPSHOT_FORMAT {
+        return Err(PocError::Integrity(
+            "holder-namespace semantic snapshot format is unsupported".to_owned(),
+        ));
+    }
+    validate_storage_admin_durability(
+        invocation.storage_admin.request.action,
+        invocation.storage_admin.durability,
+    )?;
+    validate_mount_namespace_holder_pid(invocation.storage_admin.mount_namespace_holder_pid)?;
+    validate_sha256(
+        "bound trusted executable hash",
+        &invocation.storage_admin.trusted_executable_sha256,
+    )?;
+    validate_workload_cgroup_procs(&invocation.storage_admin.workload_cgroup_procs)?;
+    Ok(invocation)
+}
+
+/// Execute the typed initial semantic scan after entering the live holder's
+/// mount namespace.  This is not a storage lifecycle action: Quiesce is used
+/// solely as the already-mounted, attested authority shape and no Quiesce
+/// attempt or receipt is written here.
+pub fn run_platform_holder_namespace_semantic_snapshot(
+    invocation: &HolderNamespaceSemanticSnapshotInvocation,
+) -> PocResult<HolderNamespaceSemanticSnapshotReceipt> {
+    if invocation.format != HOLDER_NAMESPACE_SEMANTIC_SNAPSHOT_FORMAT {
+        return Err(PocError::Integrity(
+            "holder-namespace semantic snapshot format is unsupported".to_owned(),
+        ));
+    }
+    let storage = &invocation.storage_admin;
+    let selection = authorize_storage_admin(
+        &storage.expected_request,
+        &storage.request,
+        &storage.authorization,
+        &storage.trusted_actor_id,
+    )?;
+    if selection.request.action != StorageAdminAction::Quiesce {
+        return Err(PocError::Integrity(
+            "holder-namespace semantic snapshot requires Quiesce mount authority".to_owned(),
+        ));
+    }
+    validate_storage_admin_durability(selection.request.action, storage.durability)?;
+    validate_mount_namespace_holder_pid(storage.mount_namespace_holder_pid)?;
+    validate_sha256(
+        "bound trusted executable hash",
+        &storage.trusted_executable_sha256,
+    )?;
+    validate_workload_cgroup_procs(&storage.workload_cgroup_procs)?;
+    validate_mount_receipt_binding_for_action(
+        selection.request.action,
+        storage.mount_receipt_binding.as_ref(),
+    )?;
+    validate_holder_namespace_snapshot_request(&selection, &invocation.semantic)?;
+
+    let process = prepare_platform_process(storage, selection.profile())?;
+    require_equal(
+        "measured executable hash",
+        process.executable_sha256.as_str(),
+        storage.trusted_executable_sha256.as_str(),
+    )?;
+    let mount_binding = storage.mount_receipt_binding.as_ref().ok_or_else(|| {
+        PocError::Integrity(
+            "holder-namespace semantic snapshot is missing mount receipt authority".to_owned(),
+        )
+    })?;
+    let attestation = load_mount_receipt_attestation(
+        &selection.request.scope,
+        selection.profile(),
+        mount_binding,
+    )?;
+    validate_current_attested_target(&selection.request.scope, &attestation)?;
+
+    let output = crate::semantic::build_with_output_serial(&invocation.semantic)?;
+    Ok(HolderNamespaceSemanticSnapshotReceipt {
+        format: HOLDER_NAMESPACE_SEMANTIC_SNAPSHOT_FORMAT.to_owned(),
+        semantic: output.receipt,
+        process,
+    })
+}
+
+/// Decode the one fixed multi-action transaction accepted by the privileged
+/// helper. The sequence wire format is intentionally narrower than an
+/// arbitrary batch: publication may only quiesce, strictly unmount, and clean
+/// up one already-mounted session, in that order.
+pub fn decode_publication_invocation_sequence(
+    bytes: &[u8],
+) -> PocResult<Vec<StorageAdminInvocation>> {
+    if bytes.len() > MAX_INVOCATION_SEQUENCE_BYTES {
+        return Err(PocError::Integrity(format!(
+            "storage-admin publication sequence exceeds {MAX_INVOCATION_SEQUENCE_BYTES} bytes"
+        )));
+    }
+    let values: Vec<serde_json::Value> = serde_json::from_slice(bytes)?;
+    if values.len() != 3 {
+        return Err(PocError::Integrity(
+            "storage-admin publication sequence must contain exactly three invocations".to_owned(),
+        ));
+    }
+    values
+        .into_iter()
+        .map(|value| {
+            validate_wire_shape(&value)?;
+            let invocation: StorageAdminInvocation = serde_json::from_value(value)?;
+            validate_storage_admin_durability(invocation.request.action, invocation.durability)?;
+            validate_mount_namespace_holder_pid(invocation.mount_namespace_holder_pid)?;
+            validate_sha256(
+                "bound trusted executable hash",
+                &invocation.trusted_executable_sha256,
+            )?;
+            validate_workload_cgroup_procs(&invocation.workload_cgroup_procs)?;
+            Ok(invocation)
+        })
+        .collect()
 }
 
 pub fn authorize_storage_admin(
@@ -1006,6 +1272,18 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
         selection.request.action,
         invocation.mount_receipt_binding.as_ref(),
     )?;
+    validate_storage_admin_durability(selection.request.action, invocation.durability)?;
+    let session_lifetime_mount = invocation.durability == StorageAdminDurability::SessionLifetime;
+    // An externally recoverable Mount has two crash-consistency publication
+    // points: ATTEMPT before the mount and RECEIPT before authority returns.
+    // The daemon's internal live mount is different: its allocation, holder
+    // namespace, and mount graph are session-lifetime state reconstructed from
+    // the durable activation journal. For that mode, keep the files available
+    // to same-daemon publication but discard their deferred barriers after the
+    // receipt is complete. A fresh holder namespace gets a distinct operation
+    // id, so an old session-lifetime receipt cannot authorize a recovered one.
+    let mut attempt_durability =
+        (selection.request.action == StorageAdminAction::Mount).then(begin_durability_batch);
     let paths = operation_paths(&selection.request)?;
     prepare_operation_store(&paths)?;
     let _lock = FileLock::exclusive(&paths.lock)?;
@@ -1019,6 +1297,9 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
     };
 
     if paths.receipt.exists() {
+        // Replay did not create authority or new durable state. End the
+        // speculative batch without adding a filesystem barrier.
+        drop(attempt_durability.take());
         if stored_attempt.is_none() {
             return Err(PocError::Integrity(
                 "durable storage-admin receipt is missing its bound attempt".to_owned(),
@@ -1043,6 +1324,7 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
                 request_sha256: selection.request_sha256.clone(),
                 request: selection.request.clone(),
                 authorization: invocation.authorization.clone(),
+                durability: invocation.durability,
                 trusted_executable_sha256: invocation.trusted_executable_sha256.clone(),
                 workload_cgroup_procs: invocation.workload_cgroup_procs.clone(),
                 mount_namespace_holder_pid: invocation.mount_namespace_holder_pid,
@@ -1050,6 +1332,12 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
                 started_unix_ms,
             },
         )?;
+        if selection.request.action == StorageAdminAction::Mount && !session_lifetime_mount {
+            let batch = attempt_durability.take().ok_or_else(|| {
+                PocError::Integrity("durable Mount lost its attempt durability batch".to_owned())
+            })?;
+            batch.commit(&[&selection.request.scope.control_root])?;
+        }
         let execution = lifecycle.execute(selection.request.action, &selection.request.scope);
         return commit_execution(
             &selection,
@@ -1058,9 +1346,19 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
             started_unix_ms,
             &paths.receipt_validation_diagnostic,
             &paths.receipt,
+            if session_lifetime_mount {
+                attempt_durability.take()
+            } else {
+                (selection.request.action == StorageAdminAction::Mount).then(begin_durability_batch)
+            },
+            session_lifetime_mount,
         );
     };
 
+    // Recovery begins from an already installed ATTEMPT. Exact operations
+    // retain the conservative durable path; a same-session helper retry may
+    // conservatively make a session-lifetime recovery receipt durable.
+    drop(attempt_durability.take());
     let execution =
         lifecycle.recover_incomplete(selection.request.action, &selection.request.scope);
     commit_execution(
@@ -1070,6 +1368,8 @@ pub fn run_storage_admin<L: StorageAdminLifecycle>(
         started_unix_ms,
         &paths.receipt_validation_diagnostic,
         &paths.receipt,
+        None,
+        false,
     )
 }
 
@@ -1095,9 +1395,8 @@ pub fn run_platform_invocation(
         selection.request.action,
         invocation.mount_receipt_binding.as_ref(),
     )?;
-    prepare_platform_process(invocation, selection.profile())?;
-    let process_evidence =
-        capture_storage_admin_process_evidence(&invocation.workload_cgroup_procs)?;
+    validate_storage_admin_durability(selection.request.action, invocation.durability)?;
+    let process_evidence = prepare_platform_process(invocation, selection.profile())?;
     require_equal(
         "measured executable hash",
         process_evidence.executable_sha256.as_str(),
@@ -1111,6 +1410,651 @@ pub fn run_platform_invocation(
     run_storage_admin(invocation, &mut lifecycle)
 }
 
+/// Run the fixed publication storage transaction after preparing this helper
+/// process exactly once. Each invocation still passes the complete
+/// authorization path and commits its own durable attempt and receipt.
+pub fn run_platform_publication_sequence(
+    invocations: &[StorageAdminInvocation],
+    before_cleanup: impl FnOnce(&PlatformPublicationUnmountResult) -> Result<(), String>,
+) -> PocResult<Vec<StorageAdminReceipt>> {
+    const ACTIONS: [StorageAdminAction; 3] = [
+        StorageAdminAction::Quiesce,
+        StorageAdminAction::StrictUnmount,
+        StorageAdminAction::Cleanup,
+    ];
+    if invocations.len() != ACTIONS.len() {
+        return Err(PocError::Integrity(
+            "storage-admin publication sequence must contain exactly three invocations".to_owned(),
+        ));
+    }
+
+    let sequence_started = Instant::now();
+    let mut selections = Vec::with_capacity(invocations.len());
+    for (invocation, action) in invocations.iter().zip(ACTIONS) {
+        let selection = authorize_storage_admin(
+            &invocation.expected_request,
+            &invocation.request,
+            &invocation.authorization,
+            &invocation.trusted_actor_id,
+        )?;
+        if selection.request.action != action {
+            return Err(PocError::Integrity(
+                "storage-admin publication actions are not in the fixed order".to_owned(),
+            ));
+        }
+        validate_mount_namespace_holder_pid(invocation.mount_namespace_holder_pid)?;
+        validate_sha256(
+            "bound trusted executable hash",
+            &invocation.trusted_executable_sha256,
+        )?;
+        validate_workload_cgroup_procs(&invocation.workload_cgroup_procs)?;
+        validate_mount_receipt_binding_for_action(
+            selection.request.action,
+            invocation.mount_receipt_binding.as_ref(),
+        )?;
+        validate_storage_admin_durability(selection.request.action, invocation.durability)?;
+        selections.push(selection);
+    }
+
+    let first = &invocations[0];
+    for invocation in &invocations[1..] {
+        if invocation.request.scope != first.request.scope
+            || invocation.trusted_actor_id != first.trusted_actor_id
+            || invocation.durability != first.durability
+            || invocation.trusted_executable_sha256 != first.trusted_executable_sha256
+            || invocation.workload_cgroup_procs != first.workload_cgroup_procs
+            || invocation.mount_namespace_holder_pid != first.mount_namespace_holder_pid
+            || invocation.mount_receipt_binding != first.mount_receipt_binding
+            || StorageAdminCapabilityProfile::from_profile_id(
+                &invocation.expected_request.profile_id,
+            )? != StorageAdminCapabilityProfile::from_profile_id(
+                &first.expected_request.profile_id,
+            )?
+        {
+            return Err(PocError::Integrity(
+                "storage-admin publication sequence does not preserve one exact authority"
+                    .to_owned(),
+            ));
+        }
+    }
+    let validation_elapsed_ns = elapsed_ns(sequence_started);
+
+    let process_preparation_started = Instant::now();
+    let process_evidence = prepare_platform_process(first, selections[0].profile())?;
+    require_equal(
+        "measured executable hash",
+        process_evidence.executable_sha256.as_str(),
+        first.trusted_executable_sha256.as_str(),
+    )?;
+    let process_preparation_elapsed_ns = elapsed_ns(process_preparation_started);
+
+    // The sequence already proved all three actions have the exact same
+    // binding.  Load and validate that immutable receipt once, then retain
+    // fresh per-action mount observations and durable receipts below.
+    let mount_receipt_binding = first.mount_receipt_binding.as_ref().ok_or_else(|| {
+        PocError::Integrity(
+            "storage-admin publication sequence is missing mount receipt authority".to_owned(),
+        )
+    })?;
+    let publication_authority = PublicationSequenceAuthority {
+        trusted_mount_attestation: load_mount_receipt_attestation(
+            &first.request.scope,
+            selections[0].profile(),
+            mount_receipt_binding,
+        )?,
+    };
+
+    // Persist the complete, exact authorization set before any lifecycle
+    // action.  A retry can then recover a missing action safely without the
+    // six file-and-directory barriers previously paid by three independent
+    // attempt records.  Receipts remain independently immutable below.
+    let (operation_paths, sequence_resumed, sequence_started_unix_ms, _sequence_lock) =
+        prepare_publication_sequence_store(invocations, &selections)?;
+
+    let mut receipts = Vec::with_capacity(invocations.len());
+    let mut lifecycle_elapsed_ns = [0_u64; 2];
+    let mut operation_elapsed_ns = [0_u64; 2];
+    for (index, (invocation, selection)) in invocations
+        .iter()
+        .zip(selections.iter().cloned())
+        .take(2)
+        .enumerate()
+    {
+        let lifecycle_started = Instant::now();
+        let mut lifecycle = if index == 1 {
+            PlatformStorageLifecycle::measured_after_quiesce_with_publication_authority(
+                process_evidence.clone(),
+                selection.clone(),
+                invocation.mount_receipt_binding.clone(),
+                &publication_authority,
+            )?
+        } else {
+            PlatformStorageLifecycle::measured_with_publication_authority(
+                process_evidence.clone(),
+                selection.clone(),
+                invocation.mount_receipt_binding.clone(),
+                &publication_authority,
+            )?
+        };
+        lifecycle_elapsed_ns[index] = elapsed_ns(lifecycle_started);
+        let operation_started = Instant::now();
+        let receipt = run_publication_sequence_action(
+            &selection,
+            &operation_paths[index],
+            sequence_resumed,
+            sequence_started_unix_ms,
+            &mut lifecycle,
+        )?;
+        operation_elapsed_ns[index] = elapsed_ns(operation_started);
+        let succeeded = receipt.outcome == StorageAdminOutcome::Succeeded;
+        receipts.push(receipt);
+        if !succeeded {
+            before_cleanup(&PlatformPublicationUnmountResult {
+                receipts: receipts.clone(),
+                input_decode_elapsed_ns: 0,
+                validation_elapsed_ns,
+                process_preparation_elapsed_ns,
+                quiesce_lifecycle_elapsed_ns: lifecycle_elapsed_ns[0],
+                quiesce_operation_elapsed_ns: operation_elapsed_ns[0],
+                strict_unmount_lifecycle_elapsed_ns: lifecycle_elapsed_ns[1],
+                strict_unmount_operation_elapsed_ns: operation_elapsed_ns[1],
+            })
+            .map_err(PocError::Integrity)?;
+            return Ok(receipts);
+        }
+    }
+    before_cleanup(&PlatformPublicationUnmountResult {
+        receipts: receipts.clone(),
+        input_decode_elapsed_ns: 0,
+        validation_elapsed_ns,
+        process_preparation_elapsed_ns,
+        quiesce_lifecycle_elapsed_ns: lifecycle_elapsed_ns[0],
+        quiesce_operation_elapsed_ns: operation_elapsed_ns[0],
+        strict_unmount_lifecycle_elapsed_ns: lifecycle_elapsed_ns[1],
+        strict_unmount_operation_elapsed_ns: operation_elapsed_ns[1],
+    })
+    .map_err(PocError::Integrity)?;
+
+    let invocation = &invocations[2];
+    let mut lifecycle = PlatformStorageLifecycle::measured_with_publication_authority(
+        process_evidence,
+        selections[2].clone(),
+        invocation.mount_receipt_binding.clone(),
+        &publication_authority,
+    )?;
+    receipts.push(run_publication_sequence_action(
+        &selections[2],
+        &operation_paths[2],
+        sequence_resumed,
+        sequence_started_unix_ms,
+        &mut lifecycle,
+    )?);
+    Ok(receipts)
+}
+
+fn run_publication_sequence_action<L: StorageAdminLifecycle>(
+    selection: &StorageAdminSelection,
+    paths: &OperationPaths,
+    sequence_resumed: bool,
+    started_unix_ms: u64,
+    lifecycle: &mut L,
+) -> PocResult<StorageAdminReceipt> {
+    if paths.receipt.exists() {
+        let mut receipt: StorageAdminReceipt = read_json(&paths.receipt)?;
+        validate_stored_receipt(&receipt, selection, &paths.receipt)?;
+        receipt.idempotent_replay = true;
+        return Ok(receipt);
+    }
+
+    let execution = if sequence_resumed {
+        lifecycle.recover_incomplete(selection.request.action, &selection.request.scope)
+    } else {
+        lifecycle.execute(selection.request.action, &selection.request.scope)
+    };
+    commit_execution(
+        selection,
+        lifecycle,
+        execution,
+        started_unix_ms,
+        &paths.receipt_validation_diagnostic,
+        &paths.receipt,
+        None,
+        false,
+    )
+}
+
+fn prepare_publication_sequence_store(
+    invocations: &[StorageAdminInvocation],
+    selections: &[StorageAdminSelection],
+) -> PocResult<(Vec<OperationPaths>, bool, u64, FileLock)> {
+    if invocations.len() != 3 || selections.len() != invocations.len() {
+        return Err(PocError::Integrity(
+            "publication sequence store requires exactly three authorized invocations".to_owned(),
+        ));
+    }
+    let operation_paths = selections
+        .iter()
+        .map(|selection| operation_paths(&selection.request))
+        .collect::<PocResult<Vec<_>>>()?;
+    let root = operation_paths
+        .first()
+        .and_then(|paths| paths.lock.parent())
+        .ok_or_else(|| PocError::Integrity("storage-admin lock has no parent".to_owned()))?;
+    if operation_paths
+        .iter()
+        .any(|paths| paths.lock.parent() != Some(root))
+    {
+        return Err(PocError::Integrity(
+            "publication sequence attempts span multiple storage-admin roots".to_owned(),
+        ));
+    }
+
+    let attempts_path =
+        publication_sequence_attempts_path(root, &selections[2].request.operation_id)?;
+    let sequence_directory = attempts_path.parent().ok_or_else(|| {
+        PocError::Integrity("publication sequence attempts have no parent directory".to_owned())
+    })?;
+    for paths in &operation_paths {
+        fs::create_dir_all(&paths.directory).map_err(|error| {
+            PocError::io(
+                "create publication storage-admin operation directory",
+                &paths.directory,
+                error,
+            )
+        })?;
+    }
+    fs::create_dir_all(&sequence_directory).map_err(|error| {
+        PocError::io(
+            "create publication sequence authorization directory",
+            &sequence_directory,
+            error,
+        )
+    })?;
+    match OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&operation_paths[0].lock)
+    {
+        Ok(file) => file.sync_all().map_err(|error| {
+            PocError::io(
+                "fsync storage-admin publication lock",
+                &operation_paths[0].lock,
+                error,
+            )
+        })?,
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(error) => {
+            return Err(PocError::io(
+                "create storage-admin publication lock",
+                &operation_paths[0].lock,
+                error,
+            ));
+        }
+    }
+    // This one parent sync durably installs the lock, the fixed sequence
+    // directory, and all three canonical receipt directories.
+    crate::durable::fsync_dir(root)?;
+    let lock = FileLock::exclusive(&operation_paths[0].lock)?;
+
+    if attempts_path.exists() {
+        let attempts: PublicationSequenceAttempts = read_json(&attempts_path)?;
+        validate_publication_sequence_attempts(&attempts, selections, invocations)?;
+        return Ok((
+            operation_paths,
+            true,
+            attempts.attempts[0].started_unix_ms,
+            lock,
+        ));
+    }
+    if operation_paths.iter().any(|paths| {
+        paths.attempt.exists()
+            || paths.receipt.exists()
+            || paths.receipt_validation_diagnostic.exists()
+    }) {
+        return Err(PocError::RecoveryRequired(
+            "publication sequence cannot replace an existing per-action storage record".to_owned(),
+        ));
+    }
+
+    let started_unix_ms = unix_time_ms()?;
+    let attempts = PublicationSequenceAttempts {
+        schema_version: SCHEMA_VERSION,
+        interface_version: INTERFACE_VERSION.to_owned(),
+        attempts: selections
+            .iter()
+            .zip(invocations)
+            .map(|(selection, invocation)| StorageAdminAttempt {
+                schema_version: SCHEMA_VERSION,
+                interface_version: INTERFACE_VERSION.to_owned(),
+                operation_id: selection.request.operation_id.clone(),
+                request_sha256: selection.request_sha256.clone(),
+                request: selection.request.clone(),
+                authorization: invocation.authorization.clone(),
+                durability: invocation.durability,
+                trusted_executable_sha256: invocation.trusted_executable_sha256.clone(),
+                workload_cgroup_procs: invocation.workload_cgroup_procs.clone(),
+                mount_namespace_holder_pid: invocation.mount_namespace_holder_pid,
+                mount_receipt_binding: invocation.mount_receipt_binding.clone(),
+                started_unix_ms,
+            })
+            .collect(),
+    };
+    write_immutable_json(&attempts_path, &attempts)?;
+    Ok((operation_paths, false, started_unix_ms, lock))
+}
+
+fn publication_sequence_attempts_path(
+    root: &Path,
+    cleanup_operation_id: &OperationId,
+) -> PocResult<PathBuf> {
+    validate_path_atom(
+        "publication cleanup operation id",
+        cleanup_operation_id.as_str(),
+    )?;
+    Ok(root
+        .join(PUBLICATION_SEQUENCE_DIRECTORY)
+        .join(cleanup_operation_id.as_str())
+        .join(PUBLICATION_SEQUENCE_ATTEMPTS_FILE))
+}
+
+fn validate_publication_sequence_attempts(
+    attempts: &PublicationSequenceAttempts,
+    selections: &[StorageAdminSelection],
+    invocations: &[StorageAdminInvocation],
+) -> PocResult<()> {
+    require_equal(
+        "publication sequence attempt schema version",
+        &attempts.schema_version,
+        &SCHEMA_VERSION,
+    )?;
+    require_equal(
+        "publication sequence attempt interface version",
+        attempts.interface_version.as_str(),
+        INTERFACE_VERSION,
+    )?;
+    require_equal(
+        "publication sequence attempt count",
+        &attempts.attempts.len(),
+        &selections.len(),
+    )?;
+    if selections.len() != invocations.len() {
+        return Err(PocError::Integrity(
+            "publication sequence authorization inputs have inconsistent lengths".to_owned(),
+        ));
+    }
+    for ((attempt, selection), invocation) in
+        attempts.attempts.iter().zip(selections).zip(invocations)
+    {
+        validate_stored_attempt(attempt, selection, invocation)?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod publication_sequence_store_tests {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use super::*;
+    use crate::{AllocationId, RunId, SessionId};
+
+    static NEXT_TEST_ROOT: AtomicU64 = AtomicU64::new(1);
+
+    fn publication_invocations(root: &Path) -> Vec<StorageAdminInvocation> {
+        let scope = StorageAdminScope {
+            run_id: RunId::parse("m2r-20260728T015724p0800").expect("valid run id"),
+            sandbox_id: "sandbox-sequence-store".to_owned(),
+            workspace_session_id: "workspace-sequence-store".to_owned(),
+            session_id: SessionId::from_string("session-sequence-store"),
+            allocation_id: AllocationId::from_string("allocation-sequence-store"),
+            lease_id: "m2r-lease-sequence-store:7".to_owned(),
+            lease_epoch: 7,
+            mount_namespace_id: "mnt:[4026532999]".to_owned(),
+            payload_root: root.join("payload"),
+            control_root: root.join("control"),
+            lower_dirs_newest_first: vec![root.join("payload/lower-1")],
+            allocation_root: root.join("allocation"),
+            workspace_root: root.join("workspace"),
+        };
+        [
+            ("sequence-quiesce", StorageAdminAction::Quiesce),
+            ("sequence-unmount", StorageAdminAction::StrictUnmount),
+            ("sequence-cleanup", StorageAdminAction::Cleanup),
+        ]
+        .into_iter()
+        .map(|(operation_id, action)| {
+            let request = StorageAdminRequest {
+                schema_version: SCHEMA_VERSION,
+                interface_version: INTERFACE_VERSION.to_owned(),
+                profile_id: STORAGE_ADMIN_PROFILE_ID.to_owned(),
+                operation_id: OperationId::from_string(operation_id),
+                action,
+                scope: scope.clone(),
+            };
+            let authorization = StorageAdminAuthorization {
+                authenticated: true,
+                actor_id: "mpla-sequence-store-test".to_owned(),
+                operation_id: request.operation_id.clone(),
+                run_id: scope.run_id.clone(),
+                sandbox_id: scope.sandbox_id.clone(),
+                workspace_session_id: scope.workspace_session_id.clone(),
+                session_id: scope.session_id.clone(),
+                allocation_id: scope.allocation_id.clone(),
+                lease_id: scope.lease_id.clone(),
+                lease_epoch: scope.lease_epoch,
+                mount_namespace_id: scope.mount_namespace_id.clone(),
+            };
+            StorageAdminInvocation {
+                expected_request: request.clone(),
+                request,
+                authorization,
+                trusted_actor_id: "mpla-sequence-store-test".to_owned(),
+                durability: StorageAdminDurability::ExactObjectGraph,
+                trusted_executable_sha256: "00".repeat(32),
+                workload_cgroup_procs: root.join("workload/cgroup.procs"),
+                mount_namespace_holder_pid: 4_242,
+                mount_receipt_binding: Some(StorageAdminMountReceiptBinding {
+                    storage_operation_id: OperationId::from_string("sequence-mount"),
+                    attestation_sha256: "11".repeat(32),
+                }),
+            }
+        })
+        .collect()
+    }
+
+    fn selections(invocations: &[StorageAdminInvocation]) -> Vec<StorageAdminSelection> {
+        invocations
+            .iter()
+            .map(|invocation| {
+                authorize_storage_admin(
+                    &invocation.expected_request,
+                    &invocation.request,
+                    &invocation.authorization,
+                    &invocation.trusted_actor_id,
+                )
+                .expect("authorized fixed sequence invocation")
+            })
+            .collect()
+    }
+
+    #[test]
+    fn sequence_attempt_header_reopens_after_a_crash_point_and_rejects_substitution() {
+        let root = std::env::temp_dir().join(format!(
+            "mpla-publication-sequence-store-{}-{}",
+            std::process::id(),
+            NEXT_TEST_ROOT.fetch_add(1, Ordering::Relaxed),
+        ));
+        fs::create_dir_all(&root).expect("create sequence test root");
+        let invocations = publication_invocations(&root);
+        let selections = selections(&invocations);
+
+        let attempts_path = publication_sequence_attempts_path(
+            &root.join("control").join(STORAGE_ADMIN_DIRECTORY),
+            &invocations[2].request.operation_id,
+        )
+        .expect("sequence attempts path");
+        {
+            let (paths, resumed, _started, _lock) =
+                prepare_publication_sequence_store(&invocations, &selections)
+                    .expect("durably authorize fixed sequence before first action");
+            assert!(!resumed);
+            assert!(attempts_path.exists());
+            // Simulate the first receipt having been committed before the
+            // helper crashes. A later helper must accept the header and carry
+            // on with recovery instead of treating the receipt as a legacy
+            // collision.
+            fs::write(&paths[0].receipt, b"receipt-created-before-crash\n")
+                .expect("create crash-point receipt marker");
+        }
+
+        {
+            let (_paths, resumed, _started, _lock) =
+                prepare_publication_sequence_store(&invocations, &selections)
+                    .expect("reopen exact durable sequence authorization");
+            assert!(resumed);
+        }
+
+        let mut substituted = invocations.clone();
+        substituted[1].trusted_executable_sha256 = "22".repeat(32);
+        assert!(prepare_publication_sequence_store(&substituted, &selections).is_err());
+
+        fs::remove_dir_all(root).expect("remove sequence test root");
+    }
+
+    #[test]
+    fn legacy_cleanup_authority_remains_valid_without_compact_header() {
+        let root = std::env::temp_dir().join(format!(
+            "mpla-publication-sequence-legacy-authority-{}-{}",
+            std::process::id(),
+            NEXT_TEST_ROOT.fetch_add(1, Ordering::Relaxed),
+        ));
+        fs::create_dir_all(&root).expect("create legacy authority test root");
+        let invocations = publication_invocations(&root);
+        let cleanup_invocation = &invocations[2];
+        let cleanup_selection = authorize_storage_admin(
+            &cleanup_invocation.expected_request,
+            &cleanup_invocation.request,
+            &cleanup_invocation.authorization,
+            &cleanup_invocation.trusted_actor_id,
+        )
+        .expect("authorize exact legacy cleanup invocation");
+        let cleanup_paths =
+            operation_paths(&cleanup_selection.request).expect("derive legacy cleanup paths");
+        fs::create_dir_all(&cleanup_paths.directory).expect("create legacy cleanup directory");
+        write_immutable_json(
+            &cleanup_paths.attempt,
+            &StorageAdminAttempt {
+                schema_version: SCHEMA_VERSION,
+                interface_version: INTERFACE_VERSION.to_owned(),
+                operation_id: cleanup_selection.request.operation_id.clone(),
+                request_sha256: cleanup_selection.request_sha256.clone(),
+                request: cleanup_selection.request.clone(),
+                authorization: cleanup_invocation.authorization.clone(),
+                durability: cleanup_invocation.durability,
+                trusted_executable_sha256: cleanup_invocation.trusted_executable_sha256.clone(),
+                workload_cgroup_procs: cleanup_invocation.workload_cgroup_procs.clone(),
+                mount_namespace_holder_pid: cleanup_invocation.mount_namespace_holder_pid,
+                mount_receipt_binding: cleanup_invocation.mount_receipt_binding.clone(),
+                started_unix_ms: 1,
+            },
+        )
+        .expect("write immutable legacy cleanup attempt");
+
+        validate_publication_sequence_cleanup_attempt(&cleanup_paths, &cleanup_selection)
+            .expect("exact legacy cleanup authority remains accepted");
+
+        fs::remove_dir_all(root).expect("remove legacy authority test root");
+    }
+
+    fn write_legacy_cleanup_attempt(
+        root: &Path,
+        request_sha256: String,
+    ) -> (OperationPaths, StorageAdminSelection) {
+        let invocations = publication_invocations(root);
+        let cleanup_invocation = &invocations[2];
+        let cleanup_selection = authorize_storage_admin(
+            &cleanup_invocation.expected_request,
+            &cleanup_invocation.request,
+            &cleanup_invocation.authorization,
+            &cleanup_invocation.trusted_actor_id,
+        )
+        .expect("authorize exact legacy cleanup invocation");
+        let cleanup_paths =
+            operation_paths(&cleanup_selection.request).expect("derive legacy cleanup paths");
+        fs::create_dir_all(&cleanup_paths.directory).expect("create legacy cleanup directory");
+        write_immutable_json(
+            &cleanup_paths.attempt,
+            &StorageAdminAttempt {
+                schema_version: SCHEMA_VERSION,
+                interface_version: INTERFACE_VERSION.to_owned(),
+                operation_id: cleanup_selection.request.operation_id.clone(),
+                request_sha256,
+                request: cleanup_selection.request.clone(),
+                authorization: cleanup_invocation.authorization.clone(),
+                durability: cleanup_invocation.durability,
+                trusted_executable_sha256: cleanup_invocation.trusted_executable_sha256.clone(),
+                workload_cgroup_procs: cleanup_invocation.workload_cgroup_procs.clone(),
+                mount_namespace_holder_pid: cleanup_invocation.mount_namespace_holder_pid,
+                mount_receipt_binding: cleanup_invocation.mount_receipt_binding.clone(),
+                started_unix_ms: 1,
+            },
+        )
+        .expect("write immutable legacy cleanup attempt");
+        (cleanup_paths, cleanup_selection)
+    }
+
+    #[test]
+    fn legacy_cleanup_authority_rejects_a_tampered_request_digest() {
+        let root = std::env::temp_dir().join(format!(
+            "mpla-publication-sequence-legacy-tamper-{}-{}",
+            std::process::id(),
+            NEXT_TEST_ROOT.fetch_add(1, Ordering::Relaxed),
+        ));
+        fs::create_dir_all(&root).expect("create legacy tamper test root");
+        let (cleanup_paths, cleanup_selection) =
+            write_legacy_cleanup_attempt(&root, "ff".repeat(32));
+
+        assert!(
+            validate_publication_sequence_cleanup_attempt(&cleanup_paths, &cleanup_selection)
+                .is_err()
+        );
+
+        fs::remove_dir_all(root).expect("remove legacy tamper test root");
+    }
+
+    #[test]
+    fn malformed_compact_header_never_downgrades_to_legacy_authority() {
+        let root = std::env::temp_dir().join(format!(
+            "mpla-publication-sequence-compact-tamper-{}-{}",
+            std::process::id(),
+            NEXT_TEST_ROOT.fetch_add(1, Ordering::Relaxed),
+        ));
+        fs::create_dir_all(&root).expect("create compact tamper test root");
+        let request_sha256 = request_sha256(&publication_invocations(&root)[2].request)
+            .expect("derive exact cleanup request digest");
+        let (cleanup_paths, cleanup_selection) =
+            write_legacy_cleanup_attempt(&root, request_sha256);
+        let storage_admin_root = cleanup_paths
+            .lock
+            .parent()
+            .expect("storage-admin root for cleanup path");
+        let attempts_path = publication_sequence_attempts_path(
+            storage_admin_root,
+            &cleanup_selection.request.operation_id,
+        )
+        .expect("derive compact attempts path");
+        fs::create_dir_all(attempts_path.parent().expect("compact attempts parent"))
+            .expect("create compact attempts parent");
+        fs::write(&attempts_path, b"{").expect("write malformed compact attempts header");
+
+        assert!(
+            validate_publication_sequence_cleanup_attempt(&cleanup_paths, &cleanup_selection)
+                .is_err()
+        );
+
+        fs::remove_dir_all(root).expect("remove compact tamper test root");
+    }
+}
+
 fn commit_execution<L: StorageAdminLifecycle>(
     selection: &StorageAdminSelection,
     lifecycle: &mut L,
@@ -1118,6 +2062,8 @@ fn commit_execution<L: StorageAdminLifecycle>(
     started_unix_ms: u64,
     receipt_validation_diagnostic_path: &Path,
     receipt_path: &Path,
+    durability_batch: Option<DurabilityBatch>,
+    discard_durability_batch: bool,
 ) -> PocResult<StorageAdminReceipt> {
     validate_execution(&execution)?;
     let completed_unix_ms = unix_time_ms()?.max(started_unix_ms);
@@ -1195,6 +2141,24 @@ fn commit_execution<L: StorageAdminLifecycle>(
                 "receipt commit failed: {error}; cleanup failed: {cleanup_error}"
             ))),
         };
+    }
+    if let Some(batch) = durability_batch {
+        let durability_result = if discard_durability_batch {
+            batch.discard();
+            Ok(())
+        } else {
+            batch.commit(&[&selection.request.scope.control_root])
+        };
+        if let Err(error) = durability_result {
+            let cleanup = lifecycle
+                .cleanup_after_receipt_failure(selection.request.action, &selection.request.scope);
+            return match cleanup {
+                Ok(()) => Err(error),
+                Err(cleanup_error) => Err(PocError::RecoveryRequired(format!(
+                    "receipt durability commit failed: {error}; cleanup failed: {cleanup_error}"
+                ))),
+            };
+        }
     }
     lifecycle.receipt_committed(selection.request.action, &selection.request.scope);
     Ok(receipt)
@@ -1876,8 +2840,7 @@ fn prepare_operation_store(paths: &OperationPaths) -> PocResult<()> {
         .create_new(true)
         .open(&paths.lock)
     {
-        Ok(file) => file
-            .sync_all()
+        Ok(file) => crate::durable::sync_all(&file)
             .map_err(|error| PocError::io("fsync storage-admin lock", &paths.lock, error))?,
         Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
         Err(error) => {
@@ -1888,7 +2851,10 @@ fn prepare_operation_store(paths: &OperationPaths) -> PocResult<()> {
             ));
         }
     }
-    crate::durable::fsync_dir(root)
+    crate::durable::fsync_dir(root)?;
+    crate::durable::fsync_dir(root.parent().ok_or_else(|| {
+        PocError::Integrity("storage-admin root has no control-root parent".to_owned())
+    })?)
 }
 
 fn validate_stored_attempt(
@@ -1927,6 +2893,11 @@ fn validate_stored_attempt(
         &invocation.authorization,
     )?;
     require_equal(
+        "stored attempt durability",
+        &attempt.durability,
+        &invocation.durability,
+    )?;
+    require_equal(
         "stored attempt trusted executable hash",
         &attempt.trusted_executable_sha256,
         &invocation.trusted_executable_sha256,
@@ -1949,6 +2920,19 @@ fn validate_stored_attempt(
     if attempt.started_unix_ms == 0 {
         return Err(PocError::Integrity(
             "stored storage-admin attempt has a zero start timestamp".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_storage_admin_durability(
+    action: StorageAdminAction,
+    durability: StorageAdminDurability,
+) -> PocResult<()> {
+    if durability == StorageAdminDurability::SessionLifetime && action != StorageAdminAction::Mount
+    {
+        return Err(PocError::Integrity(
+            "session-lifetime storage durability is valid only for Mount".to_owned(),
         ));
     }
     Ok(())
@@ -2780,6 +3764,7 @@ fn validate_wire_shape(value: &serde_json::Value) -> PocResult<()> {
             "request",
             "authorization",
             "trusted_actor_id",
+            "durability",
             "trusted_executable_sha256",
             "workload_cgroup_procs",
             "mount_namespace_holder_pid",
@@ -2850,6 +3835,107 @@ fn validate_wire_shape(value: &serde_json::Value) -> PocResult<()> {
     )
 }
 
+fn validate_holder_namespace_semantic_snapshot_wire_shape(
+    value: &serde_json::Value,
+) -> PocResult<()> {
+    validate_object_keys(
+        "holder-namespace semantic snapshot",
+        value,
+        &["format", "storage_admin", "semantic"],
+    )?;
+    let object = value.as_object().ok_or_else(|| {
+        PocError::Integrity("holder-namespace semantic snapshot must be an object".to_owned())
+    })?;
+    let storage = object.get("storage_admin").ok_or_else(|| {
+        PocError::Integrity(
+            "holder-namespace semantic snapshot is missing storage_admin".to_owned(),
+        )
+    })?;
+    validate_wire_shape(storage)?;
+    let semantic = object.get("semantic").ok_or_else(|| {
+        PocError::Integrity(
+            "holder-namespace semantic snapshot is missing semantic request".to_owned(),
+        )
+    })?;
+    validate_object_keys(
+        "holder-namespace semantic request",
+        semantic,
+        &[
+            "schema_version",
+            "operation_id",
+            "allocation_id",
+            "sealed_tree",
+            "spool_dir",
+            "canonical_object_dir",
+            "attribution",
+        ],
+    )?;
+    let attribution = semantic.get("attribution").ok_or_else(|| {
+        PocError::Integrity("holder-namespace semantic request is missing attribution".to_owned())
+    })?;
+    validate_object_keys(
+        "holder-namespace semantic attribution",
+        attribution,
+        &["actor_id", "semantic_operation_id"],
+    )
+}
+
+fn validate_holder_namespace_snapshot_request(
+    selection: &StorageAdminSelection,
+    semantic: &SemanticBuildRequest,
+) -> PocResult<()> {
+    let scope = &selection.request.scope;
+    require_equal(
+        "holder semantic schema version",
+        &semantic.schema_version,
+        &SCHEMA_VERSION,
+    )?;
+    require_equal(
+        "holder semantic operation id",
+        &semantic.operation_id,
+        &selection.request.operation_id,
+    )?;
+    require_equal(
+        "holder semantic allocation id",
+        &semantic.allocation_id,
+        &scope.allocation_id,
+    )?;
+    require_equal(
+        "holder semantic sealed tree",
+        &semantic.sealed_tree,
+        &scope.workspace_root,
+    )?;
+    let operation_dir = scope
+        .control_root
+        .join("runtime-lifecycle")
+        .join("operations")
+        .join(selection.request.operation_id.as_str());
+    require_equal(
+        "holder semantic spool directory",
+        &semantic.spool_dir,
+        &operation_dir.join("initial-semantic-spool"),
+    )?;
+    require_equal(
+        "holder semantic canonical object directory",
+        &semantic.canonical_object_dir,
+        &scope
+            .control_root
+            .join("runs")
+            .join(scope.run_id.as_str())
+            .join("canonical-objects"),
+    )?;
+    require_equal(
+        "holder semantic attribution actor",
+        semantic.attribution.actor_id.as_str(),
+        "sandbox-runtime-publication",
+    )?;
+    require_equal(
+        "holder semantic attribution operation",
+        semantic.attribution.semantic_operation_id.as_str(),
+        scope.run_id.as_str(),
+    )
+}
+
 fn validate_object_keys(
     label: &str,
     value: &serde_json::Value,
@@ -2873,11 +3959,10 @@ fn validate_object_keys(
 fn prepare_platform_process(
     invocation: &StorageAdminInvocation,
     profile: StorageAdminCapabilityProfile,
-) -> PocResult<()> {
+) -> PocResult<StorageAdminProcessEvidence> {
     enter_bound_user_and_mount_namespaces(
         invocation.mount_namespace_holder_pid,
         &invocation.request.scope.mount_namespace_id,
-        &invocation.workload_cgroup_procs,
     )?;
     narrow_process_capabilities(profile)?;
     set_no_new_privileges()?;
@@ -2889,7 +3974,7 @@ fn prepare_platform_process(
 fn prepare_platform_process(
     _invocation: &StorageAdminInvocation,
     _profile: StorageAdminCapabilityProfile,
-) -> PocResult<()> {
+) -> PocResult<StorageAdminProcessEvidence> {
     Err(PocError::Unsupported(
         "mpla-storage-admin-v1 execution requires Linux".to_owned(),
     ))
@@ -3076,21 +4161,7 @@ pub fn capture_storage_admin_process_evidence(
 ) -> PocResult<StorageAdminProcessEvidence> {
     validate_workload_cgroup_procs(workload_cgroup_procs)?;
     let workload_cgroup_member_pid = std::process::id();
-    let members = fs::read_to_string(workload_cgroup_procs).map_err(|error| {
-        PocError::io(
-            "read storage-admin workload cgroup membership",
-            workload_cgroup_procs,
-            error,
-        )
-    })?;
-    if !members
-        .lines()
-        .any(|member| member.trim() == workload_cgroup_member_pid.to_string())
-    {
-        return Err(PocError::Integrity(
-            "storage-admin helper is not in its bound workload cgroup".to_owned(),
-        ));
-    }
+    verify_process_cgroup_membership(workload_cgroup_member_pid, workload_cgroup_procs)?;
     let executable = fs::read_link("/proc/self/exe").map_err(|error| {
         PocError::io(
             "read storage-admin executable identity",
@@ -3125,6 +4196,64 @@ pub fn capture_storage_admin_process_evidence(
     )
 }
 
+/// Verify one process against its exact unified cgroup-v2 membership.
+///
+/// Reading `/proc/<pid>/cgroup` is the kernel's race-safe identity check for
+/// one process. It avoids scanning every member in `cgroup.procs`, whose cost
+/// grows with unrelated processes in the destination cgroup.
+#[cfg(target_os = "linux")]
+pub fn verify_process_cgroup_membership(pid: u32, expected_cgroup_procs: &Path) -> PocResult<()> {
+    validate_workload_cgroup_procs(expected_cgroup_procs)?;
+    if pid == 0 {
+        return Err(PocError::Integrity(
+            "storage-admin cgroup member pid must be non-zero".to_owned(),
+        ));
+    }
+    let cgroup_dir = expected_cgroup_procs.parent().ok_or_else(|| {
+        PocError::Integrity("storage-admin cgroup.procs path has no parent".to_owned())
+    })?;
+    let expected_relative = cgroup_dir.strip_prefix("/sys/fs/cgroup").map_err(|_| {
+        PocError::Integrity(format!(
+            "storage-admin cgroup.procs path is outside /sys/fs/cgroup: {}",
+            expected_cgroup_procs.display()
+        ))
+    })?;
+    let expected_membership = if expected_relative.as_os_str().is_empty() {
+        "/".to_owned()
+    } else {
+        format!("/{}", expected_relative.display())
+    };
+    let membership_path = PathBuf::from(format!("/proc/{pid}/cgroup"));
+    let membership = fs::read_to_string(&membership_path).map_err(|error| {
+        PocError::io(
+            "read storage-admin process cgroup membership",
+            &membership_path,
+            error,
+        )
+    })?;
+    let observed_membership = membership
+        .lines()
+        .find_map(|line| line.strip_prefix("0::"))
+        .map(str::trim)
+        .ok_or_else(|| {
+            PocError::Integrity(
+                "storage-admin process has no unified cgroup-v2 membership".to_owned(),
+            )
+        })?;
+    require_equal(
+        "process cgroup membership",
+        observed_membership,
+        expected_membership.as_str(),
+    )
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn verify_process_cgroup_membership(_pid: u32, _expected_cgroup_procs: &Path) -> PocResult<()> {
+    Err(PocError::Unsupported(
+        "storage-admin cgroup verification requires Linux".to_owned(),
+    ))
+}
+
 #[cfg(target_os = "linux")]
 fn sha256_file(path: &Path) -> PocResult<String> {
     let mut file = File::open(path)
@@ -3156,7 +4285,7 @@ pub fn capture_storage_admin_process_evidence(
 fn verify_process_identity(
     workload_cgroup_procs: &Path,
     profile: StorageAdminCapabilityProfile,
-) -> PocResult<()> {
+) -> PocResult<StorageAdminProcessEvidence> {
     let evidence = capture_storage_admin_process_evidence(workload_cgroup_procs)?;
     require_equal(
         "executable identity",
@@ -3209,14 +4338,13 @@ fn verify_process_identity(
             "storage-admin NoNewPrivs is not enabled".to_owned(),
         ));
     }
-    Ok(())
+    Ok(evidence)
 }
 
 #[cfg(target_os = "linux")]
 fn enter_bound_user_and_mount_namespaces(
     holder_pid: u32,
     expected_namespace_id: &str,
-    workload_cgroup_procs: &Path,
 ) -> PocResult<()> {
     // A mount namespace is owned by a user namespace.  Open and bind both
     // namespace descriptors from the server-validated holder before changing
@@ -3317,16 +4445,35 @@ fn enter_bound_user_and_mount_namespaces(
         )));
     }
 
-    let current_evidence = capture_storage_admin_process_evidence(workload_cgroup_procs)?;
+    let current_namespace_path = Path::new("/proc/self/ns/mnt");
+    let current_namespace_id = fs::read_link(current_namespace_path)
+        .map_err(|error| {
+            PocError::io(
+                "read entered storage-admin mount namespace",
+                current_namespace_path,
+                error,
+            )
+        })?
+        .to_string_lossy()
+        .into_owned();
     require_equal(
         "entered mount namespace",
-        current_evidence.mount_namespace_id.as_str(),
+        current_namespace_id.as_str(),
         expected_namespace_id,
     )?;
     let expected_inode = parse_mount_namespace_inode(expected_namespace_id)?;
+    let current_namespace_inode = fs::metadata(current_namespace_path)
+        .map_err(|error| {
+            PocError::io(
+                "stat entered storage-admin mount namespace",
+                current_namespace_path,
+                error,
+            )
+        })?
+        .ino();
     require_equal(
         "entered mount namespace inode",
-        &current_evidence.mount_namespace_inode,
+        &current_namespace_inode,
         &expected_inode,
     )
 }
@@ -3423,11 +4570,7 @@ pub fn validate_storage_admin_destroy_authority(
         profile,
     };
     let cleanup_paths = operation_paths(&cleanup_selection.request)?;
-    if !cleanup_paths.attempt.exists() {
-        return Err(PocError::Integrity(
-            "destroy authority cleanup receipt is missing its immutable attempt".to_owned(),
-        ));
-    }
+    validate_publication_sequence_cleanup_attempt(&cleanup_paths, &cleanup_selection)?;
     let cleanup_receipt: StorageAdminReceipt = read_json(&cleanup_paths.receipt)?;
     validate_stored_receipt(&cleanup_receipt, &cleanup_selection, &cleanup_paths.receipt)?;
     require_equal(
@@ -3517,6 +4660,132 @@ pub fn validate_storage_admin_destroy_authority(
     )
 }
 
+fn validate_destroy_authority_attempt(
+    attempt: &StorageAdminAttempt,
+    expected_action: StorageAdminAction,
+    expected_scope: &StorageAdminScope,
+) -> PocResult<()> {
+    validate_request(&attempt.request)?;
+    require_equal(
+        "destroy authority sequence durability",
+        &attempt.durability,
+        &StorageAdminDurability::ExactObjectGraph,
+    )?;
+    require_equal(
+        "destroy authority sequence action",
+        &attempt.request.action,
+        &expected_action,
+    )?;
+    require_equal(
+        "destroy authority sequence scope",
+        &attempt.request.scope,
+        expected_scope,
+    )?;
+    require_equal(
+        "destroy authority sequence request digest",
+        &attempt.request_sha256,
+        &request_sha256(&attempt.request)?,
+    )?;
+    validate_authorization(
+        &attempt.request,
+        &attempt.authorization,
+        &attempt.authorization.actor_id,
+    )?;
+    validate_sha256(
+        "destroy authority sequence trusted executable hash",
+        &attempt.trusted_executable_sha256,
+    )?;
+    validate_workload_cgroup_procs(&attempt.workload_cgroup_procs)?;
+    validate_mount_namespace_holder_pid(attempt.mount_namespace_holder_pid)?;
+    validate_mount_receipt_binding_for_action(
+        attempt.request.action,
+        attempt.mount_receipt_binding.as_ref(),
+    )?;
+    if attempt.started_unix_ms == 0 {
+        return Err(PocError::Integrity(
+            "destroy authority sequence attempt has a zero start timestamp".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn validate_publication_sequence_cleanup_attempt(
+    cleanup_paths: &OperationPaths,
+    cleanup_selection: &StorageAdminSelection,
+) -> PocResult<()> {
+    let root = cleanup_paths
+        .lock
+        .parent()
+        .ok_or_else(|| PocError::Integrity("storage-admin lock has no parent".to_owned()))?;
+    let attempts_path =
+        publication_sequence_attempts_path(root, &cleanup_selection.request.operation_id)?;
+    if attempts_path.exists() {
+        let attempts: PublicationSequenceAttempts = read_json(&attempts_path)?;
+        require_equal(
+            "destroy authority sequence attempt schema version",
+            &attempts.schema_version,
+            &SCHEMA_VERSION,
+        )?;
+        require_equal(
+            "destroy authority sequence attempt interface version",
+            attempts.interface_version.as_str(),
+            INTERFACE_VERSION,
+        )?;
+        require_equal(
+            "destroy authority sequence attempt count",
+            &attempts.attempts.len(),
+            &3_usize,
+        )?;
+        let expected_actions = [
+            StorageAdminAction::Quiesce,
+            StorageAdminAction::StrictUnmount,
+            StorageAdminAction::Cleanup,
+        ];
+        for (attempt, expected_action) in attempts.attempts.iter().zip(expected_actions) {
+            validate_destroy_authority_attempt(
+                attempt,
+                expected_action,
+                &cleanup_selection.request.scope,
+            )?;
+        }
+        let cleanup_attempt = &attempts.attempts[2];
+        require_equal(
+            "destroy authority cleanup attempt operation id",
+            &cleanup_attempt.operation_id,
+            &cleanup_selection.request.operation_id,
+        )?;
+        return require_equal(
+            "destroy authority cleanup attempt request",
+            &cleanup_attempt.request,
+            &cleanup_selection.request,
+        );
+    }
+
+    if !cleanup_paths.attempt.exists() {
+        return Err(PocError::Integrity(
+            "destroy authority cleanup receipt is missing its immutable sequence or legacy attempt"
+                .to_owned(),
+        ));
+    }
+    let cleanup_attempt: StorageAdminAttempt = read_json(&cleanup_paths.attempt)?;
+    validate_destroy_authority_attempt(
+        &cleanup_attempt,
+        StorageAdminAction::Cleanup,
+        &cleanup_selection.request.scope,
+    )?;
+    require_equal(
+        "destroy authority cleanup attempt operation id",
+        &cleanup_attempt.operation_id,
+        &cleanup_selection.request.operation_id,
+    )?;
+    require_equal(
+        "destroy authority cleanup attempt request",
+        &cleanup_attempt.request,
+        &cleanup_selection.request,
+    )
+}
+
 #[cfg(not(target_os = "linux"))]
 pub fn validate_storage_admin_destroy_authority(
     _scope: &StorageAdminScope,
@@ -3535,6 +4804,7 @@ fn execute_platform_action(
     action: StorageAdminAction,
     scope: &StorageAdminScope,
     mounted_by_this_process: &mut Option<PathBuf>,
+    workspace_prequiesced: bool,
 ) -> PocResult<()> {
     match action {
         StorageAdminAction::Mount => Err(PocError::Integrity(
@@ -3542,11 +4812,17 @@ fn execute_platform_action(
         )),
         StorageAdminAction::Quiesce => syncfs_path(&scope.workspace_root),
         StorageAdminAction::StrictUnmount => {
-            syncfs_path(&scope.workspace_root)?;
+            if !workspace_prequiesced {
+                syncfs_path(&scope.workspace_root)?;
+            }
             strict_unmount_path(&scope.workspace_root)
         }
         StorageAdminAction::Cleanup => cleanup_platform_state(scope, mounted_by_this_process),
     }
+}
+
+fn elapsed_ns(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX)
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -3554,6 +4830,7 @@ fn execute_platform_action(
     _action: StorageAdminAction,
     _scope: &StorageAdminScope,
     _mounted_by_this_process: &mut Option<PathBuf>,
+    _workspace_prequiesced: bool,
 ) -> PocResult<()> {
     Err(PocError::Unsupported(
         "storage-admin lifecycle syscalls require Linux".to_owned(),

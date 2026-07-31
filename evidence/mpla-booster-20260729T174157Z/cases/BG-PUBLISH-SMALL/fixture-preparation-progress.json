@@ -1,0 +1,14 @@
+{
+  "file_read": {
+    "bytes_read": 760,
+    "content": "{\"details\":{\"build_commit\":\"11f793ad96754e612ca6615835c11d78cf443a83\",\"candidate_sandbox_id\":\"eos-ec8b8880-148f-4140-844e-b1260e223fca\",\"run_id\":\"mpla-booster-20260729T174157Z\"},\"stage\":\"preparation_started\"}\n{\"details\":{\"base_bytes\":1073741824,\"delta_bytes\":1048576,\"source_manifest_sha256\":\"6697bbde5ae3d748b54c087a4e06c08bd16ac64369afcec1c15233417b4a805e\"},\"stage\":\"control_source_prepared\"}\n{\"details\":{\"accumulated_bytes\":1073741824,\"chain_depth\":1},\"stage\":\"depth_one_base_published\"}\n{\"details\":{\"count\":3},\"stage\":\"depth_one_candidates_prepared\"}\n{\"details\":{\"accumulated_bytes\":2147483648,\"chain_depth\":2,\"layer\":1},\"stage\":\"chain_layer_published\"}\n{\"details\":{\"accumulated_bytes\":3221225472,\"chain_depth\":3,\"layer\":2},\"stage\":\"chain_layer_published\"}",
+    "next_offset": null,
+    "num_lines": 6,
+    "path": "scorecard-publication-progress.jsonl",
+    "start_line": 1,
+    "total_bytes": 761,
+    "total_lines": 6,
+    "truncated": false
+  },
+  "path": "/workspace/scorecard-publication-progress.jsonl"
+}

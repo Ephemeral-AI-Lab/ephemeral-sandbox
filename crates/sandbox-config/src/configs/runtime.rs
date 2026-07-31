@@ -79,7 +79,7 @@ pub struct MplaStorageAdminConfig {
 }
 
 impl MplaStorageAdminConfig {
-    /// The type admits only the two explicitly enumerated profiles.  Keeping
+    /// The type admits only the two explicitly enumerated profiles. Keeping
     /// validation explicit makes this a policy boundary rather than a free
     /// form capability configuration.
     pub const fn validate(&self) -> Result<(), ConfigFieldError> {

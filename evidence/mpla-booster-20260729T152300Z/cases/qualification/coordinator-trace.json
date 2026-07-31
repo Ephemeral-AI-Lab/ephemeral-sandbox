@@ -1,0 +1,22 @@
+{
+  "spans": [
+    {
+      "children": [],
+      "events": [],
+      "offset_ms": 0.0,
+      "span": {
+        "attrs": {
+          "op": "read_command_lines"
+        },
+        "dur_ms": 0.0,
+        "name": "daemon.dispatch",
+        "span": "d-7",
+        "status": "completed",
+        "trace": "mpla-booster-20260729T152300Z-qualification-poll-0001",
+        "ts": 1785336307474
+      }
+    }
+  ],
+  "trace": "mpla-booster-20260729T152300Z-qualification-poll-0001",
+  "view": "trace"
+}

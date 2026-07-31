@@ -1,0 +1,4 @@
+{
+  "error": "create_candidate_sandbox exited 1: {\"error\":{\"kind\":\"protocol_error\",\"message\":\"gateway returned an empty response\",\"details\":{}}}\n",
+  "type": "CampaignError"
+}

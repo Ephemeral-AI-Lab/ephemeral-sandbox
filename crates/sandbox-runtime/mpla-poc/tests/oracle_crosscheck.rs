@@ -1,10 +1,14 @@
 use std::fs::{File, OpenOptions};
 use std::io::BufReader;
+#[cfg(target_os = "linux")]
+use std::os::fd::AsRawFd;
 use std::os::unix::fs::{symlink, FileExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use rustix::fs::{AtFlags, Timespec, Timestamps, XattrFlags, CWD};
+#[cfg(target_os = "linux")]
+use sandbox_runtime_mpla_poc::semantic::allocation::is_fully_allocated;
 use sandbox_runtime_mpla_poc::semantic::record::{RecordStreamReader, SemanticRecord};
 use sandbox_runtime_mpla_poc::semantic::{build_with_output, SemanticBuildOutput};
 use sandbox_runtime_mpla_poc::{
@@ -196,11 +200,37 @@ fn create_fixture(tree: &Path) {
         .expect("test operation must succeed");
     sparse.sync_all().expect("test operation must succeed");
 
+    #[cfg(target_os = "linux")]
+    create_fully_allocated_zero_file(&tree.join("dense-zero"));
+
     std::fs::write(tree.join(".wh.deleted"), b"").expect("test operation must succeed");
     let opaque = tree.join("opaque");
     std::fs::create_dir(&opaque).expect("test operation must succeed");
     std::fs::write(opaque.join(".wh..wh..opq"), b"").expect("test operation must succeed");
     std::fs::write(opaque.join("visible"), b"visible").expect("test operation must succeed");
+}
+
+#[cfg(target_os = "linux")]
+fn create_fully_allocated_zero_file(path: &Path) {
+    const DENSE_ZERO_BYTES: i64 = 1024 * 1024;
+    let file = File::create(path).expect("test operation must succeed");
+    // SAFETY: the open regular file descriptor and fixed positive range are
+    // valid for Linux `fallocate`.
+    let result = unsafe { libc::fallocate(file.as_raw_fd(), 0, 0, DENSE_ZERO_BYTES) };
+    assert_eq!(
+        result, 0,
+        "test filesystem must support fully allocated zero files"
+    );
+    file.sync_all().expect("test operation must succeed");
+    assert!(
+        is_fully_allocated(
+            &file,
+            path,
+            u64::try_from(DENSE_ZERO_BYTES).expect("test byte count fits"),
+        )
+        .expect("test allocation probe must succeed"),
+        "the shared allocation probe must recognize a fully allocated zero file"
+    );
 }
 
 fn reconstruct_fixture(source: &Path, destination: &Path) {

@@ -1,0 +1,4 @@
+{
+  "error": "lifecycle coordinator failed: status='error'; exit_code=2; command_total_time_seconds=286.282094086; output=''",
+  "type": "CampaignError"
+}

@@ -26,11 +26,8 @@ impl SandboxGatewayServer {
             },
             Err(error) => error.to_response(),
         };
-        writer
-            .write_all(&sandbox_protocol::response_line(&response))
-            .await?;
-        writer.shutdown().await?;
-        Ok(())
+        let framed = sandbox_protocol::response_line(&response);
+        write_framed_response_with_timeout(&mut writer, &framed).await
     }
 
     async fn handle_streaming_request<W>(
@@ -52,18 +49,16 @@ impl SandboxGatewayServer {
                 .await
         });
         while let Some(log) = rx.recv().await {
-            writer.write_all(&cli_log_line(&log)).await?;
+            let framed = cli_log_line(&log);
+            write_progress_with_timeout(writer, &framed).await?;
         }
         let response = response_task.await.map_err(|error| {
             GatewayError::Io(std::io::Error::other(format!(
                 "gateway streaming task failed: {error}"
             )))
         })?;
-        writer
-            .write_all(&sandbox_protocol::response_line(&response))
-            .await?;
-        writer.shutdown().await?;
-        Ok(())
+        let framed = sandbox_protocol::response_line(&response);
+        write_framed_response_with_timeout(writer, &framed).await
     }
 
     fn authorize_and_decode(&self, bytes: &[u8]) -> Result<(OperationRequest, bool), GatewayError> {
@@ -85,6 +80,49 @@ impl SandboxGatewayServer {
         }
         decode_request(Value::Object(object)).map(|request| (request, stream_logs))
     }
+}
+
+pub(crate) async fn write_framed_response_with_timeout<W>(
+    writer: &mut W,
+    framed: &[u8],
+) -> Result<(), GatewayError>
+where
+    W: AsyncWrite + Unpin,
+{
+    let write = async {
+        writer.write_all(framed).await?;
+        writer.shutdown().await
+    };
+    timeout(
+        Duration::from_secs_f64(sandbox_protocol::ProtocolLimits::DEFAULT_RESPONSE_WRITE_TIMEOUT_S),
+        write,
+    )
+    .await
+    .map_err(|_| {
+        GatewayError::Io(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "gateway response write timed out",
+        ))
+    })??;
+    Ok(())
+}
+
+async fn write_progress_with_timeout<W>(writer: &mut W, framed: &[u8]) -> Result<(), GatewayError>
+where
+    W: AsyncWrite + Unpin,
+{
+    timeout(
+        Duration::from_secs_f64(sandbox_protocol::ProtocolLimits::DEFAULT_RESPONSE_WRITE_TIMEOUT_S),
+        writer.write_all(framed),
+    )
+    .await
+    .map_err(|_| {
+        GatewayError::Io(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "gateway progress write timed out",
+        ))
+    })??;
+    Ok(())
 }
 
 fn cli_log_line(message: &str) -> Vec<u8> {

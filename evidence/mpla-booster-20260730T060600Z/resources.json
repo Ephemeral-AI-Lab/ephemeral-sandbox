@@ -1,0 +1,15 @@
+{
+  "cgroup_limits": {
+    "publication": {
+      "membership_proven": true,
+      "memory_high": 3221225472,
+      "memory_max": 3221225472,
+      "path": "/sys/fs/cgroup/docker/404e17fdbbd9efb784eb6ed1938c76e23f599d57e95cead743ba4315c5ef8a6b/_workloads/workspace-00000118c6ded0f50ffdcf"
+    }
+  },
+  "failure_reason": "case records lack the required sampled memory, inode, FD, worker, and OOM evidence",
+  "kind": "mpla_booster_resources_v1",
+  "memory_inode_fd_oom_samples": "NOT_PROVED",
+  "schema_version": 1,
+  "status": "FAIL"
+}

@@ -11,7 +11,7 @@ name = "sandbox-gateway"
 path = "src/gateway/main.rs"
 
 [dependencies]
-nix = { workspace = true, features = ["process", "signal"] }
+nix = { workspace = true, features = ["poll", "process", "signal"] }
 sandbox-config.workspace = true
 sandbox-operation-contract.workspace = true
 sandbox-manager.workspace = true

@@ -32,7 +32,7 @@ runtime:
   command:
     max_active: 32
   mpla_storage_admin:
-    profile: overlayfs_dac_override_qualification
+    profile: production
 
 runner:
   mount_mask:

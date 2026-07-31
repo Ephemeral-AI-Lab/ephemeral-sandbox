@@ -1,0 +1,25 @@
+{
+  "baseline": {
+    "manager": {
+      "sandboxes": []
+    },
+    "observability": {
+      "sandboxes": []
+    }
+  },
+  "case_cleanup": [
+    {
+      "case": "qualification",
+      "sandbox_ids": [],
+      "workspace_session_id": null
+    }
+  ],
+  "destroy_attempts": [],
+  "final_manager": {
+    "sandboxes": []
+  },
+  "final_observability": {
+    "sandboxes": []
+  },
+  "staging_removed": true
+}

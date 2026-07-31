@@ -1,0 +1,677 @@
+#!/usr/bin/env python3
+"""Build or recover the sealed, persistent MPLA S4 fixture through gateway CLIs.
+
+This is intentionally a one-time administrative cold phase. It gives the
+fixture builder a writable named volume, then destroys its sandboxes while
+leaving the sealed volume behind.  Normal scorecards use the separate
+read-only configuration and have no command grammar for rebuilding it.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import pathlib
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from typing import Any
+
+
+REPO = pathlib.Path(__file__).resolve().parents[1]
+IMAGE = (
+    "ubuntu@sha256:"
+    "4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90"
+)
+BUILD_COMMIT = "11f793ad96754e612ca6615835c11d78cf443a83"
+PREPARED_FIXTURE_TOOL_ROOT = (
+    "/eos/mpla-fixtures/s4-chain-sparse-v1/layer-stack/base/"
+    "B000001-base/_campaign-tools"
+)
+STAGING_CACHE_ROOT = pathlib.Path(
+    "/Users/yifanxu/.ephemeral-sandbox/mpla-fixture-builder-stage-sparse-v1"
+)
+PREPARED_FIXTURE_PROFILE = "s4-chain-sparse-v1"
+PREPARED_FIXTURE_MANIFEST = "/eos/mpla-fixtures/s4-chain-sparse-v1/PREPARED-FIXTURE.json"
+PREPARED_FIXTURE_CHAIN_DEPTH = 8
+PREPARED_FIXTURE_LOGICAL_BYTES = 8 * 1024 * 1024 * 1024
+PREPARED_FIXTURE_ALLOCATION_COUNT = PREPARED_FIXTURE_CHAIN_DEPTH
+RESULT_PREFIX = "MPLA_SCORECARD_RESULT "
+ERROR_PREFIX = "MPLA_SCORECARD_ERROR "
+MAX_FAILURE_OUTPUT = 1600
+SANDBOX_CREATE_TIMEOUT_SECONDS = 120
+COMMON_TOOL_SOURCE_INPUTS = (
+    REPO / "Cargo.toml",
+    REPO / "Cargo.lock",
+    REPO / ".cargo" / "config.toml",
+)
+SCORECARD_TOOL_SOURCE_SUFFIXES = (".rs", ".toml")
+TOOL_SOURCE_PACKAGES = (
+    "sandbox-runtime-mpla-poc",
+    "sandbox-runtime-mpla-poc",
+    "sandbox-cli",
+    "sandbox-cli",
+    "sandbox-cli",
+)
+
+
+class CacheBuildError(RuntimeError):
+    pass
+
+
+def validate_builder_result(result: Any) -> dict[str, Any]:
+    """Fail closed unless the builder attests to the fixed sparse cache shape.
+
+    The launcher is the trust boundary between the host receipt and the
+    sandboxed builder.  A successful exit alone cannot establish that the
+    sealed cache is the fixed 8-GiB, eight-allocation, zero-payload fixture.
+    Keep the check here small and exact so an accidental builder-output schema
+    change fails the cold phase before an F0 receipt is written.
+    """
+    if not isinstance(result, dict):
+        raise CacheBuildError("fixture builder result is not an object")
+    if result.get("fixture_profile") != PREPARED_FIXTURE_PROFILE:
+        raise CacheBuildError("fixture builder returned an unexpected profile")
+    if result.get("manifest_path") != PREPARED_FIXTURE_MANIFEST:
+        raise CacheBuildError("fixture builder returned an unexpected manifest path")
+
+    exact_non_negative_fields = {
+        "chain_depth": PREPARED_FIXTURE_CHAIN_DEPTH,
+        "logical_bytes": PREPARED_FIXTURE_LOGICAL_BYTES,
+        "allocation_count": PREPARED_FIXTURE_ALLOCATION_COUNT,
+        "allocated_bytes": 0,
+        "payload_bytes_read": 0,
+        "payload_bytes_copied": 0,
+    }
+    for field, expected in exact_non_negative_fields.items():
+        observed = result.get(field)
+        if type(observed) is not int or observed != expected:
+            raise CacheBuildError(
+                f"fixture builder returned unexpected {field}: {observed!r}"
+            )
+    service_elapsed_ns = result.get("builder_elapsed_ns")
+    if type(service_elapsed_ns) is not int or service_elapsed_ns <= 0:
+        raise CacheBuildError("fixture builder omitted its positive service elapsed time")
+    return result
+
+
+def checked_orchestration_overhead_ns(
+    outer_elapsed_ns: int, service_elapsed_ns: int
+) -> int:
+    if service_elapsed_ns > outer_elapsed_ns:
+        raise CacheBuildError(
+            "fixture builder service elapsed time exceeds its measured outer time"
+        )
+    return outer_elapsed_ns - service_elapsed_ns
+
+
+def bounded_failure_output(output: str) -> str:
+    if len(output) <= MAX_FAILURE_OUTPUT:
+        return output
+    head_bytes = MAX_FAILURE_OUTPUT // 2
+    tail_bytes = MAX_FAILURE_OUTPUT - head_bytes
+    omitted = len(output) - head_bytes - tail_bytes
+    return (
+        f"{output[:head_bytes]}\n"
+        f"... [{omitted} characters omitted] ...\n"
+        f"{output[-tail_bytes:]}"
+    )
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--gateway-socket", default="127.0.0.1:7902")
+    parser.add_argument("--build-commit", default=BUILD_COMMIT)
+    parser.add_argument("--timeout-seconds", type=int, default=30)
+    parser.add_argument(
+        "--evidence-file",
+        type=pathlib.Path,
+        help="create this immutable F0-COLD JSON receipt after a successful build",
+    )
+    return parser.parse_args()
+
+
+def run_json(argv: list[str], timeout: int) -> dict[str, Any]:
+    completed = subprocess.run(
+        argv,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+    if completed.returncode != 0:
+        raise CacheBuildError(
+            f"approved CLI failed ({pathlib.Path(argv[0]).name}): "
+            f"exit={completed.returncode}; stderr={completed.stderr.strip()[:800]}"
+        )
+    try:
+        response = json.loads(completed.stdout)
+    except json.JSONDecodeError as error:
+        raise CacheBuildError(
+            f"approved CLI returned malformed JSON: {completed.stdout[:800]!r}"
+        ) from error
+    if not isinstance(response, dict):
+        raise CacheBuildError("approved CLI response is not an object")
+    return response
+
+
+def manager(socket: str, args: list[str], timeout: int = 120) -> dict[str, Any]:
+    return run_json(
+        [str(REPO / "bin/sandbox-manager-cli"), "--gateway-socket", socket, *args],
+        timeout,
+    )
+
+
+def runtime(
+    socket: str, sandbox_id: str, args: list[str], timeout: int = 120
+) -> dict[str, Any]:
+    return run_json(
+        [
+            str(REPO / "bin/sandbox-runtime-cli"),
+            "--gateway-socket",
+            socket,
+            "--sandbox-id",
+            sandbox_id,
+            *args,
+        ],
+        timeout,
+    )
+
+
+def require_regular(path: pathlib.Path) -> pathlib.Path:
+    if not path.is_file():
+        raise CacheBuildError(f"required builder artifact is absent: {path}")
+    return path
+
+
+def cargo_workspace_dependency_source_roots(
+    package_names: tuple[str, ...],
+) -> dict[str, tuple[pathlib.Path, ...]]:
+    metadata = subprocess.run(
+        ["cargo", "metadata", "--locked", "--format-version=1"],
+        cwd=REPO,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if metadata.returncode != 0:
+        raise CacheBuildError("cargo metadata failed while checking builder freshness")
+    try:
+        parsed = json.loads(metadata.stdout)
+        packages = parsed["packages"]
+        nodes = parsed["resolve"]["nodes"]
+    except (KeyError, TypeError, json.JSONDecodeError) as error:
+        raise CacheBuildError("cargo metadata was malformed while checking builder freshness") from error
+
+    packages_by_id = {package["id"]: package for package in packages}
+    package_id_by_name = {
+        package["name"]: package["id"]
+        for package in packages
+        if package.get("source") is None
+        and pathlib.Path(package["manifest_path"]).resolve().is_relative_to(REPO)
+    }
+    dependencies_by_id = {
+        node["id"]: tuple(dependency["pkg"] for dependency in node["deps"])
+        for node in nodes
+    }
+
+    roots_by_name: dict[str, tuple[pathlib.Path, ...]] = {}
+    for package_name in set(package_names):
+        package_id = package_id_by_name.get(package_name)
+        if package_id is None:
+            raise CacheBuildError(
+                f"cargo metadata did not expose local package: {package_name}"
+            )
+        pending = [package_id]
+        visited: set[str] = set()
+        roots: list[pathlib.Path] = []
+        while pending:
+            current = pending.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            package = packages_by_id.get(current)
+            if package is None:
+                continue
+            package_root = pathlib.Path(package["manifest_path"]).resolve().parent
+            if package.get("source") is None and package_root.is_relative_to(REPO):
+                roots.append(package_root)
+                pending.extend(dependencies_by_id.get(current, ()))
+        roots_by_name[package_name] = tuple(roots)
+    return roots_by_name
+
+
+def scorecard_tool_source_inputs(
+    source_roots: tuple[pathlib.Path, ...],
+) -> tuple[pathlib.Path, ...]:
+    inputs: list[pathlib.Path] = list(COMMON_TOOL_SOURCE_INPUTS)
+    for root in source_roots:
+        if root.is_file():
+            inputs.append(root)
+        elif root.is_dir():
+            inputs.extend(
+                path
+                for path in root.rglob("*")
+                if path.is_file() and path.suffix in SCORECARD_TOOL_SOURCE_SUFFIXES
+            )
+    if not inputs:
+        raise CacheBuildError("scorecard tool source inputs are absent")
+    return tuple(inputs)
+
+
+def cargo_dep_info_source_inputs(artifact: pathlib.Path) -> tuple[pathlib.Path, ...]:
+    """Return the exact Rust inputs Cargo recorded for one compiled binary.
+
+    Package-wide discovery is deliberately not used here: a package may carry
+    independent scorecard binaries whose source changes do not invalidate the
+    oracle or coordinator executable.  Cargo writes the actual compilation
+    closure beside each artifact as a dep-info file, so checking that closure
+    retains a fail-closed stale-artifact guard without rejecting valid builds.
+    """
+    dep_info = artifact.with_suffix(".d")
+    try:
+        raw = dep_info.read_text()
+    except OSError as error:
+        raise CacheBuildError(
+            f"Cargo dep-info is absent for builder artifact: {artifact}"
+        ) from error
+    _target, separator, encoded_dependencies = raw.partition(": ")
+    if not separator:
+        raise CacheBuildError(f"Cargo dep-info is malformed for builder artifact: {artifact}")
+    try:
+        dependencies = tuple(pathlib.Path(value) for value in shlex.split(encoded_dependencies))
+    except ValueError as error:
+        raise CacheBuildError(f"Cargo dep-info is malformed for builder artifact: {artifact}") from error
+    inputs = [*COMMON_TOOL_SOURCE_INPUTS]
+    inputs.extend(path for path in dependencies if path.suffix in SCORECARD_TOOL_SOURCE_SUFFIXES)
+    if len(inputs) == len(COMMON_TOOL_SOURCE_INPUTS):
+        raise CacheBuildError(f"Cargo dep-info has no Rust sources for builder artifact: {artifact}")
+    return tuple(inputs)
+
+
+def require_fresh_builder_tools(
+    artifacts: tuple[pathlib.Path, ...],
+    source_inputs: tuple[pathlib.Path, ...],
+) -> None:
+    if not artifacts:
+        raise CacheBuildError("builder tool artifacts are absent")
+    if not source_inputs:
+        raise CacheBuildError("scorecard tool source inputs are absent")
+    missing = [path for path in (*artifacts, *source_inputs) if not path.is_file()]
+    if missing:
+        raise CacheBuildError(f"builder tool input is absent: {missing[0]}")
+    newest_source_mtime_ns = max(path.stat().st_mtime_ns for path in source_inputs)
+    stale = [
+        path for path in artifacts if path.stat().st_mtime_ns < newest_source_mtime_ns
+    ]
+    if stale:
+        raise CacheBuildError(
+            "builder artifact is older than its source inputs; rebuild: "
+            + ", ".join(str(path) for path in stale)
+        )
+
+
+def sha256_file(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def stage_manifest_matches(root: pathlib.Path, expected: dict[str, Any]) -> bool:
+    manifest = root / "stage-manifest.json"
+    try:
+        actual = json.loads(manifest.read_text())
+    except (OSError, json.JSONDecodeError):
+        return False
+    if actual != expected:
+        return False
+    tools = root / "_campaign-tools"
+    artifacts = expected.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return False
+    for name, digest in artifacts.items():
+        if not isinstance(name, str) or not isinstance(digest, str):
+            return False
+        artifact = tools / name
+        if not artifact.is_file() or sha256_file(artifact) != digest:
+            return False
+    return True
+
+
+def stage_tools() -> pathlib.Path:
+    linux = REPO / "target/aarch64-unknown-linux-musl/release"
+    tool_artifacts = (
+        require_regular(linux / "mpla-speed-poc-v1"),
+        require_regular(linux / "mpla-poc-oracle"),
+        require_regular(linux / "sandbox-runtime-cli"),
+        require_regular(linux / "sandbox-catalog-export"),
+        require_regular(REPO / "target/release/sandbox-catalog-export"),
+    )
+    for artifact in tool_artifacts:
+        require_fresh_builder_tools(
+            (artifact,),
+            cargo_dep_info_source_inputs(artifact),
+        )
+    sources = (
+        *tool_artifacts[:4],
+        require_regular(pathlib.Path("/Users/yifanxu/.ephemeral-sandbox/gateway.token")),
+    )
+    catalog = subprocess.run(
+        [
+            str(tool_artifacts[4])
+        ],
+        check=False,
+        capture_output=True,
+        timeout=120,
+    )
+    if catalog.returncode != 0:
+        raise CacheBuildError("native catalog export failed during builder staging")
+    try:
+        parsed = json.loads(catalog.stdout)
+    except json.JSONDecodeError as error:
+        raise CacheBuildError("native catalog export was malformed") from error
+    if (
+        parsed.get("schema_version") != 1
+        or parsed.get("kind") != "ephemeral_sandbox_product_catalog"
+    ):
+        raise CacheBuildError("native catalog export has an unexpected identity")
+    artifacts = {
+        ("gateway.token" if source.name == "gateway.token" else source.name): sha256_file(source)
+        for source in sources
+    }
+    artifacts["product-catalog.json"] = hashlib.sha256(catalog.stdout).hexdigest()
+    descriptor: dict[str, Any] = {
+        "schema_version": 1,
+        "kind": "mpla_fixture_builder_stage_v1",
+        "artifacts": artifacts,
+    }
+    stage_key = hashlib.sha256(
+        json.dumps(descriptor, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    STAGING_CACHE_ROOT.mkdir(parents=True, exist_ok=True)
+    root = STAGING_CACHE_ROOT / stage_key
+    if root.exists():
+        if stage_manifest_matches(root, descriptor):
+            return root
+        raise CacheBuildError(f"immutable staged builder cache is invalid: {root}")
+
+    building = pathlib.Path(
+        tempfile.mkdtemp(prefix=f".{stage_key}.building-", dir=STAGING_CACHE_ROOT)
+    )
+    try:
+        tools = building / "_campaign-tools"
+        tools.mkdir()
+        for source in sources:
+            destination = tools / (
+                "gateway.token" if source.name == "gateway.token" else source.name
+            )
+            shutil.copy2(source, destination)
+            if destination.name != "gateway.token":
+                destination.chmod(destination.stat().st_mode | 0o111)
+        (tools / "product-catalog.json").write_bytes(catalog.stdout)
+        (building / "stage-manifest.json").write_text(
+            json.dumps(descriptor, sort_keys=True, separators=(",", ":")) + "\n"
+        )
+        try:
+            os.rename(building, root)
+        except FileExistsError:
+            if not stage_manifest_matches(root, descriptor):
+                raise CacheBuildError(f"concurrent staged builder cache is invalid: {root}")
+        else:
+            return root
+        return root
+    finally:
+        if building.exists():
+            shutil.rmtree(building)
+
+
+def create_sandbox(socket: str, stage_root: pathlib.Path, role: str) -> str:
+    response = manager(
+        socket,
+        [
+            "create_sandbox",
+            "--image",
+            IMAGE,
+            "--workspace-bind-root",
+            str(stage_root),
+        ],
+        SANDBOX_CREATE_TIMEOUT_SECONDS,
+    )
+    sandbox_id = response.get("id") or response.get("sandbox_id")
+    if not isinstance(sandbox_id, str) or not sandbox_id.startswith("eos-"):
+        raise CacheBuildError(f"{role} sandbox creation omitted an ID")
+    return sandbox_id
+
+
+def wait_for_builder(
+    socket: str,
+    coordinator: str,
+    initial: dict[str, Any],
+    timeout_seconds: int,
+) -> str:
+    response = initial
+    command_session_id: str | None = None
+    offset = 0
+    output: list[str] = []
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        status = response.get("status")
+        start = response.get("start_offset")
+        end = response.get("end_offset")
+        total = response.get("total_lines")
+        chunk = response.get("output")
+        if (
+            status not in {"running", "ok", "error", "timed_out", "cancelled"}
+            or not isinstance(start, int)
+            or not isinstance(end, int)
+            or not isinstance(total, int)
+            or not isinstance(chunk, str)
+            or start != offset
+            or not (start <= end <= total)
+        ):
+            raise CacheBuildError("builder command chronology is malformed")
+        if chunk:
+            output.append(chunk)
+        offset = end
+        if status != "running" and end == total:
+            if status != "ok" or response.get("exit_code") != 0:
+                bounded = bounded_failure_output("\n".join(output))
+                raise CacheBuildError(
+                    f"fixture builder failed: status={status!r}; "
+                    f"exit={response.get('exit_code')!r}; output={bounded!r}"
+                )
+            return "\n".join(output)
+        if time.monotonic() >= deadline:
+            raise CacheBuildError("fixture builder exceeded its host deadline")
+        current_id = response.get("command_session_id")
+        if not isinstance(current_id, str):
+            raise CacheBuildError("running builder omitted command session ID")
+        if command_session_id is None:
+            command_session_id = current_id
+        elif command_session_id != current_id:
+            raise CacheBuildError("builder command session ID changed")
+        time.sleep(0.05)
+        response = runtime(
+            socket,
+            coordinator,
+            [
+                "--request-id",
+                "mpla-cache-builder-poll",
+                "read_command_lines",
+                "--command-session-id",
+                command_session_id,
+                "--start-offset",
+                str(offset),
+                "--limit",
+                "32",
+            ],
+            120,
+        )
+
+
+def cleanup(socket: str, coordinator: str | None, session: str | None, sandboxes: list[str]) -> list[str]:
+    errors: list[str] = []
+    if coordinator is not None and session is not None:
+        try:
+            runtime(
+                socket,
+                coordinator,
+                [
+                    "destroy_workspace_session",
+                    "--workspace-session-id",
+                    session,
+                    "--grace-s",
+                    "0",
+                ],
+                120,
+            )
+        except Exception as error:  # cleanup must not hide the build result
+            errors.append(f"workspace session cleanup: {error}")
+    for sandbox_id in reversed(sandboxes):
+        try:
+            manager(socket, ["destroy_sandbox", "--sandbox-id", sandbox_id], 300)
+        except Exception as error:  # preserve the sealed named volume regardless
+            errors.append(f"sandbox {sandbox_id} cleanup: {error}")
+    return errors
+
+
+def write_new_json(path: pathlib.Path, value: Any) -> None:
+    payload = json.dumps(value, indent=2, sort_keys=True).encode() + b"\n"
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    try:
+        with os.fdopen(descriptor, "wb", closefd=False) as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+    finally:
+        os.close(descriptor)
+
+
+def main() -> int:
+    args = parse_args()
+    if args.timeout_seconds < 1 or args.timeout_seconds > 120:
+        raise CacheBuildError("timeout seconds must be between 1 and 120")
+    if len(args.build_commit) != 40 or any(c not in "0123456789abcdef" for c in args.build_commit):
+        raise CacheBuildError("build commit must be a lowercase 40-character Git SHA")
+    if args.evidence_file is not None:
+        if not args.evidence_file.parent.is_dir():
+            raise CacheBuildError("evidence file parent must already exist")
+        if args.evidence_file.exists():
+            raise CacheBuildError("evidence file already exists")
+
+    launcher_started = time.monotonic_ns()
+    staging_started = time.monotonic_ns()
+    stage_root = stage_tools()
+    staging_elapsed_ns = time.monotonic_ns() - staging_started
+    sandboxes: list[str] = []
+    coordinator: str | None = None
+    session: str | None = None
+    receipt: dict[str, Any] | None = None
+    try:
+        docker_setup_started = time.monotonic_ns()
+        candidate = create_sandbox(args.gateway_socket, stage_root, "candidate")
+        sandboxes.append(candidate)
+        # The command session and the candidate lifecycle use independent
+        # workspace sessions in one runtime. A second container would only
+        # duplicate Docker/Desktop setup and shared-base archive work.
+        coordinator = candidate
+        session_response = runtime(
+            args.gateway_socket, coordinator, ["create_workspace_session"], 120
+        )
+        session = session_response.get("workspace_session_id")
+        if not isinstance(session, str):
+            raise CacheBuildError("coordinator workspace create omitted session ID")
+        docker_setup_elapsed_ns = time.monotonic_ns() - docker_setup_started
+        command = (
+            f"{PREPARED_FIXTURE_TOOL_ROOT}/mpla-speed-poc-v1 build-publication-fixture-cache "
+            f"--candidate-sandbox-id {candidate} --build-commit {args.build_commit}"
+        )
+        cold_build_started = time.monotonic_ns()
+        initial = runtime(
+            args.gateway_socket,
+            coordinator,
+            [
+                "--request-id",
+                "mpla-cache-builder-start",
+                "exec_command",
+                "--workspace-session-id",
+                session,
+                "--timeout-ms",
+                str(args.timeout_seconds * 1000),
+                "--yield-time-ms",
+                "0",
+                command,
+            ],
+            120,
+        )
+        output = wait_for_builder(
+            args.gateway_socket, coordinator, initial, args.timeout_seconds
+        )
+        cold_build_elapsed_ns = time.monotonic_ns() - cold_build_started
+        result_lines = [
+            line
+            for line in output.splitlines()
+            if line.startswith(RESULT_PREFIX) or line.startswith(ERROR_PREFIX)
+        ]
+        if len(result_lines) != 1 or not result_lines[0].startswith(RESULT_PREFIX):
+            raise CacheBuildError("fixture builder did not return one bounded result line")
+        try:
+            parsed_result = json.loads(result_lines[0][len(RESULT_PREFIX) :])
+        except json.JSONDecodeError as error:
+            raise CacheBuildError("fixture builder returned malformed result JSON") from error
+        result = validate_builder_result(parsed_result)
+        service_elapsed_ns = result["builder_elapsed_ns"]
+        orchestration_overhead_ns = checked_orchestration_overhead_ns(
+            cold_build_elapsed_ns, service_elapsed_ns
+        )
+        receipt = {
+            "schema_version": 1,
+            "phase": "F0-COLD",
+            "phase_liveness_cap_seconds": args.timeout_seconds,
+            "cold_build_acceptance_target_ms": 5_000,
+            "status": "ok",
+            "fixture_profile": PREPARED_FIXTURE_PROFILE,
+            "cold_build_service_elapsed_ms": service_elapsed_ns / 1_000_000,
+            "cold_build_outer_elapsed_ms": cold_build_elapsed_ns / 1_000_000,
+            "cold_build_orchestration_overhead_ms": orchestration_overhead_ns / 1_000_000,
+            "docker_setup_elapsed_ms": docker_setup_elapsed_ns / 1_000_000,
+            "artifact_staging_elapsed_ms": staging_elapsed_ns / 1_000_000,
+            "launcher_elapsed_before_cleanup_ms": (
+                time.monotonic_ns() - launcher_started
+            )
+            / 1_000_000,
+            "cold_build_under_5s": cold_build_elapsed_ns < 5_000_000_000,
+            "payload_bytes_were_copied": False,
+            "service_result": result,
+            "staging_root": str(stage_root),
+        }
+    finally:
+        cleanup_errors = cleanup(args.gateway_socket, coordinator, session, sandboxes)
+        if cleanup_errors:
+            if sys.exc_info()[0] is None:
+                raise CacheBuildError(
+                    "fixture builder cleanup failed: " + "; ".join(cleanup_errors)
+                )
+            print(json.dumps({"cleanup_errors": cleanup_errors}), file=sys.stderr)
+    if receipt is None:
+        raise CacheBuildError("fixture builder completed without a success receipt")
+    if args.evidence_file is not None:
+        write_new_json(args.evidence_file, receipt)
+    print(json.dumps(receipt, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (CacheBuildError, subprocess.TimeoutExpired) as error:
+        print(f"MPLA cache builder error: {error}", file=sys.stderr)
+        raise SystemExit(1)

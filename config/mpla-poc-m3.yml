@@ -61,6 +61,10 @@ manager:
     # trusted gateway intentionally inherits the host cgroup view.
     cgroup_namespace_mode: host
     resource_profile: build-heavy
+    persistent_volume_mounts:
+      - name: eos-mpla-prepared-s4-compact-batch-v1
+        target: /eos/mpla-fixtures
+        readonly: true
     resource_profiles:
       standard:
         nano_cpus: 1000000000
@@ -73,6 +77,8 @@ manager:
         nano_cpus: 4000000000
         memory_high_bytes: 3221225472
         memory_max_bytes: 4294967296
+        workload_memory_high_bytes: 100663296
+        workload_memory_max_bytes: 134217728
         pids_max: 1024
         daemon_runtime_profile: build-heavy
         separate_workload_cgroup: true

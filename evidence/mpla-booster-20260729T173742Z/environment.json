@@ -1,0 +1,11 @@
+{
+  "build_commit": "11f793ad96754e612ca6615835c11d78cf443a83",
+  "case": "publication",
+  "created_utc": "2026-07-29T17:41:09.270501+00:00",
+  "gateway_config": "/Users/yifanxu/Ephemeral-AI-Lab/ephemeral-sandbox/config/mpla-poc-m3.yml",
+  "gateway_socket": "127.0.0.1:7881",
+  "image": "ubuntu@sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+  "platform": "linux/arm64",
+  "r0": "/Users/yifanxu/Ephemeral-AI-Lab/experiment/materialization-benchmark-20260727/corpus/console-release",
+  "run_id": "mpla-booster-20260729T173742Z"
+}

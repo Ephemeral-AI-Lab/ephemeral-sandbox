@@ -1,0 +1,3332 @@
+{
+  "authority": {
+    "cap_sys_admin": {
+      "bit": 21,
+      "bounding": true,
+      "effective": true,
+      "mask_hex": "0000000000200000",
+      "permitted": true
+    },
+    "capabilities": {
+      "ambient_hex": "0000000000000000",
+      "bounding_hex": "00000000882024ff",
+      "effective_hex": "00000000882024ff",
+      "inheritable_hex": "00000000882024ff",
+      "permitted_hex": "00000000882024ff"
+    },
+    "command_security_profile": "mpla_benchmark_qualification",
+    "no_new_privs": 1,
+    "seccomp_filters": 2,
+    "seccomp_mode": 2
+  },
+  "backing": {
+    "filesystem_type": "ext4",
+    "mount_options": [
+      "rw",
+      "relatime"
+    ],
+    "mount_point": "/eos/workspace",
+    "mount_root": "/docker/volumes/eos-850b65b9-d1fe-47a4-9824-2c9223597e49-workspace/_data",
+    "persistent_required": true,
+    "run_root": "/eos/workspace/mpla-poc/scorecard/mpla-booster-20260729T161845Z-qualification",
+    "source": "/dev/vda1",
+    "super_options": [
+      "rw",
+      "discard"
+    ],
+    "tmpfs": false
+  },
+  "build_commit": "11f793ad96754e612ca6615835c11d78cf443a83",
+  "candidate_sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+  "cgroup": {
+    "membership_proven": true,
+    "memory_high": 3221225472,
+    "memory_max": 3221225472,
+    "path": "/sys/fs/cgroup/docker/d4ee79c3622f2f20b2cfca979552013837c62d6c56e816cc3b04f1c8498e6cfa/_workloads/workspace-00000118c6cf4cc6b9bcb9"
+  },
+  "exact_content_mode_ownership": true,
+  "fork": {
+    "operation": "fork_workspace_session",
+    "outer_elapsed_ns": 7221708,
+    "request_id": "mpla-booster-20260729T161845Z-qualification-fork",
+    "response": {
+      "branch": "qualified-fork",
+      "lifecycle": {
+        "committed": true,
+        "idempotent_replay": false,
+        "operation_id": "mpla-booster-20260729T161845Z-qualification-fork",
+        "selected_ref": "qualified-fork@1#19a5956ff607c467f8da2579a4cfa49d889a8d0d2afaae46fe7369cde1e19ee0",
+        "service_elapsed_ns": 1918500
+      },
+      "run_id": "mpla-booster-20260729T161845Z",
+      "service_elapsed_ns": 1918500,
+      "source_branch": "main"
+    }
+  },
+  "fork_activation": {
+    "operation": "activate_workspace_session",
+    "outer_elapsed_ns": 34747709,
+    "request_id": "mpla-booster-20260729T161845Z-qualification-fork-activate",
+    "response": {
+      "branch": "qualified-fork",
+      "fresh_allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+      "lifecycle": {
+        "committed": true,
+        "idempotent_replay": false,
+        "operation_id": "mpla-booster-20260729T161845Z-qualification-fork-activate",
+        "selected_ref": "qualified-fork@1#19a5956ff607c467f8da2579a4cfa49d889a8d0d2afaae46fe7369cde1e19ee0",
+        "service_elapsed_ns": 26802625
+      },
+      "projection": {
+        "base_bytes_copied": 0,
+        "hydrated_payload_bytes": 0,
+        "kernel_lower_count": 1,
+        "lower_allocation_ids_newest_first": [
+          "6214f243-0b05-4ece-a562-8fe0f6e9a0ad"
+        ],
+        "projection_built_during_activation": false,
+        "reconstructed_payload_bytes": 0,
+        "roots": {
+          "attribution_root_id": "716aaa7c0829ee7c53170df3b141509bcadcd17be2d0e089fa18eaf908336571",
+          "root_id": "eeeb0046f581a8d3ad2b31df02efa1f36c46b1e0baf773cd6615905424e2423e"
+        },
+        "schema_version": 1
+      },
+      "run_id": "mpla-booster-20260729T161845Z",
+      "service_elapsed_ns": 26802625,
+      "storage_admin_profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+      "storage_admin_scope": {
+        "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+        "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+        "control_root": "/eos/workspace/mpla-poc/control",
+        "lease_epoch": 1,
+        "lease_id": "mpla-booster-20260729T161845Z-qualification-fork-activate",
+        "lower_dirs_newest_first": [
+          "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+        ],
+        "mount_namespace_id": "mnt:[4026532829]",
+        "payload_root": "/eos/layer-stack/mpla-poc/payload",
+        "run_id": "mpla-booster-20260729T161845Z",
+        "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+        "session_id": "143240b2-1801-4af4-8d23-b3df6aecceff",
+        "workspace_root": "/eos/workspace/mpla-poc/control/sessions/143240b2-1801-4af4-8d23-b3df6aecceff/mount",
+        "workspace_session_id": "00000218c6cf4cd5b0b60e"
+      },
+      "workspace_session_id": "00000218c6cf4cd5b0b60e"
+    }
+  },
+  "fork_isolation": true,
+  "fork_isolation_check": {
+    "operation": "exec_command",
+    "outer_elapsed_ns": 27264958,
+    "request_id": null,
+    "response": {
+      "command_total_time_seconds": 0.020885958,
+      "end_offset": 2,
+      "exit_code": 0,
+      "original_token_count": 22,
+      "output": "0499c679a1b57fff67772ca35140d31e4ab6e6713f51d30fb651e8c311038fd2  main-sentinel\n640:0:0",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 2,
+      "wall_time_seconds": 0.020982125,
+      "workspace_session_id": "00000318c6cf4cdcd4a922"
+    }
+  },
+  "fork_publish": {
+    "operation": "publish_mpla_workspace_session",
+    "outer_elapsed_ns": 63478583,
+    "request_id": "mpla-booster-20260729T161845Z-qualification-publish-fork",
+    "response": {
+      "affected_input_bytes": 325,
+      "affected_path_count": 1,
+      "affected_payload_bytes_read": 27,
+      "branch": "qualified-fork",
+      "destroyed": true,
+      "evicted_upperdir_bytes": 27,
+      "immutable_payload_bytes_read": 0,
+      "lifecycle": {
+        "committed": true,
+        "idempotent_replay": false,
+        "operation_id": "mpla-booster-20260729T161845Z-qualification-publish-fork",
+        "selected_ref": "qualified-fork@2#b169df223c96d2bd6d000f8c9690795bdf27817605a364b8d861ec277ec6da77",
+        "service_elapsed_ns": 50143708
+      },
+      "matched_publication": {
+        "admission_gate_included": true,
+        "durable_root_committed": true,
+        "session_closed": true,
+        "span": {
+          "clock": "monotonic_raw",
+          "elapsed_ns": 48582375,
+          "finished_ns": 689502396620,
+          "started_ns": 689453814245
+        },
+        "start_boundary": "immediately before closing publication admission",
+        "stop_boundary": "durable hidden root and closed session"
+      },
+      "phase_elapsed_ns": {
+        "outcome_persist": 1005667,
+        "pre_storage": 2348042,
+        "ref_commit": 4658167,
+        "semantic_adoption": 16793000,
+        "semantic_build": 14245000,
+        "session_destroy": 8787833,
+        "stationary_adoption": 16574542,
+        "storage_helper_cgroup_placement": 31709,
+        "storage_helper_cgroup_release": 4481708,
+        "storage_helper_cleanup": 4481708,
+        "storage_helper_input_decode": 157750,
+        "storage_helper_input_encode": 22750,
+        "storage_helper_launch": 190500,
+        "storage_helper_process_preparation": 3356708,
+        "storage_helper_request_write": 3833,
+        "storage_helper_response_wait": 15952750,
+        "storage_helper_to_unmount": 16334792,
+        "storage_helper_unmount_response_decode": 127375,
+        "storage_helper_validation": 45917,
+        "storage_quiesce_lifecycle": 2418583,
+        "storage_quiesce_operation": 4559250,
+        "storage_sequence": 25318292,
+        "storage_stable_callback": 2792333,
+        "storage_strict_unmount_lifecycle": 2465917,
+        "storage_strict_unmount_operation": 2690708
+      },
+      "prior_node_bytes_read": 1096,
+      "roots": {
+        "attribution_root_id": "477c60d2182ce246bf964ac4d4b1c9fa96c7b57251b2b94902d4c623bad16b16",
+        "root_id": "ed25fb63a3b35836695351160626f8101c87e14d06b50e8c4d20518fccc59f1c"
+      },
+      "run_id": "mpla-booster-20260729T161845Z",
+      "semantic": {
+        "bytes_read": 325,
+        "durability": {
+          "files_fsynced": true,
+          "immutable_object_bytes": 1248,
+          "immutable_object_count": 6,
+          "manifest_directory_fsynced": true,
+          "manifest_fsynced": true,
+          "object_directory_fsynced": true,
+          "object_set_sha256": "ebbcfc267432e60750a0e1c484a8466b3c5c203e84099312c5d0008177a07074",
+          "root_manifest": "/eos/workspace/mpla-poc/control/runs/mpla-booster-20260729T161845Z/canonical-objects/manifests/ed25fb63a3b35836695351160626f8101c87e14d06b50e8c4d20518fccc59f1c-477c60d2182ce246bf964ac4d4b1c9fa96c7b57251b2b94902d4c623bad16b16.json"
+        },
+        "entry_count": 7,
+        "operation_id": "mpla-booster-20260729T161845Z-qualification-publish-fork",
+        "peak_data_workers": 1,
+        "peak_open_data_fds": 12,
+        "phase_spans": [
+          {
+            "elapsed_ns": 8720125,
+            "phase": "incremental-validate-update"
+          },
+          {
+            "elapsed_ns": 5408834,
+            "phase": "canonical-install"
+          },
+          {
+            "elapsed_ns": 14138834,
+            "phase": "semantic-total"
+          }
+        ],
+        "record_stream_sha256": "e5080f52dd80cdc0c3953e087e51746db06e23a5f42ea1d5abaff1e4b224001d",
+        "roots": {
+          "attribution_root_id": "477c60d2182ce246bf964ac4d4b1c9fa96c7b57251b2b94902d4c623bad16b16",
+          "root_id": "ed25fb63a3b35836695351160626f8101c87e14d06b50e8c4d20518fccc59f1c"
+        },
+        "schema_version": 1,
+        "semantic_format": "mpla-poc-semantic-v1",
+        "spool_bytes": 0,
+        "spool_runs": 0
+      },
+      "semantic_root_record_debug": "NodeRecord { path: [], kind: Directory, mode: 493, uid: 0, gid: 0, mtime_seconds: 1785342231, mtime_nanoseconds: 242674013, logical_size: 0, symlink_target: [], device_major: 0, device_minor: 0 }",
+      "service_elapsed_ns": 50143708,
+      "stationary": {
+        "adoption": {
+          "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+          "committed_unix_ms": 1785342231302,
+          "idempotent_replay": false,
+          "new_owner": {
+            "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+            "operation_id": "mpla-booster-20260729T161845Z-qualification-publish-fork",
+            "owner_epoch": 2,
+            "previous_owner_epoch": 1,
+            "schema_version": 1,
+            "subject": {
+              "kind": "payload_owned",
+              "publication_id": "mpla-publication-df21b53a4b03ba705df3e8b27c114543811d1d215cd5b296404310087b4c4fd5"
+            },
+            "written_unix_ms": 1785342231300
+          },
+          "operation_id": "mpla-booster-20260729T161845Z-qualification-publish-fork",
+          "prior_owner": {
+            "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+            "operation_id": "mpla-booster-20260729T161845Z-qualification-fork-activate",
+            "owner_epoch": 1,
+            "previous_owner_epoch": null,
+            "schema_version": 1,
+            "subject": {
+              "kind": "workspace_owned",
+              "lease_epoch": 1,
+              "session_id": "143240b2-1801-4af4-8d23-b3df6aecceff"
+            },
+            "written_unix_ms": 1785342231210
+          },
+          "publication_id": "mpla-publication-df21b53a4b03ba705df3e8b27c114543811d1d215cd5b296404310087b4c4fd5",
+          "schema_version": 1
+        },
+        "allocated_bytes_unchanged": true,
+        "allocation_path_after": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+        "allocation_path_before": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+        "idempotent_replay": false,
+        "no_second_payload_allocation": true,
+        "representative_inodes_unchanged": true,
+        "request": {
+          "operation_id": "mpla-booster-20260729T161845Z-qualification-publish-fork",
+          "publication_id": "mpla-publication-df21b53a4b03ba705df3e8b27c114543811d1d215cd5b296404310087b4c4fd5",
+          "schema_version": 1
+        },
+        "schema_version": 1,
+        "seal": {
+          "first_inventory": {
+            "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+            "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+            "entries": [
+              {
+                "allocated_bytes": 4096,
+                "content_sha256": "44d4cae46e5c468a414b0ce3a25226486456d2edaaed143d250b4285fc18f79c",
+                "device": 65025,
+                "device_number": 0,
+                "gid": 0,
+                "inode": 730354,
+                "kind": "regular",
+                "link_count": 1,
+                "mode": 33184,
+                "modified_ns": 1785342231242674013,
+                "relative_path": "fork-only",
+                "size": 27,
+                "symlink_target": null,
+                "uid": 0,
+                "xattrs_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              }
+            ],
+            "inventory_sha256": "9a2f3ebb0e00f0a99d02c02b014a6780db9665064d762c53f5d913dd1b0b9198",
+            "physical": {
+              "allocated_bytes": 4096,
+              "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+              "allocation_path": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+              "device": 65025,
+              "directory_count": 0,
+              "file_count": 1,
+              "inode_count": 1,
+              "logical_bytes": 27,
+              "representative_inodes": [
+                {
+                  "device": 65025,
+                  "inode": 730354,
+                  "relative_path": "fork-only"
+                }
+              ]
+            },
+            "schema_version": 1
+          },
+          "quiesce": {
+            "action": "quiesce",
+            "allowed_privileged_syscalls": [
+              "mount",
+              "umount2",
+              "setns",
+              "syncfs"
+            ],
+            "cleanup_complete": true,
+            "completed_unix_ms": 1785342231277,
+            "effective_capabilities": [
+              "CAP_SYS_ADMIN",
+              "CAP_DAC_OVERRIDE"
+            ],
+            "failure": null,
+            "idempotent_replay": false,
+            "interface_version": "m2r-iface-v1",
+            "mount_attestation": null,
+            "mount_plan_evidence": {
+              "filesystem_type": "overlay",
+              "flags": [
+                "MS_NODEV",
+                "MS_NOSUID"
+              ],
+              "input_access": {
+                "paths": [
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "lower_dir[0]",
+                    "metadata": {
+                      "device": 65025,
+                      "gid": 0,
+                      "inode": 730242,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+                  },
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "upper_dir",
+                    "metadata": {
+                      "device": 65025,
+                      "gid": 0,
+                      "inode": 730331,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper"
+                  },
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "work_dir",
+                    "metadata": {
+                      "device": 65025,
+                      "gid": 0,
+                      "inode": 730332,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/work"
+                  },
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "workspace_root",
+                    "metadata": {
+                      "device": 70,
+                      "gid": 0,
+                      "inode": 730331,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/workspace/mpla-poc/control/sessions/143240b2-1801-4af4-8d23-b3df6aecceff/mount"
+                  }
+                ]
+              },
+              "lower_dirs_newest_first": [
+                "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+              ],
+              "mount_namespace_id": "mnt:[4026532829]",
+              "mountinfo_after": {
+                "sha256": "40dc80583576419a371b91810f4e64e6a43b1a6358ee65291240c1ad762f422d",
+                "target": {
+                  "filesystem_type": "overlay",
+                  "mount_id": 125,
+                  "mount_options": [
+                    "nodev",
+                    "nosuid",
+                    "relatime",
+                    "rw"
+                  ],
+                  "optional_fields": [],
+                  "parent_mount_id": 118,
+                  "root": "/",
+                  "source": "none",
+                  "super_options": [
+                    "lowerdir+=/proc/self/fd/5",
+                    "redirect_dir=nofollow",
+                    "rw",
+                    "upperdir=/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+                    "userxattr",
+                    "uuid=on",
+                    "workdir=/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/work"
+                  ],
+                  "target": "/eos/workspace/mpla-poc/control/sessions/143240b2-1801-4af4-8d23-b3df6aecceff/mount",
+                  "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+                  "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/work"
+                }
+              },
+              "mountinfo_before": {
+                "sha256": "40dc80583576419a371b91810f4e64e6a43b1a6358ee65291240c1ad762f422d",
+                "target": {
+                  "filesystem_type": "overlay",
+                  "mount_id": 125,
+                  "mount_options": [
+                    "nodev",
+                    "nosuid",
+                    "relatime",
+                    "rw"
+                  ],
+                  "optional_fields": [],
+                  "parent_mount_id": 118,
+                  "root": "/",
+                  "source": "none",
+                  "super_options": [
+                    "lowerdir+=/proc/self/fd/5",
+                    "redirect_dir=nofollow",
+                    "rw",
+                    "upperdir=/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+                    "userxattr",
+                    "uuid=on",
+                    "workdir=/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/work"
+                  ],
+                  "target": "/eos/workspace/mpla-poc/control/sessions/143240b2-1801-4af4-8d23-b3df6aecceff/mount",
+                  "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+                  "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/work"
+                }
+              },
+              "source": "none",
+              "target": "/eos/workspace/mpla-poc/control/sessions/143240b2-1801-4af4-8d23-b3df6aecceff/mount",
+              "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+              "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/work"
+            },
+            "mount_receipt_binding": {
+              "attestation_sha256": "38ce9da19e2e3bbe86ae277cc8a2a7d3506b8b6912d2861175c31c5fa024d82a",
+              "storage_operation_id": "mpla-booster-20260729T161845Z-qualification-fork-activate"
+            },
+            "operation_id": "mpla-quiesce-1cd0dc338e1ddfeabd1a72a54abdd8c17e8b4cfdbe943389fbfab271a0dcf252",
+            "outcome": "succeeded",
+            "process_evidence": {
+              "capabilities": {
+                "ambient": 0,
+                "bounding": 2097154,
+                "effective": 2097154,
+                "inheritable": 0,
+                "permitted": 2097154
+              },
+              "executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1",
+              "executable_sha256": "5691eaaa924373bd7df43b4879aaadfedd142f2305c7e45ba3c2a732fca53f5e",
+              "mount_namespace_id": "mnt:[4026532829]",
+              "mount_namespace_inode": 4026532829,
+              "seccomp": {
+                "filter_count": 1,
+                "mode": 2,
+                "no_new_privs": true,
+                "profile_id": "mpla-storage-admin-v1-seccomp-v1",
+                "profile_sha256": "e088d448958ecd03b779a11557045aae4f8fa5ac9d7c5cc0435b0520f7bcc141"
+              },
+              "workload_cgroup_member_pid": 71,
+              "workload_cgroup_procs": "/sys/fs/cgroup/docker/72636f476a0a807e202b5a1019f6b7dc4f8baf8a6b3fdbcab0e5595451d03743/_workloads/workspace-00000218c6cf4cd5b0b60e/cgroup.procs"
+            },
+            "profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+            "receipt_path": "/eos/workspace/mpla-poc/control/storage-admin/mpla-quiesce-1cd0dc338e1ddfeabd1a72a54abdd8c17e8b4cfdbe943389fbfab271a0dcf252/RECEIPT.json",
+            "request_sha256": "1a33f30340a8864f8d0df907b801e5e185911571c49cf69f72b7e21f76f39248",
+            "schema_version": 1,
+            "scope": {
+              "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+              "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+              "control_root": "/eos/workspace/mpla-poc/control",
+              "lease_epoch": 1,
+              "lease_id": "mpla-booster-20260729T161845Z-qualification-fork-activate",
+              "lower_dirs_newest_first": [
+                "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+              ],
+              "mount_namespace_id": "mnt:[4026532829]",
+              "payload_root": "/eos/layer-stack/mpla-poc/payload",
+              "run_id": "mpla-booster-20260729T161845Z",
+              "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+              "session_id": "143240b2-1801-4af4-8d23-b3df6aecceff",
+              "workspace_root": "/eos/workspace/mpla-poc/control/sessions/143240b2-1801-4af4-8d23-b3df6aecceff/mount",
+              "workspace_session_id": "00000218c6cf4cd5b0b60e"
+            },
+            "started_unix_ms": 1785342231274,
+            "trusted_executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1"
+          },
+          "second_inventory": {
+            "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+            "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+            "entries": [
+              {
+                "allocated_bytes": 4096,
+                "content_sha256": "44d4cae46e5c468a414b0ce3a25226486456d2edaaed143d250b4285fc18f79c",
+                "device": 65025,
+                "device_number": 0,
+                "gid": 0,
+                "inode": 730354,
+                "kind": "regular",
+                "link_count": 1,
+                "mode": 33184,
+                "modified_ns": 1785342231242674013,
+                "relative_path": "fork-only",
+                "size": 27,
+                "symlink_target": null,
+                "uid": 0,
+                "xattrs_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              }
+            ],
+            "inventory_sha256": "9a2f3ebb0e00f0a99d02c02b014a6780db9665064d762c53f5d913dd1b0b9198",
+            "physical": {
+              "allocated_bytes": 4096,
+              "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+              "allocation_path": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+              "device": 65025,
+              "directory_count": 0,
+              "file_count": 1,
+              "inode_count": 1,
+              "logical_bytes": 27,
+              "representative_inodes": [
+                {
+                  "device": 65025,
+                  "inode": 730354,
+                  "relative_path": "fork-only"
+                }
+              ]
+            },
+            "schema_version": 1
+          },
+          "strict_unmount": {
+            "action": "strict_unmount",
+            "allowed_privileged_syscalls": [
+              "mount",
+              "umount2",
+              "setns",
+              "syncfs"
+            ],
+            "cleanup_complete": true,
+            "completed_unix_ms": 1785342231283,
+            "effective_capabilities": [
+              "CAP_SYS_ADMIN",
+              "CAP_DAC_OVERRIDE"
+            ],
+            "failure": null,
+            "idempotent_replay": false,
+            "interface_version": "m2r-iface-v1",
+            "mount_attestation": null,
+            "mount_plan_evidence": {
+              "filesystem_type": "overlay",
+              "flags": [
+                "MS_NODEV",
+                "MS_NOSUID"
+              ],
+              "input_access": {
+                "paths": [
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "lower_dir[0]",
+                    "metadata": {
+                      "device": 65025,
+                      "gid": 0,
+                      "inode": 730242,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+                  },
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "upper_dir",
+                    "metadata": {
+                      "device": 65025,
+                      "gid": 0,
+                      "inode": 730331,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper"
+                  },
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "work_dir",
+                    "metadata": {
+                      "device": 65025,
+                      "gid": 0,
+                      "inode": 730332,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/work"
+                  },
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "workspace_root",
+                    "metadata": {
+                      "device": 70,
+                      "gid": 0,
+                      "inode": 730331,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/workspace/mpla-poc/control/sessions/143240b2-1801-4af4-8d23-b3df6aecceff/mount"
+                  }
+                ]
+              },
+              "lower_dirs_newest_first": [
+                "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+              ],
+              "mount_namespace_id": "mnt:[4026532829]",
+              "mountinfo_after": {
+                "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+                "target": null
+              },
+              "mountinfo_before": {
+                "sha256": "40dc80583576419a371b91810f4e64e6a43b1a6358ee65291240c1ad762f422d",
+                "target": {
+                  "filesystem_type": "overlay",
+                  "mount_id": 125,
+                  "mount_options": [
+                    "nodev",
+                    "nosuid",
+                    "relatime",
+                    "rw"
+                  ],
+                  "optional_fields": [],
+                  "parent_mount_id": 118,
+                  "root": "/",
+                  "source": "none",
+                  "super_options": [
+                    "lowerdir+=/proc/self/fd/5",
+                    "redirect_dir=nofollow",
+                    "rw",
+                    "upperdir=/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+                    "userxattr",
+                    "uuid=on",
+                    "workdir=/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/work"
+                  ],
+                  "target": "/eos/workspace/mpla-poc/control/sessions/143240b2-1801-4af4-8d23-b3df6aecceff/mount",
+                  "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+                  "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/work"
+                }
+              },
+              "source": "none",
+              "target": "/eos/workspace/mpla-poc/control/sessions/143240b2-1801-4af4-8d23-b3df6aecceff/mount",
+              "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+              "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/work"
+            },
+            "mount_receipt_binding": {
+              "attestation_sha256": "38ce9da19e2e3bbe86ae277cc8a2a7d3506b8b6912d2861175c31c5fa024d82a",
+              "storage_operation_id": "mpla-booster-20260729T161845Z-qualification-fork-activate"
+            },
+            "operation_id": "mpla-unmount-0089105df0d1f55c5881f76387a3422ebc4fdcca40e8ac19149c64efd9e64f36",
+            "outcome": "succeeded",
+            "process_evidence": {
+              "capabilities": {
+                "ambient": 0,
+                "bounding": 2097154,
+                "effective": 2097154,
+                "inheritable": 0,
+                "permitted": 2097154
+              },
+              "executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1",
+              "executable_sha256": "5691eaaa924373bd7df43b4879aaadfedd142f2305c7e45ba3c2a732fca53f5e",
+              "mount_namespace_id": "mnt:[4026532829]",
+              "mount_namespace_inode": 4026532829,
+              "seccomp": {
+                "filter_count": 1,
+                "mode": 2,
+                "no_new_privs": true,
+                "profile_id": "mpla-storage-admin-v1-seccomp-v1",
+                "profile_sha256": "e088d448958ecd03b779a11557045aae4f8fa5ac9d7c5cc0435b0520f7bcc141"
+              },
+              "workload_cgroup_member_pid": 71,
+              "workload_cgroup_procs": "/sys/fs/cgroup/docker/72636f476a0a807e202b5a1019f6b7dc4f8baf8a6b3fdbcab0e5595451d03743/_workloads/workspace-00000218c6cf4cd5b0b60e/cgroup.procs"
+            },
+            "profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+            "receipt_path": "/eos/workspace/mpla-poc/control/storage-admin/mpla-unmount-0089105df0d1f55c5881f76387a3422ebc4fdcca40e8ac19149c64efd9e64f36/RECEIPT.json",
+            "request_sha256": "d7d6c0576e5e09ece2629a4d6c58c311055f40001c6d46fb90dbfe411247f2fa",
+            "schema_version": 1,
+            "scope": {
+              "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+              "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+              "control_root": "/eos/workspace/mpla-poc/control",
+              "lease_epoch": 1,
+              "lease_id": "mpla-booster-20260729T161845Z-qualification-fork-activate",
+              "lower_dirs_newest_first": [
+                "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+              ],
+              "mount_namespace_id": "mnt:[4026532829]",
+              "payload_root": "/eos/layer-stack/mpla-poc/payload",
+              "run_id": "mpla-booster-20260729T161845Z",
+              "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+              "session_id": "143240b2-1801-4af4-8d23-b3df6aecceff",
+              "workspace_root": "/eos/workspace/mpla-poc/control/sessions/143240b2-1801-4af4-8d23-b3df6aecceff/mount",
+              "workspace_session_id": "00000218c6cf4cd5b0b60e"
+            },
+            "started_unix_ms": 1785342231281,
+            "trusted_executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1"
+          },
+          "workload_cgroup_empty": true
+        },
+        "stable": {
+          "after": {
+            "allocated_bytes": 4096,
+            "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+            "allocation_path": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+            "device": 65025,
+            "directory_count": 0,
+            "file_count": 1,
+            "inode_count": 1,
+            "logical_bytes": 27,
+            "representative_inodes": [
+              {
+                "device": 65025,
+                "inode": 730354,
+                "relative_path": "fork-only"
+              }
+            ]
+          },
+          "allocation": {
+            "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+            "created_by_operation": "mpla-booster-20260729T161845Z-qualification-fork-activate",
+            "created_unix_ms": 1785342231208,
+            "schema_version": 1
+          },
+          "before": {
+            "allocated_bytes": 4096,
+            "allocation_id": "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+            "allocation_path": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+            "device": 65025,
+            "directory_count": 0,
+            "file_count": 1,
+            "inode_count": 1,
+            "logical_bytes": 27,
+            "representative_inodes": [
+              {
+                "device": 65025,
+                "inode": 730354,
+                "relative_path": "fork-only"
+              }
+            ]
+          },
+          "expected_owner_epoch": 1,
+          "operation_id": "mpla-booster-20260729T161845Z-qualification-publish-fork",
+          "schema_version": 1,
+          "sync_completed": true
+        },
+        "stale_deleter_rejected": true,
+        "stale_writer_rejected": true
+      },
+      "workspace_session_id": "00000218c6cf4cd5b0b60e"
+    }
+  },
+  "fork_sentinel_write": {
+    "operation": "exec_command",
+    "outer_elapsed_ns": 22650208,
+    "request_id": null,
+    "response": {
+      "command_total_time_seconds": 0.014990708,
+      "end_offset": 2,
+      "exit_code": 0,
+      "original_token_count": 21,
+      "output": "44d4cae46e5c468a414b0ce3a25226486456d2edaaed143d250b4285fc18f79c  fork-only\n640:0:0",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 2,
+      "wall_time_seconds": 0.015074292,
+      "workspace_session_id": "00000218c6cf4cd5b0b60e"
+    }
+  },
+  "initial_create": {
+    "operation": "create_mpla_workspace_session",
+    "outer_elapsed_ns": 16012791,
+    "request_id": "mpla-booster-20260729T161845Z-qualification-create",
+    "response": {
+      "finalize_policy": "no_op",
+      "network_profile": "shared",
+      "storage_admin_profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+      "storage_admin_scope": {
+        "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+        "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+        "control_root": "/eos/workspace/mpla-poc/control",
+        "lease_epoch": 1,
+        "lease_id": "mpla-booster-20260729T161845Z-qualification-create",
+        "lower_dirs_newest_first": [
+          "/eos/layer-stack/base/B000001-base"
+        ],
+        "mount_namespace_id": "mnt:[4026532829]",
+        "payload_root": "/eos/layer-stack/mpla-poc/payload",
+        "run_id": "mpla-booster-20260729T161845Z",
+        "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+        "session_id": "8883546b-30c2-48a4-8919-9ef1dc996db4",
+        "workspace_root": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount",
+        "workspace_session_id": "00000118c6cf4cccc46e80"
+      },
+      "workspace_session_id": "00000118c6cf4cccc46e80"
+    }
+  },
+  "initial_helper_receipt_valid": true,
+  "initial_main_sentinel_write": {
+    "operation": "exec_command",
+    "outer_elapsed_ns": 38079125,
+    "request_id": null,
+    "response": {
+      "command_total_time_seconds": 0.031377083,
+      "end_offset": 2,
+      "exit_code": 0,
+      "original_token_count": 22,
+      "output": "0499c679a1b57fff67772ca35140d31e4ab6e6713f51d30fb651e8c311038fd2  main-sentinel\n640:0:0",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 2,
+      "wall_time_seconds": 0.031471625,
+      "workspace_session_id": "00000118c6cf4cccc46e80"
+    }
+  },
+  "initial_mount": {
+    "operation": "mpla_storage_admin",
+    "outer_elapsed_ns": 26741417,
+    "request_id": "mpla-booster-20260729T161845Z-qualification-mount",
+    "response": {
+      "action": "mount",
+      "allowed_privileged_syscalls": [
+        "mount",
+        "umount2",
+        "setns",
+        "syncfs"
+      ],
+      "cleanup_complete": true,
+      "completed_unix_ms": 1785342231092,
+      "effective_capabilities": [
+        "CAP_SYS_ADMIN",
+        "CAP_DAC_OVERRIDE"
+      ],
+      "failure": null,
+      "idempotent_replay": false,
+      "interface_version": "m2r-iface-v1",
+      "mount_attestation": {
+        "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+        "effective_capabilities": [
+          "CAP_SYS_ADMIN",
+          "CAP_DAC_OVERRIDE"
+        ],
+        "lease_epoch": 1,
+        "lease_id": "mpla-booster-20260729T161845Z-qualification-create",
+        "lower_bindings_newest_first": [
+          {
+            "authorized_path_identity": {
+              "device_major": 254,
+              "device_minor": 1,
+              "inode": 725809,
+              "mount_id": 117
+            },
+            "authorized_path_sha256": "b84f11af682530e732c044d9a415677509d1b2d8d315d5ab7b404c7bcee20856",
+            "fd_identity": {
+              "device_major": 254,
+              "device_minor": 1,
+              "inode": 725809,
+              "mount_id": 117
+            },
+            "index": 0
+          }
+        ],
+        "mount_namespace_id": "mnt:[4026532829]",
+        "mount_namespace_inode": 4026532829,
+        "profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+        "request_sha256": "7962b2a19c9e4cae9ce1dad493cd7e71912aedd03c7fec4016119750f7f261d8",
+        "run_id": "mpla-booster-20260729T161845Z",
+        "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+        "schema_version": 1,
+        "session_id": "8883546b-30c2-48a4-8919-9ef1dc996db4",
+        "storage_operation_id": "mpla-booster-20260729T161845Z-qualification-mount",
+        "target": {
+          "expected_upperdir_sha256": "f37828d4f804a40f88b3d2979739c38c95e2edfd5c5d234d989e8c5e82fd941c",
+          "expected_workdir_sha256": "134a18eee0c14db64250c84ddcea2e052ed8a02bd2605d8101dcf859e396a52a",
+          "filesystem_type": "overlay",
+          "mount_id": 125,
+          "mount_namespace_id": "mnt:[4026532829]",
+          "mount_namespace_inode": 4026532829,
+          "mount_options": [
+            "nodev",
+            "nosuid",
+            "relatime",
+            "rw"
+          ],
+          "mountinfo_sha256": "81f7582d5feadb88fbea8ccbbc4741df1d2469cf6c5da2fb2bf7bea9ee0e8483",
+          "observed_upperdir_sha256": "f37828d4f804a40f88b3d2979739c38c95e2edfd5c5d234d989e8c5e82fd941c",
+          "observed_workdir_sha256": "134a18eee0c14db64250c84ddcea2e052ed8a02bd2605d8101dcf859e396a52a",
+          "source": "none",
+          "super_options": [
+            "lowerdir+=/proc/self/fd/5",
+            "redirect_dir=nofollow",
+            "rw",
+            "upperdir=/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper",
+            "userxattr",
+            "uuid=on",
+            "workdir=/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+          ],
+          "target_identity": {
+            "device_major": 0,
+            "device_minor": 70,
+            "inode": 730242,
+            "mount_id": 125
+          },
+          "workspace_target": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount"
+        },
+        "workspace_session_id": "00000118c6cf4cccc46e80"
+      },
+      "mount_plan_evidence": {
+        "filesystem_type": "overlay",
+        "flags": [
+          "MS_NODEV",
+          "MS_NOSUID"
+        ],
+        "input_access": {
+          "paths": [
+            {
+              "effective_access": [
+                {
+                  "allowed": true,
+                  "error": null,
+                  "requested": [
+                    "read",
+                    "search"
+                  ]
+                },
+                {
+                  "allowed": false,
+                  "error": "Read-only file system (os error 30)",
+                  "requested": [
+                    "read",
+                    "write",
+                    "search"
+                  ]
+                }
+              ],
+              "label": "lower_dir[0]",
+              "metadata": {
+                "device": 65025,
+                "gid": 0,
+                "inode": 725809,
+                "is_directory": true,
+                "mode": 16877,
+                "uid": 0
+              },
+              "metadata_error": null,
+              "path": "/eos/layer-stack/base/B000001-base"
+            },
+            {
+              "effective_access": [
+                {
+                  "allowed": true,
+                  "error": null,
+                  "requested": [
+                    "read",
+                    "search"
+                  ]
+                },
+                {
+                  "allowed": true,
+                  "error": null,
+                  "requested": [
+                    "read",
+                    "write",
+                    "search"
+                  ]
+                }
+              ],
+              "label": "upper_dir",
+              "metadata": {
+                "device": 65025,
+                "gid": 0,
+                "inode": 730242,
+                "is_directory": true,
+                "mode": 16877,
+                "uid": 0
+              },
+              "metadata_error": null,
+              "path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+            },
+            {
+              "effective_access": [
+                {
+                  "allowed": true,
+                  "error": null,
+                  "requested": [
+                    "read",
+                    "search"
+                  ]
+                },
+                {
+                  "allowed": true,
+                  "error": null,
+                  "requested": [
+                    "read",
+                    "write",
+                    "search"
+                  ]
+                }
+              ],
+              "label": "work_dir",
+              "metadata": {
+                "device": 65025,
+                "gid": 0,
+                "inode": 730243,
+                "is_directory": true,
+                "mode": 16877,
+                "uid": 0
+              },
+              "metadata_error": null,
+              "path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+            },
+            {
+              "effective_access": [
+                {
+                  "allowed": true,
+                  "error": null,
+                  "requested": [
+                    "read",
+                    "search"
+                  ]
+                },
+                {
+                  "allowed": true,
+                  "error": null,
+                  "requested": [
+                    "read",
+                    "write",
+                    "search"
+                  ]
+                }
+              ],
+              "label": "workspace_root",
+              "metadata": {
+                "device": 65025,
+                "gid": 0,
+                "inode": 730258,
+                "is_directory": true,
+                "mode": 16877,
+                "uid": 0
+              },
+              "metadata_error": null,
+              "path": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount"
+            }
+          ]
+        },
+        "lower_dirs_newest_first": [
+          "/eos/layer-stack/base/B000001-base"
+        ],
+        "mount_namespace_id": "mnt:[4026532829]",
+        "mountinfo_after": {
+          "sha256": "81f7582d5feadb88fbea8ccbbc4741df1d2469cf6c5da2fb2bf7bea9ee0e8483",
+          "target": {
+            "filesystem_type": "overlay",
+            "mount_id": 125,
+            "mount_options": [
+              "nodev",
+              "nosuid",
+              "relatime",
+              "rw"
+            ],
+            "optional_fields": [],
+            "parent_mount_id": 118,
+            "root": "/",
+            "source": "none",
+            "super_options": [
+              "lowerdir+=/proc/self/fd/5",
+              "redirect_dir=nofollow",
+              "rw",
+              "upperdir=/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper",
+              "userxattr",
+              "uuid=on",
+              "workdir=/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+            ],
+            "target": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount",
+            "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper",
+            "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+          }
+        },
+        "mountinfo_before": {
+          "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "target": null
+        },
+        "source": "none",
+        "target": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount",
+        "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper",
+        "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+      },
+      "mount_receipt_binding": {
+        "attestation_sha256": "3ed3cb49c300bfd52de0c9fd7cd77ff72df76855346ae5cccbde45566c15bd58",
+        "storage_operation_id": "mpla-booster-20260729T161845Z-qualification-mount"
+      },
+      "operation_id": "mpla-booster-20260729T161845Z-qualification-mount",
+      "outcome": "succeeded",
+      "process_evidence": {
+        "capabilities": {
+          "ambient": 0,
+          "bounding": 2097154,
+          "effective": 2097154,
+          "inheritable": 0,
+          "permitted": 2097154
+        },
+        "executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1",
+        "executable_sha256": "5691eaaa924373bd7df43b4879aaadfedd142f2305c7e45ba3c2a732fca53f5e",
+        "mount_namespace_id": "mnt:[4026532829]",
+        "mount_namespace_inode": 4026532829,
+        "seccomp": {
+          "filter_count": 1,
+          "mode": 2,
+          "no_new_privs": true,
+          "profile_id": "mpla-storage-admin-v1-seccomp-v1",
+          "profile_sha256": "e088d448958ecd03b779a11557045aae4f8fa5ac9d7c5cc0435b0520f7bcc141"
+        },
+        "workload_cgroup_member_pid": 37,
+        "workload_cgroup_procs": "/sys/fs/cgroup/docker/72636f476a0a807e202b5a1019f6b7dc4f8baf8a6b3fdbcab0e5595451d03743/_workloads/workspace-00000118c6cf4cccc46e80/cgroup.procs"
+      },
+      "profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+      "receipt_path": "/eos/workspace/mpla-poc/control/storage-admin/mpla-booster-20260729T161845Z-qualification-mount/RECEIPT.json",
+      "request_sha256": "7962b2a19c9e4cae9ce1dad493cd7e71912aedd03c7fec4016119750f7f261d8",
+      "schema_version": 1,
+      "scope": {
+        "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+        "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+        "control_root": "/eos/workspace/mpla-poc/control",
+        "lease_epoch": 1,
+        "lease_id": "mpla-booster-20260729T161845Z-qualification-create",
+        "lower_dirs_newest_first": [
+          "/eos/layer-stack/base/B000001-base"
+        ],
+        "mount_namespace_id": "mnt:[4026532829]",
+        "payload_root": "/eos/layer-stack/mpla-poc/payload",
+        "run_id": "mpla-booster-20260729T161845Z",
+        "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+        "session_id": "8883546b-30c2-48a4-8919-9ef1dc996db4",
+        "workspace_root": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount",
+        "workspace_session_id": "00000118c6cf4cccc46e80"
+      },
+      "started_unix_ms": 1785342231091,
+      "trusted_executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1"
+    }
+  },
+  "initial_publish": {
+    "operation": "publish_mpla_workspace_session",
+    "outer_elapsed_ns": 58775041,
+    "request_id": "mpla-booster-20260729T161845Z-qualification-publish-main",
+    "response": {
+      "affected_input_bytes": 27,
+      "affected_path_count": 1,
+      "affected_payload_bytes_read": 0,
+      "branch": "main",
+      "destroyed": true,
+      "evicted_upperdir_bytes": 27,
+      "immutable_payload_bytes_read": 0,
+      "lifecycle": {
+        "committed": true,
+        "idempotent_replay": false,
+        "operation_id": "mpla-booster-20260729T161845Z-qualification-publish-main",
+        "selected_ref": "main@1#8d92156b2cf6af18058c216cb8a7ab619704c261b290620988df95adf6f22b3c",
+        "service_elapsed_ns": 48975542
+      },
+      "matched_publication": {
+        "admission_gate_included": true,
+        "durable_root_committed": true,
+        "session_closed": true,
+        "span": {
+          "clock": "monotonic_raw",
+          "elapsed_ns": 47482208,
+          "finished_ns": 689377193370,
+          "started_ns": 689329711162
+        },
+        "start_boundary": "immediately before closing publication admission",
+        "stop_boundary": "durable hidden root and closed session"
+      },
+      "phase_elapsed_ns": {
+        "outcome_persist": 802125,
+        "pre_storage": 3340125,
+        "ref_commit": 4341125,
+        "semantic_adoption": 16513459,
+        "semantic_build": 10379959,
+        "session_destroy": 8105667,
+        "stationary_adoption": 16239250,
+        "storage_helper_cgroup_placement": 32083,
+        "storage_helper_cgroup_release": 4790375,
+        "storage_helper_cleanup": 4790375,
+        "storage_helper_input_decode": 161208,
+        "storage_helper_input_encode": 22458,
+        "storage_helper_launch": 175291,
+        "storage_helper_process_preparation": 3453958,
+        "storage_helper_request_write": 3291,
+        "storage_helper_response_wait": 16703209,
+        "storage_helper_to_unmount": 17090250,
+        "storage_helper_unmount_response_decode": 145042,
+        "storage_helper_validation": 41708,
+        "storage_quiesce_lifecycle": 2404666,
+        "storage_quiesce_operation": 5220291,
+        "storage_sequence": 23945958,
+        "storage_stable_callback": 185333,
+        "storage_strict_unmount_lifecycle": 2464666,
+        "storage_strict_unmount_operation": 2541958
+      },
+      "prior_node_bytes_read": 0,
+      "roots": {
+        "attribution_root_id": "716aaa7c0829ee7c53170df3b141509bcadcd17be2d0e089fa18eaf908336571",
+        "root_id": "eeeb0046f581a8d3ad2b31df02efa1f36c46b1e0baf773cd6615905424e2423e"
+      },
+      "run_id": "mpla-booster-20260729T161845Z",
+      "semantic": {
+        "bytes_read": 27,
+        "durability": {
+          "files_fsynced": true,
+          "immutable_object_bytes": 548,
+          "immutable_object_count": 2,
+          "manifest_directory_fsynced": true,
+          "manifest_fsynced": true,
+          "object_directory_fsynced": true,
+          "object_set_sha256": "3efa2dce04f7246c797adb204b96af836454d54277693059bc165db8802f4100",
+          "root_manifest": "/eos/workspace/mpla-poc/control/runs/mpla-booster-20260729T161845Z/canonical-objects/manifests/eeeb0046f581a8d3ad2b31df02efa1f36c46b1e0baf773cd6615905424e2423e-716aaa7c0829ee7c53170df3b141509bcadcd17be2d0e089fa18eaf908336571.json"
+        },
+        "entry_count": 4,
+        "operation_id": "mpla-booster-20260729T161845Z-qualification-publish-main",
+        "peak_data_workers": 4,
+        "peak_open_data_fds": 11,
+        "phase_spans": [
+          {
+            "elapsed_ns": 1800250,
+            "phase": "scan"
+          },
+          {
+            "elapsed_ns": 1108875,
+            "phase": "sort"
+          },
+          {
+            "elapsed_ns": 2840292,
+            "phase": "hash"
+          },
+          {
+            "elapsed_ns": 4413458,
+            "phase": "canonical-install"
+          },
+          {
+            "elapsed_ns": 10165917,
+            "phase": "semantic-total"
+          }
+        ],
+        "record_stream_sha256": "3d3c3068fdfa165a7cdfdcde23f83bc2d661a123f7ae6aba510d78d8f67d2de4",
+        "roots": {
+          "attribution_root_id": "716aaa7c0829ee7c53170df3b141509bcadcd17be2d0e089fa18eaf908336571",
+          "root_id": "eeeb0046f581a8d3ad2b31df02efa1f36c46b1e0baf773cd6615905424e2423e"
+        },
+        "schema_version": 1,
+        "semantic_format": "mpla-poc-semantic-v1",
+        "spool_bytes": 382,
+        "spool_runs": 1
+      },
+      "semantic_root_record_debug": null,
+      "service_elapsed_ns": 48975542,
+      "stationary": {
+        "adoption": {
+          "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+          "committed_unix_ms": 1785342231177,
+          "idempotent_replay": false,
+          "new_owner": {
+            "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+            "operation_id": "mpla-booster-20260729T161845Z-qualification-publish-main",
+            "owner_epoch": 2,
+            "previous_owner_epoch": 1,
+            "schema_version": 1,
+            "subject": {
+              "kind": "payload_owned",
+              "publication_id": "mpla-publication-236f3ee61c0f67e632e7a57e8abc25c1d6ec8379d436932751c279439b072203"
+            },
+            "written_unix_ms": 1785342231176
+          },
+          "operation_id": "mpla-booster-20260729T161845Z-qualification-publish-main",
+          "prior_owner": {
+            "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+            "operation_id": "mpla-booster-20260729T161845Z-qualification-create",
+            "owner_epoch": 1,
+            "previous_owner_epoch": null,
+            "schema_version": 1,
+            "subject": {
+              "kind": "workspace_owned",
+              "lease_epoch": 1,
+              "session_id": "8883546b-30c2-48a4-8919-9ef1dc996db4"
+            },
+            "written_unix_ms": 1785342231061
+          },
+          "publication_id": "mpla-publication-236f3ee61c0f67e632e7a57e8abc25c1d6ec8379d436932751c279439b072203",
+          "schema_version": 1
+        },
+        "allocated_bytes_unchanged": true,
+        "allocation_path_after": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+        "allocation_path_before": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+        "idempotent_replay": false,
+        "no_second_payload_allocation": true,
+        "representative_inodes_unchanged": true,
+        "request": {
+          "operation_id": "mpla-booster-20260729T161845Z-qualification-publish-main",
+          "publication_id": "mpla-publication-236f3ee61c0f67e632e7a57e8abc25c1d6ec8379d436932751c279439b072203",
+          "schema_version": 1
+        },
+        "schema_version": 1,
+        "seal": {
+          "first_inventory": {
+            "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+            "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+            "entries": [
+              {
+                "allocated_bytes": 4096,
+                "content_sha256": "0499c679a1b57fff67772ca35140d31e4ab6e6713f51d30fb651e8c311038fd2",
+                "device": 65025,
+                "device_number": 0,
+                "gid": 0,
+                "inode": 730271,
+                "kind": "regular",
+                "link_count": 1,
+                "mode": 33184,
+                "modified_ns": 1785342231113674013,
+                "relative_path": "main-sentinel",
+                "size": 27,
+                "symlink_target": null,
+                "uid": 0,
+                "xattrs_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              }
+            ],
+            "inventory_sha256": "ed79b04f02aef77fe07f3e7d0c052414060c311db0ba5d41bd630c3b2abfdaaa",
+            "physical": {
+              "allocated_bytes": 4096,
+              "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+              "allocation_path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+              "device": 65025,
+              "directory_count": 0,
+              "file_count": 1,
+              "inode_count": 1,
+              "logical_bytes": 27,
+              "representative_inodes": [
+                {
+                  "device": 65025,
+                  "inode": 730271,
+                  "relative_path": "main-sentinel"
+                }
+              ]
+            },
+            "schema_version": 1
+          },
+          "quiesce": {
+            "action": "quiesce",
+            "allowed_privileged_syscalls": [
+              "mount",
+              "umount2",
+              "setns",
+              "syncfs"
+            ],
+            "cleanup_complete": true,
+            "completed_unix_ms": 1785342231155,
+            "effective_capabilities": [
+              "CAP_SYS_ADMIN",
+              "CAP_DAC_OVERRIDE"
+            ],
+            "failure": null,
+            "idempotent_replay": false,
+            "interface_version": "m2r-iface-v1",
+            "mount_attestation": null,
+            "mount_plan_evidence": {
+              "filesystem_type": "overlay",
+              "flags": [
+                "MS_NODEV",
+                "MS_NOSUID"
+              ],
+              "input_access": {
+                "paths": [
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": false,
+                        "error": "Read-only file system (os error 30)",
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "lower_dir[0]",
+                    "metadata": {
+                      "device": 65025,
+                      "gid": 0,
+                      "inode": 725809,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/layer-stack/base/B000001-base"
+                  },
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "upper_dir",
+                    "metadata": {
+                      "device": 65025,
+                      "gid": 0,
+                      "inode": 730242,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+                  },
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "work_dir",
+                    "metadata": {
+                      "device": 65025,
+                      "gid": 0,
+                      "inode": 730243,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+                  },
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "workspace_root",
+                    "metadata": {
+                      "device": 70,
+                      "gid": 0,
+                      "inode": 730242,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount"
+                  }
+                ]
+              },
+              "lower_dirs_newest_first": [
+                "/eos/layer-stack/base/B000001-base"
+              ],
+              "mount_namespace_id": "mnt:[4026532829]",
+              "mountinfo_after": {
+                "sha256": "81f7582d5feadb88fbea8ccbbc4741df1d2469cf6c5da2fb2bf7bea9ee0e8483",
+                "target": {
+                  "filesystem_type": "overlay",
+                  "mount_id": 125,
+                  "mount_options": [
+                    "nodev",
+                    "nosuid",
+                    "relatime",
+                    "rw"
+                  ],
+                  "optional_fields": [],
+                  "parent_mount_id": 118,
+                  "root": "/",
+                  "source": "none",
+                  "super_options": [
+                    "lowerdir+=/proc/self/fd/5",
+                    "redirect_dir=nofollow",
+                    "rw",
+                    "upperdir=/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper",
+                    "userxattr",
+                    "uuid=on",
+                    "workdir=/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+                  ],
+                  "target": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount",
+                  "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper",
+                  "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+                }
+              },
+              "mountinfo_before": {
+                "sha256": "81f7582d5feadb88fbea8ccbbc4741df1d2469cf6c5da2fb2bf7bea9ee0e8483",
+                "target": {
+                  "filesystem_type": "overlay",
+                  "mount_id": 125,
+                  "mount_options": [
+                    "nodev",
+                    "nosuid",
+                    "relatime",
+                    "rw"
+                  ],
+                  "optional_fields": [],
+                  "parent_mount_id": 118,
+                  "root": "/",
+                  "source": "none",
+                  "super_options": [
+                    "lowerdir+=/proc/self/fd/5",
+                    "redirect_dir=nofollow",
+                    "rw",
+                    "upperdir=/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper",
+                    "userxattr",
+                    "uuid=on",
+                    "workdir=/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+                  ],
+                  "target": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount",
+                  "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper",
+                  "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+                }
+              },
+              "source": "none",
+              "target": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount",
+              "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper",
+              "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+            },
+            "mount_receipt_binding": {
+              "attestation_sha256": "3ed3cb49c300bfd52de0c9fd7cd77ff72df76855346ae5cccbde45566c15bd58",
+              "storage_operation_id": "mpla-booster-20260729T161845Z-qualification-mount"
+            },
+            "operation_id": "mpla-quiesce-735e292bdb30587d9ed42f6e998d625009f64bbc77ad86b0615bd10c2416d1c7",
+            "outcome": "succeeded",
+            "process_evidence": {
+              "capabilities": {
+                "ambient": 0,
+                "bounding": 2097154,
+                "effective": 2097154,
+                "inheritable": 0,
+                "permitted": 2097154
+              },
+              "executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1",
+              "executable_sha256": "5691eaaa924373bd7df43b4879aaadfedd142f2305c7e45ba3c2a732fca53f5e",
+              "mount_namespace_id": "mnt:[4026532829]",
+              "mount_namespace_inode": 4026532829,
+              "seccomp": {
+                "filter_count": 1,
+                "mode": 2,
+                "no_new_privs": true,
+                "profile_id": "mpla-storage-admin-v1-seccomp-v1",
+                "profile_sha256": "e088d448958ecd03b779a11557045aae4f8fa5ac9d7c5cc0435b0520f7bcc141"
+              },
+              "workload_cgroup_member_pid": 43,
+              "workload_cgroup_procs": "/sys/fs/cgroup/docker/72636f476a0a807e202b5a1019f6b7dc4f8baf8a6b3fdbcab0e5595451d03743/_workloads/workspace-00000118c6cf4cccc46e80/cgroup.procs"
+            },
+            "profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+            "receipt_path": "/eos/workspace/mpla-poc/control/storage-admin/mpla-quiesce-735e292bdb30587d9ed42f6e998d625009f64bbc77ad86b0615bd10c2416d1c7/RECEIPT.json",
+            "request_sha256": "9598119c18ee5bbbbe7ac1bca68ca71a8027946a09c596ad3c280b8b130c01a4",
+            "schema_version": 1,
+            "scope": {
+              "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+              "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+              "control_root": "/eos/workspace/mpla-poc/control",
+              "lease_epoch": 1,
+              "lease_id": "mpla-booster-20260729T161845Z-qualification-create",
+              "lower_dirs_newest_first": [
+                "/eos/layer-stack/base/B000001-base"
+              ],
+              "mount_namespace_id": "mnt:[4026532829]",
+              "payload_root": "/eos/layer-stack/mpla-poc/payload",
+              "run_id": "mpla-booster-20260729T161845Z",
+              "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+              "session_id": "8883546b-30c2-48a4-8919-9ef1dc996db4",
+              "workspace_root": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount",
+              "workspace_session_id": "00000118c6cf4cccc46e80"
+            },
+            "started_unix_ms": 1785342231151,
+            "trusted_executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1"
+          },
+          "second_inventory": {
+            "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+            "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+            "entries": [
+              {
+                "allocated_bytes": 4096,
+                "content_sha256": "0499c679a1b57fff67772ca35140d31e4ab6e6713f51d30fb651e8c311038fd2",
+                "device": 65025,
+                "device_number": 0,
+                "gid": 0,
+                "inode": 730271,
+                "kind": "regular",
+                "link_count": 1,
+                "mode": 33184,
+                "modified_ns": 1785342231113674013,
+                "relative_path": "main-sentinel",
+                "size": 27,
+                "symlink_target": null,
+                "uid": 0,
+                "xattrs_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              }
+            ],
+            "inventory_sha256": "ed79b04f02aef77fe07f3e7d0c052414060c311db0ba5d41bd630c3b2abfdaaa",
+            "physical": {
+              "allocated_bytes": 4096,
+              "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+              "allocation_path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+              "device": 65025,
+              "directory_count": 0,
+              "file_count": 1,
+              "inode_count": 1,
+              "logical_bytes": 27,
+              "representative_inodes": [
+                {
+                  "device": 65025,
+                  "inode": 730271,
+                  "relative_path": "main-sentinel"
+                }
+              ]
+            },
+            "schema_version": 1
+          },
+          "strict_unmount": {
+            "action": "strict_unmount",
+            "allowed_privileged_syscalls": [
+              "mount",
+              "umount2",
+              "setns",
+              "syncfs"
+            ],
+            "cleanup_complete": true,
+            "completed_unix_ms": 1785342231160,
+            "effective_capabilities": [
+              "CAP_SYS_ADMIN",
+              "CAP_DAC_OVERRIDE"
+            ],
+            "failure": null,
+            "idempotent_replay": false,
+            "interface_version": "m2r-iface-v1",
+            "mount_attestation": null,
+            "mount_plan_evidence": {
+              "filesystem_type": "overlay",
+              "flags": [
+                "MS_NODEV",
+                "MS_NOSUID"
+              ],
+              "input_access": {
+                "paths": [
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": false,
+                        "error": "Read-only file system (os error 30)",
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "lower_dir[0]",
+                    "metadata": {
+                      "device": 65025,
+                      "gid": 0,
+                      "inode": 725809,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/layer-stack/base/B000001-base"
+                  },
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "upper_dir",
+                    "metadata": {
+                      "device": 65025,
+                      "gid": 0,
+                      "inode": 730242,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+                  },
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "work_dir",
+                    "metadata": {
+                      "device": 65025,
+                      "gid": 0,
+                      "inode": 730243,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+                  },
+                  {
+                    "effective_access": [
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "search"
+                        ]
+                      },
+                      {
+                        "allowed": true,
+                        "error": null,
+                        "requested": [
+                          "read",
+                          "write",
+                          "search"
+                        ]
+                      }
+                    ],
+                    "label": "workspace_root",
+                    "metadata": {
+                      "device": 70,
+                      "gid": 0,
+                      "inode": 730242,
+                      "is_directory": true,
+                      "mode": 16877,
+                      "uid": 0
+                    },
+                    "metadata_error": null,
+                    "path": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount"
+                  }
+                ]
+              },
+              "lower_dirs_newest_first": [
+                "/eos/layer-stack/base/B000001-base"
+              ],
+              "mount_namespace_id": "mnt:[4026532829]",
+              "mountinfo_after": {
+                "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+                "target": null
+              },
+              "mountinfo_before": {
+                "sha256": "81f7582d5feadb88fbea8ccbbc4741df1d2469cf6c5da2fb2bf7bea9ee0e8483",
+                "target": {
+                  "filesystem_type": "overlay",
+                  "mount_id": 125,
+                  "mount_options": [
+                    "nodev",
+                    "nosuid",
+                    "relatime",
+                    "rw"
+                  ],
+                  "optional_fields": [],
+                  "parent_mount_id": 118,
+                  "root": "/",
+                  "source": "none",
+                  "super_options": [
+                    "lowerdir+=/proc/self/fd/5",
+                    "redirect_dir=nofollow",
+                    "rw",
+                    "upperdir=/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper",
+                    "userxattr",
+                    "uuid=on",
+                    "workdir=/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+                  ],
+                  "target": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount",
+                  "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper",
+                  "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+                }
+              },
+              "source": "none",
+              "target": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount",
+              "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper",
+              "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/work"
+            },
+            "mount_receipt_binding": {
+              "attestation_sha256": "3ed3cb49c300bfd52de0c9fd7cd77ff72df76855346ae5cccbde45566c15bd58",
+              "storage_operation_id": "mpla-booster-20260729T161845Z-qualification-mount"
+            },
+            "operation_id": "mpla-unmount-8924cb43dc8b87c10af550d49d24f46f02505e9e482238381eb8eb6fd475ed92",
+            "outcome": "succeeded",
+            "process_evidence": {
+              "capabilities": {
+                "ambient": 0,
+                "bounding": 2097154,
+                "effective": 2097154,
+                "inheritable": 0,
+                "permitted": 2097154
+              },
+              "executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1",
+              "executable_sha256": "5691eaaa924373bd7df43b4879aaadfedd142f2305c7e45ba3c2a732fca53f5e",
+              "mount_namespace_id": "mnt:[4026532829]",
+              "mount_namespace_inode": 4026532829,
+              "seccomp": {
+                "filter_count": 1,
+                "mode": 2,
+                "no_new_privs": true,
+                "profile_id": "mpla-storage-admin-v1-seccomp-v1",
+                "profile_sha256": "e088d448958ecd03b779a11557045aae4f8fa5ac9d7c5cc0435b0520f7bcc141"
+              },
+              "workload_cgroup_member_pid": 43,
+              "workload_cgroup_procs": "/sys/fs/cgroup/docker/72636f476a0a807e202b5a1019f6b7dc4f8baf8a6b3fdbcab0e5595451d03743/_workloads/workspace-00000118c6cf4cccc46e80/cgroup.procs"
+            },
+            "profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+            "receipt_path": "/eos/workspace/mpla-poc/control/storage-admin/mpla-unmount-8924cb43dc8b87c10af550d49d24f46f02505e9e482238381eb8eb6fd475ed92/RECEIPT.json",
+            "request_sha256": "5e842bb596371fc02c1e57ea6dbbcffef9378004d1f9f111c38345f10ce9a83e",
+            "schema_version": 1,
+            "scope": {
+              "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+              "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+              "control_root": "/eos/workspace/mpla-poc/control",
+              "lease_epoch": 1,
+              "lease_id": "mpla-booster-20260729T161845Z-qualification-create",
+              "lower_dirs_newest_first": [
+                "/eos/layer-stack/base/B000001-base"
+              ],
+              "mount_namespace_id": "mnt:[4026532829]",
+              "payload_root": "/eos/layer-stack/mpla-poc/payload",
+              "run_id": "mpla-booster-20260729T161845Z",
+              "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+              "session_id": "8883546b-30c2-48a4-8919-9ef1dc996db4",
+              "workspace_root": "/eos/workspace/mpla-poc/control/sessions/8883546b-30c2-48a4-8919-9ef1dc996db4/mount",
+              "workspace_session_id": "00000118c6cf4cccc46e80"
+            },
+            "started_unix_ms": 1785342231159,
+            "trusted_executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1"
+          },
+          "workload_cgroup_empty": true
+        },
+        "stable": {
+          "after": {
+            "allocated_bytes": 4096,
+            "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+            "allocation_path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+            "device": 65025,
+            "directory_count": 0,
+            "file_count": 1,
+            "inode_count": 1,
+            "logical_bytes": 27,
+            "representative_inodes": [
+              {
+                "device": 65025,
+                "inode": 730271,
+                "relative_path": "main-sentinel"
+              }
+            ]
+          },
+          "allocation": {
+            "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+            "created_by_operation": "mpla-booster-20260729T161845Z-qualification-create",
+            "created_unix_ms": 1785342231060,
+            "schema_version": 1
+          },
+          "before": {
+            "allocated_bytes": 4096,
+            "allocation_id": "6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+            "allocation_path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad",
+            "device": 65025,
+            "directory_count": 0,
+            "file_count": 1,
+            "inode_count": 1,
+            "logical_bytes": 27,
+            "representative_inodes": [
+              {
+                "device": 65025,
+                "inode": 730271,
+                "relative_path": "main-sentinel"
+              }
+            ]
+          },
+          "expected_owner_epoch": 1,
+          "operation_id": "mpla-booster-20260729T161845Z-qualification-publish-main",
+          "schema_version": 1,
+          "sync_completed": true
+        },
+        "stale_deleter_rejected": true,
+        "stale_writer_rejected": true
+      },
+      "workspace_session_id": "00000118c6cf4cccc46e80"
+    }
+  },
+  "kind": "mpla_booster_qualification_scorecard_v1",
+  "main_activation_before_rollback": {
+    "operation": "activate_workspace_session",
+    "outer_elapsed_ns": 39403750,
+    "request_id": "mpla-booster-20260729T161845Z-qualification-main-before-rollback-activate",
+    "response": {
+      "branch": "main",
+      "fresh_allocation_id": "87997b5a-5cf1-4aa2-b79c-d2e9a1203067",
+      "lifecycle": {
+        "committed": true,
+        "idempotent_replay": false,
+        "operation_id": "mpla-booster-20260729T161845Z-qualification-main-before-rollback-activate",
+        "selected_ref": "main@1#8d92156b2cf6af18058c216cb8a7ab619704c261b290620988df95adf6f22b3c",
+        "service_elapsed_ns": 32523792
+      },
+      "projection": {
+        "base_bytes_copied": 0,
+        "hydrated_payload_bytes": 0,
+        "kernel_lower_count": 1,
+        "lower_allocation_ids_newest_first": [
+          "6214f243-0b05-4ece-a562-8fe0f6e9a0ad"
+        ],
+        "projection_built_during_activation": false,
+        "reconstructed_payload_bytes": 0,
+        "roots": {
+          "attribution_root_id": "716aaa7c0829ee7c53170df3b141509bcadcd17be2d0e089fa18eaf908336571",
+          "root_id": "eeeb0046f581a8d3ad2b31df02efa1f36c46b1e0baf773cd6615905424e2423e"
+        },
+        "schema_version": 1
+      },
+      "run_id": "mpla-booster-20260729T161845Z",
+      "service_elapsed_ns": 32523792,
+      "storage_admin_profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+      "storage_admin_scope": {
+        "allocation_id": "87997b5a-5cf1-4aa2-b79c-d2e9a1203067",
+        "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/87/87997b5a-5cf1-4aa2-b79c-d2e9a1203067",
+        "control_root": "/eos/workspace/mpla-poc/control",
+        "lease_epoch": 1,
+        "lease_id": "mpla-booster-20260729T161845Z-qualification-main-before-rollback-activate",
+        "lower_dirs_newest_first": [
+          "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+        ],
+        "mount_namespace_id": "mnt:[4026532829]",
+        "payload_root": "/eos/layer-stack/mpla-poc/payload",
+        "run_id": "mpla-booster-20260729T161845Z",
+        "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+        "session_id": "06b50455-191c-4900-89f0-512e48971d4a",
+        "workspace_root": "/eos/workspace/mpla-poc/control/sessions/06b50455-191c-4900-89f0-512e48971d4a/mount",
+        "workspace_session_id": "00000318c6cf4cdcd4a922"
+      },
+      "workspace_session_id": "00000318c6cf4cdcd4a922"
+    }
+  },
+  "ordinary_workload_denied_privilege": true,
+  "ordinary_workload_probe": {
+    "operation": "exec_command",
+    "outer_elapsed_ns": 53798584,
+    "request_id": null,
+    "response": {
+      "command_total_time_seconds": 0.024333125,
+      "end_offset": 1,
+      "exit_code": 0,
+      "original_token_count": 18,
+      "output": "{\"cap_sys_admin\":false,\"mount_result\":32,\"mount_command_available\":true}",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 1,
+      "wall_time_seconds": 0.03749425,
+      "workspace_session_id": "00000618c6cf4cff7e3f28"
+    }
+  },
+  "resource_bounds": true,
+  "resources": {
+    "baseline": {
+      "cgroup_memory_current_bytes": 4317184,
+      "cgroup_memory_peak_bytes": 4317184,
+      "open_fds": 9,
+      "process_io_rchar_bytes": 11289,
+      "process_io_read_bytes": 3424256,
+      "process_io_wchar_bytes": 0,
+      "process_io_write_bytes": 0,
+      "process_rss_bytes": 1568768,
+      "run_tree_allocated_bytes": 4096,
+      "run_tree_inodes": 1,
+      "run_tree_logical_bytes": 4096
+    },
+    "final_sample": {
+      "cgroup_memory_current_bytes": 6553600,
+      "cgroup_memory_peak_bytes": 7544832,
+      "open_fds": 9,
+      "process_io_rchar_bytes": 551490,
+      "process_io_read_bytes": 3424256,
+      "process_io_wchar_bytes": 116293,
+      "process_io_write_bytes": 0,
+      "process_rss_bytes": 3715072,
+      "run_tree_allocated_bytes": 4096,
+      "run_tree_inodes": 1,
+      "run_tree_logical_bytes": 4096
+    },
+    "maxima": {
+      "cgroup_memory_current_bytes": 7364608,
+      "cgroup_memory_peak_bytes": 7544832,
+      "open_fds": 16,
+      "process_io_rchar_bytes": 551490,
+      "process_io_read_bytes": 3424256,
+      "process_io_wchar_bytes": 116293,
+      "process_io_write_bytes": 0,
+      "process_rss_bytes": 3715072,
+      "run_tree_allocated_bytes": 4096,
+      "run_tree_inodes": 1,
+      "run_tree_logical_bytes": 4096
+    },
+    "memory_high": 3221225472,
+    "memory_max": 3221225472,
+    "oom_after": 0,
+    "oom_before": 0,
+    "oom_kill_after": 0,
+    "oom_kill_before": 0
+  },
+  "restart_destroy": {
+    "operation": "destroy_workspace_session",
+    "outer_elapsed_ns": 16153166,
+    "request_id": null,
+    "response": {
+      "destroyed": true,
+      "evicted_upperdir_bytes": 0,
+      "workspace_session_id": "00000518c6cf4cf2e55391"
+    }
+  },
+  "restart_storage_cleanup": [
+    {
+      "operation": "mpla_storage_admin",
+      "outer_elapsed_ns": 45121500,
+      "request_id": "mpla-booster-20260729T161845Z-qualification-session-restart-oracle-quiesce",
+      "response": {
+        "action": "quiesce",
+        "allowed_privileged_syscalls": [
+          "mount",
+          "umount2",
+          "setns",
+          "syncfs"
+        ],
+        "cleanup_complete": true,
+        "completed_unix_ms": 1785342231818,
+        "effective_capabilities": [
+          "CAP_SYS_ADMIN",
+          "CAP_DAC_OVERRIDE"
+        ],
+        "failure": null,
+        "idempotent_replay": false,
+        "interface_version": "m2r-iface-v1",
+        "mount_attestation": null,
+        "mount_plan_evidence": {
+          "filesystem_type": "overlay",
+          "flags": [
+            "MS_NODEV",
+            "MS_NOSUID"
+          ],
+          "input_access": {
+            "paths": [
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "lower_dir[0]",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730331,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper"
+              },
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "lower_dir[1]",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730242,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+              },
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "upper_dir",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730402,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/upper"
+              },
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "work_dir",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730403,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/work"
+              },
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "workspace_root",
+                "metadata": {
+                  "device": 70,
+                  "gid": 0,
+                  "inode": 730402,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount"
+              }
+            ]
+          },
+          "lower_dirs_newest_first": [
+            "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+            "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+          ],
+          "mount_namespace_id": "mnt:[4026532830]",
+          "mountinfo_after": {
+            "sha256": "94e9abc0a93dbb8b3a2941dfc6b3230e656bc891ed075c17b358bd109b530b9f",
+            "target": {
+              "filesystem_type": "overlay",
+              "mount_id": 126,
+              "mount_options": [
+                "nodev",
+                "nosuid",
+                "relatime",
+                "rw"
+              ],
+              "optional_fields": [],
+              "parent_mount_id": 118,
+              "root": "/",
+              "source": "none",
+              "super_options": [
+                "lowerdir+=/proc/self/fd/5",
+                "lowerdir+=/proc/self/fd/6",
+                "redirect_dir=nofollow",
+                "rw",
+                "upperdir=/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/upper",
+                "userxattr",
+                "uuid=on",
+                "workdir=/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/work"
+              ],
+              "target": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount",
+              "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/upper",
+              "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/work"
+            }
+          },
+          "mountinfo_before": {
+            "sha256": "94e9abc0a93dbb8b3a2941dfc6b3230e656bc891ed075c17b358bd109b530b9f",
+            "target": {
+              "filesystem_type": "overlay",
+              "mount_id": 126,
+              "mount_options": [
+                "nodev",
+                "nosuid",
+                "relatime",
+                "rw"
+              ],
+              "optional_fields": [],
+              "parent_mount_id": 118,
+              "root": "/",
+              "source": "none",
+              "super_options": [
+                "lowerdir+=/proc/self/fd/5",
+                "lowerdir+=/proc/self/fd/6",
+                "redirect_dir=nofollow",
+                "rw",
+                "upperdir=/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/upper",
+                "userxattr",
+                "uuid=on",
+                "workdir=/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/work"
+              ],
+              "target": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount",
+              "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/upper",
+              "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/work"
+            }
+          },
+          "source": "none",
+          "target": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount",
+          "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/upper",
+          "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/work"
+        },
+        "mount_receipt_binding": {
+          "attestation_sha256": "f760f85915a62c8d66ceb89d0c4f31fe50fafb47aa94013edecf570a7108923f",
+          "storage_operation_id": "mpla-booster-20260729T161845Z-qualification-session-restart-activate"
+        },
+        "operation_id": "mpla-booster-20260729T161845Z-qualification-session-restart-oracle-quiesce",
+        "outcome": "succeeded",
+        "process_evidence": {
+          "capabilities": {
+            "ambient": 0,
+            "bounding": 2097154,
+            "effective": 2097154,
+            "inheritable": 0,
+            "permitted": 2097154
+          },
+          "executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1",
+          "executable_sha256": "5691eaaa924373bd7df43b4879aaadfedd142f2305c7e45ba3c2a732fca53f5e",
+          "mount_namespace_id": "mnt:[4026532830]",
+          "mount_namespace_inode": 4026532830,
+          "seccomp": {
+            "filter_count": 1,
+            "mode": 2,
+            "no_new_privs": true,
+            "profile_id": "mpla-storage-admin-v1-seccomp-v1",
+            "profile_sha256": "e088d448958ecd03b779a11557045aae4f8fa5ac9d7c5cc0435b0520f7bcc141"
+          },
+          "workload_cgroup_member_pid": 137,
+          "workload_cgroup_procs": "/sys/fs/cgroup/docker/72636f476a0a807e202b5a1019f6b7dc4f8baf8a6b3fdbcab0e5595451d03743/_workloads/workspace-00000518c6cf4cf2e55391/cgroup.procs"
+        },
+        "profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+        "receipt_path": "/eos/workspace/mpla-poc/control/storage-admin/mpla-booster-20260729T161845Z-qualification-session-restart-oracle-quiesce/RECEIPT.json",
+        "request_sha256": "bc0151f6bcdfdf997ed939f357b872a297a1476a16becc798ad5a1cd70107075",
+        "schema_version": 1,
+        "scope": {
+          "allocation_id": "a6f97898-e2cf-4df1-a4e3-dcafccf50069",
+          "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069",
+          "control_root": "/eos/workspace/mpla-poc/control",
+          "lease_epoch": 1,
+          "lease_id": "mpla-booster-20260729T161845Z-qualification-session-restart-activate",
+          "lower_dirs_newest_first": [
+            "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+            "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+          ],
+          "mount_namespace_id": "mnt:[4026532830]",
+          "payload_root": "/eos/layer-stack/mpla-poc/payload",
+          "run_id": "mpla-booster-20260729T161845Z",
+          "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+          "session_id": "8a04b565-5df8-4ebd-a283-0ae19b2a58d6",
+          "workspace_root": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount",
+          "workspace_session_id": "00000518c6cf4cf2e55391"
+        },
+        "started_unix_ms": 1785342231814,
+        "trusted_executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1"
+      }
+    },
+    {
+      "operation": "mpla_storage_admin",
+      "outer_elapsed_ns": 26967292,
+      "request_id": "mpla-booster-20260729T161845Z-qualification-session-restart-oracle-strict_unmount",
+      "response": {
+        "action": "strict_unmount",
+        "allowed_privileged_syscalls": [
+          "mount",
+          "umount2",
+          "setns",
+          "syncfs"
+        ],
+        "cleanup_complete": true,
+        "completed_unix_ms": 1785342231845,
+        "effective_capabilities": [
+          "CAP_SYS_ADMIN",
+          "CAP_DAC_OVERRIDE"
+        ],
+        "failure": null,
+        "idempotent_replay": false,
+        "interface_version": "m2r-iface-v1",
+        "mount_attestation": null,
+        "mount_plan_evidence": {
+          "filesystem_type": "overlay",
+          "flags": [
+            "MS_NODEV",
+            "MS_NOSUID"
+          ],
+          "input_access": {
+            "paths": [
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "lower_dir[0]",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730331,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper"
+              },
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "lower_dir[1]",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730242,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+              },
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "upper_dir",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730402,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/upper"
+              },
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "work_dir",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730403,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/work"
+              },
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "workspace_root",
+                "metadata": {
+                  "device": 70,
+                  "gid": 0,
+                  "inode": 730402,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount"
+              }
+            ]
+          },
+          "lower_dirs_newest_first": [
+            "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+            "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+          ],
+          "mount_namespace_id": "mnt:[4026532830]",
+          "mountinfo_after": {
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "target": null
+          },
+          "mountinfo_before": {
+            "sha256": "94e9abc0a93dbb8b3a2941dfc6b3230e656bc891ed075c17b358bd109b530b9f",
+            "target": {
+              "filesystem_type": "overlay",
+              "mount_id": 126,
+              "mount_options": [
+                "nodev",
+                "nosuid",
+                "relatime",
+                "rw"
+              ],
+              "optional_fields": [],
+              "parent_mount_id": 118,
+              "root": "/",
+              "source": "none",
+              "super_options": [
+                "lowerdir+=/proc/self/fd/5",
+                "lowerdir+=/proc/self/fd/6",
+                "redirect_dir=nofollow",
+                "rw",
+                "upperdir=/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/upper",
+                "userxattr",
+                "uuid=on",
+                "workdir=/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/work"
+              ],
+              "target": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount",
+              "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/upper",
+              "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/work"
+            }
+          },
+          "source": "none",
+          "target": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount",
+          "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/upper",
+          "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/work"
+        },
+        "mount_receipt_binding": {
+          "attestation_sha256": "f760f85915a62c8d66ceb89d0c4f31fe50fafb47aa94013edecf570a7108923f",
+          "storage_operation_id": "mpla-booster-20260729T161845Z-qualification-session-restart-activate"
+        },
+        "operation_id": "mpla-booster-20260729T161845Z-qualification-session-restart-oracle-strict_unmount",
+        "outcome": "succeeded",
+        "process_evidence": {
+          "capabilities": {
+            "ambient": 0,
+            "bounding": 2097154,
+            "effective": 2097154,
+            "inheritable": 0,
+            "permitted": 2097154
+          },
+          "executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1",
+          "executable_sha256": "5691eaaa924373bd7df43b4879aaadfedd142f2305c7e45ba3c2a732fca53f5e",
+          "mount_namespace_id": "mnt:[4026532830]",
+          "mount_namespace_inode": 4026532830,
+          "seccomp": {
+            "filter_count": 1,
+            "mode": 2,
+            "no_new_privs": true,
+            "profile_id": "mpla-storage-admin-v1-seccomp-v1",
+            "profile_sha256": "e088d448958ecd03b779a11557045aae4f8fa5ac9d7c5cc0435b0520f7bcc141"
+          },
+          "workload_cgroup_member_pid": 138,
+          "workload_cgroup_procs": "/sys/fs/cgroup/docker/72636f476a0a807e202b5a1019f6b7dc4f8baf8a6b3fdbcab0e5595451d03743/_workloads/workspace-00000518c6cf4cf2e55391/cgroup.procs"
+        },
+        "profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+        "receipt_path": "/eos/workspace/mpla-poc/control/storage-admin/mpla-booster-20260729T161845Z-qualification-session-restart-oracle-strict_unmount/RECEIPT.json",
+        "request_sha256": "b3bed5667c67bbbe5644b1d746d006e82380e52cec50ba43e7ee47414c158ac7",
+        "schema_version": 1,
+        "scope": {
+          "allocation_id": "a6f97898-e2cf-4df1-a4e3-dcafccf50069",
+          "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069",
+          "control_root": "/eos/workspace/mpla-poc/control",
+          "lease_epoch": 1,
+          "lease_id": "mpla-booster-20260729T161845Z-qualification-session-restart-activate",
+          "lower_dirs_newest_first": [
+            "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+            "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+          ],
+          "mount_namespace_id": "mnt:[4026532830]",
+          "payload_root": "/eos/layer-stack/mpla-poc/payload",
+          "run_id": "mpla-booster-20260729T161845Z",
+          "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+          "session_id": "8a04b565-5df8-4ebd-a283-0ae19b2a58d6",
+          "workspace_root": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount",
+          "workspace_session_id": "00000518c6cf4cf2e55391"
+        },
+        "started_unix_ms": 1785342231843,
+        "trusted_executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1"
+      }
+    },
+    {
+      "operation": "mpla_storage_admin",
+      "outer_elapsed_ns": 39596625,
+      "request_id": "mpla-booster-20260729T161845Z-qualification-session-restart-oracle-cleanup",
+      "response": {
+        "action": "cleanup",
+        "allowed_privileged_syscalls": [
+          "mount",
+          "umount2",
+          "setns",
+          "syncfs"
+        ],
+        "cleanup_complete": true,
+        "completed_unix_ms": 1785342231884,
+        "effective_capabilities": [
+          "CAP_SYS_ADMIN",
+          "CAP_DAC_OVERRIDE"
+        ],
+        "failure": null,
+        "idempotent_replay": false,
+        "interface_version": "m2r-iface-v1",
+        "mount_attestation": null,
+        "mount_plan_evidence": {
+          "filesystem_type": "overlay",
+          "flags": [
+            "MS_NODEV",
+            "MS_NOSUID"
+          ],
+          "input_access": {
+            "paths": [
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "lower_dir[0]",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730331,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper"
+              },
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "lower_dir[1]",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730242,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+              },
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "upper_dir",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730402,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/upper"
+              },
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "work_dir",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730403,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/work"
+              },
+              {
+                "effective_access": [
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "search"
+                    ]
+                  },
+                  {
+                    "allowed": true,
+                    "error": null,
+                    "requested": [
+                      "read",
+                      "write",
+                      "search"
+                    ]
+                  }
+                ],
+                "label": "workspace_root",
+                "metadata": {
+                  "device": 65025,
+                  "gid": 0,
+                  "inode": 730436,
+                  "is_directory": true,
+                  "mode": 16877,
+                  "uid": 0
+                },
+                "metadata_error": null,
+                "path": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount"
+              }
+            ]
+          },
+          "lower_dirs_newest_first": [
+            "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+            "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+          ],
+          "mount_namespace_id": "mnt:[4026532830]",
+          "mountinfo_after": {
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "target": null
+          },
+          "mountinfo_before": {
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+            "target": null
+          },
+          "source": "none",
+          "target": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount",
+          "upper_dir": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/upper",
+          "work_dir": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069/work"
+        },
+        "mount_receipt_binding": {
+          "attestation_sha256": "f760f85915a62c8d66ceb89d0c4f31fe50fafb47aa94013edecf570a7108923f",
+          "storage_operation_id": "mpla-booster-20260729T161845Z-qualification-session-restart-activate"
+        },
+        "operation_id": "mpla-booster-20260729T161845Z-qualification-session-restart-oracle-cleanup",
+        "outcome": "succeeded",
+        "process_evidence": {
+          "capabilities": {
+            "ambient": 0,
+            "bounding": 2097154,
+            "effective": 2097154,
+            "inheritable": 0,
+            "permitted": 2097154
+          },
+          "executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1",
+          "executable_sha256": "5691eaaa924373bd7df43b4879aaadfedd142f2305c7e45ba3c2a732fca53f5e",
+          "mount_namespace_id": "mnt:[4026532830]",
+          "mount_namespace_inode": 4026532830,
+          "seccomp": {
+            "filter_count": 1,
+            "mode": 2,
+            "no_new_privs": true,
+            "profile_id": "mpla-storage-admin-v1-seccomp-v1",
+            "profile_sha256": "e088d448958ecd03b779a11557045aae4f8fa5ac9d7c5cc0435b0520f7bcc141"
+          },
+          "workload_cgroup_member_pid": 139,
+          "workload_cgroup_procs": "/sys/fs/cgroup/docker/72636f476a0a807e202b5a1019f6b7dc4f8baf8a6b3fdbcab0e5595451d03743/_workloads/workspace-00000518c6cf4cf2e55391/cgroup.procs"
+        },
+        "profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+        "receipt_path": "/eos/workspace/mpla-poc/control/storage-admin/mpla-booster-20260729T161845Z-qualification-session-restart-oracle-cleanup/RECEIPT.json",
+        "request_sha256": "f24b5044af06bf0ef898ad0e57770f4ad66f3ec5f30e0dde75d92668f0c3f2ee",
+        "schema_version": 1,
+        "scope": {
+          "allocation_id": "a6f97898-e2cf-4df1-a4e3-dcafccf50069",
+          "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069",
+          "control_root": "/eos/workspace/mpla-poc/control",
+          "lease_epoch": 1,
+          "lease_id": "mpla-booster-20260729T161845Z-qualification-session-restart-activate",
+          "lower_dirs_newest_first": [
+            "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+            "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+          ],
+          "mount_namespace_id": "mnt:[4026532830]",
+          "payload_root": "/eos/layer-stack/mpla-poc/payload",
+          "run_id": "mpla-booster-20260729T161845Z",
+          "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+          "session_id": "8a04b565-5df8-4ebd-a283-0ae19b2a58d6",
+          "workspace_root": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount",
+          "workspace_session_id": "00000518c6cf4cf2e55391"
+        },
+        "started_unix_ms": 1785342231883,
+        "trusted_executable": "/usr/local/libexec/ephemeral-sandbox/mpla-storage-admin-v1"
+      }
+    }
+  ],
+  "rollback": {
+    "operation": "rollback_workspace_session",
+    "outer_elapsed_ns": 40056583,
+    "request_id": "mpla-booster-20260729T161845Z-qualification-rollback",
+    "response": {
+      "branch": "main",
+      "fresh_allocation_id": "fe6b7337-8afb-447d-956a-e0c2bfc451a4",
+      "lifecycle": {
+        "committed": true,
+        "idempotent_replay": false,
+        "operation_id": "mpla-booster-20260729T161845Z-qualification-rollback",
+        "selected_ref": "main@2#281094aba12918a69c41da1041114cd990a2ce4bdd4560e22f7b70eeea2d6d43",
+        "service_elapsed_ns": 784917
+      },
+      "projection": {
+        "base_bytes_copied": 0,
+        "hydrated_payload_bytes": 0,
+        "kernel_lower_count": 2,
+        "lower_allocation_ids_newest_first": [
+          "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+          "6214f243-0b05-4ece-a562-8fe0f6e9a0ad"
+        ],
+        "projection_built_during_activation": false,
+        "reconstructed_payload_bytes": 0,
+        "roots": {
+          "attribution_root_id": "477c60d2182ce246bf964ac4d4b1c9fa96c7b57251b2b94902d4c623bad16b16",
+          "root_id": "ed25fb63a3b35836695351160626f8101c87e14d06b50e8c4d20518fccc59f1c"
+        },
+        "schema_version": 1
+      },
+      "run_id": "mpla-booster-20260729T161845Z",
+      "service_elapsed_ns": 784917,
+      "storage_admin_profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+      "storage_admin_scope": {
+        "allocation_id": "fe6b7337-8afb-447d-956a-e0c2bfc451a4",
+        "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/fe/fe6b7337-8afb-447d-956a-e0c2bfc451a4",
+        "control_root": "/eos/workspace/mpla-poc/control",
+        "lease_epoch": 1,
+        "lease_id": "mpla-booster-20260729T161845Z-qualification-rollback",
+        "lower_dirs_newest_first": [
+          "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+          "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+        ],
+        "mount_namespace_id": "mnt:[4026532830]",
+        "payload_root": "/eos/layer-stack/mpla-poc/payload",
+        "run_id": "mpla-booster-20260729T161845Z",
+        "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+        "session_id": "c6c82754-283d-4f7e-8520-858a3201f1c9",
+        "workspace_root": "/eos/workspace/mpla-poc/control/sessions/c6c82754-283d-4f7e-8520-858a3201f1c9/mount",
+        "workspace_session_id": "00000418c6cf4ce7cc9378"
+      },
+      "target_branch": "qualified-fork",
+      "workspace_session_id": "00000418c6cf4ce7cc9378"
+    }
+  },
+  "rollback_content_check": {
+    "operation": "exec_command",
+    "outer_elapsed_ns": 37764708,
+    "request_id": null,
+    "response": {
+      "command_total_time_seconds": 0.03240275,
+      "end_offset": 4,
+      "exit_code": 0,
+      "original_token_count": 43,
+      "output": "0499c679a1b57fff67772ca35140d31e4ab6e6713f51d30fb651e8c311038fd2  main-sentinel\n44d4cae46e5c468a414b0ce3a25226486456d2edaaed143d250b4285fc18f79c  fork-only\n640:0:0\n640:0:0",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 4,
+      "wall_time_seconds": 0.0324815,
+      "workspace_session_id": "00000418c6cf4ce7cc9378"
+    }
+  },
+  "rollback_correctness": true,
+  "run_id": "mpla-booster-20260729T161845Z",
+  "schema_version": 1,
+  "session_restart_activation": {
+    "operation": "activate_workspace_session",
+    "outer_elapsed_ns": 39684583,
+    "request_id": "mpla-booster-20260729T161845Z-qualification-session-restart-activate",
+    "response": {
+      "branch": "main",
+      "fresh_allocation_id": "a6f97898-e2cf-4df1-a4e3-dcafccf50069",
+      "lifecycle": {
+        "committed": true,
+        "idempotent_replay": false,
+        "operation_id": "mpla-booster-20260729T161845Z-qualification-session-restart-activate",
+        "selected_ref": "main@2#281094aba12918a69c41da1041114cd990a2ce4bdd4560e22f7b70eeea2d6d43",
+        "service_elapsed_ns": 33146625
+      },
+      "projection": {
+        "base_bytes_copied": 0,
+        "hydrated_payload_bytes": 0,
+        "kernel_lower_count": 2,
+        "lower_allocation_ids_newest_first": [
+          "8a63ce6e-0c4a-4934-8b20-08551e5f1a3c",
+          "6214f243-0b05-4ece-a562-8fe0f6e9a0ad"
+        ],
+        "projection_built_during_activation": false,
+        "reconstructed_payload_bytes": 0,
+        "roots": {
+          "attribution_root_id": "477c60d2182ce246bf964ac4d4b1c9fa96c7b57251b2b94902d4c623bad16b16",
+          "root_id": "ed25fb63a3b35836695351160626f8101c87e14d06b50e8c4d20518fccc59f1c"
+        },
+        "schema_version": 1
+      },
+      "run_id": "mpla-booster-20260729T161845Z",
+      "service_elapsed_ns": 33146625,
+      "storage_admin_profile_id": "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+      "storage_admin_scope": {
+        "allocation_id": "a6f97898-e2cf-4df1-a4e3-dcafccf50069",
+        "allocation_root": "/eos/layer-stack/mpla-poc/payload/allocations/a6/a6f97898-e2cf-4df1-a4e3-dcafccf50069",
+        "control_root": "/eos/workspace/mpla-poc/control",
+        "lease_epoch": 1,
+        "lease_id": "mpla-booster-20260729T161845Z-qualification-session-restart-activate",
+        "lower_dirs_newest_first": [
+          "/eos/layer-stack/mpla-poc/payload/allocations/8a/8a63ce6e-0c4a-4934-8b20-08551e5f1a3c/upper",
+          "/eos/layer-stack/mpla-poc/payload/allocations/62/6214f243-0b05-4ece-a562-8fe0f6e9a0ad/upper"
+        ],
+        "mount_namespace_id": "mnt:[4026532830]",
+        "payload_root": "/eos/layer-stack/mpla-poc/payload",
+        "run_id": "mpla-booster-20260729T161845Z",
+        "sandbox_id": "eos-b47dbd6f-3733-41e1-9f7e-ad3273d8a8db",
+        "session_id": "8a04b565-5df8-4ebd-a283-0ae19b2a58d6",
+        "workspace_root": "/eos/workspace/mpla-poc/control/sessions/8a04b565-5df8-4ebd-a283-0ae19b2a58d6/mount",
+        "workspace_session_id": "00000518c6cf4cf2e55391"
+      },
+      "workspace_session_id": "00000518c6cf4cf2e55391"
+    }
+  },
+  "session_restart_content_check": {
+    "operation": "exec_command",
+    "outer_elapsed_ns": 32097500,
+    "request_id": null,
+    "response": {
+      "command_total_time_seconds": 0.025047125,
+      "end_offset": 4,
+      "exit_code": 0,
+      "original_token_count": 43,
+      "output": "0499c679a1b57fff67772ca35140d31e4ab6e6713f51d30fb651e8c311038fd2  main-sentinel\n44d4cae46e5c468a414b0ce3a25226486456d2edaaed143d250b4285fc18f79c  fork-only\n640:0:0\n640:0:0",
+      "start_offset": 0,
+      "status": "ok",
+      "total_lines": 4,
+      "wall_time_seconds": 0.025141709,
+      "workspace_session_id": "00000518c6cf4cf2e55391"
+    }
+  },
+  "session_restart_durability": true,
+  "wrong_namespace_rejected": true,
+  "wrong_namespace_rejection": {
+    "exit_code": 1,
+    "operation": "mpla_storage_admin",
+    "outer_elapsed_ns": 7368042,
+    "request_id": "mpla-booster-20260729T161845Z-qualification-wrong-namespace",
+    "stderr": "{\"error\":{\"kind\":\"operation_failed\",\"message\":\"MPLA storage lifecycle rejected for WorkspaceSessionId(\\\"00000518c6cf4cf2e55391\\\"): storage-admin mount namespace does not match the live holder\",\"details\":{}}}\n",
+    "stdout": ""
+  },
+  "wrong_profile_rejected": true,
+  "wrong_profile_rejection": {
+    "exit_code": 1,
+    "operation": "mpla_storage_admin",
+    "outer_elapsed_ns": 5837209,
+    "request_id": "mpla-booster-20260729T161845Z-qualification-wrong-profile",
+    "stderr": "{\"error\":{\"kind\":\"operation_failed\",\"message\":\"MPLA storage lifecycle rejected for WorkspaceSessionId(\\\"00000518c6cf4cf2e55391\\\"): storage-admin profile does not match the daemon-selected capability profile\",\"details\":{}}}\n",
+    "stdout": ""
+  }
+}

@@ -1372,7 +1372,7 @@ impl<'a> PersistentPages<'a> {
         kind: RecordKindV3,
         id: Digest32,
     ) -> Result<CanonicalRecordV3, TreeError> {
-        let path = self.store.object_path(kind, id);
+        let path = self.store.resolve_object_path(kind, id)?;
         let record = self.store.load(kind, id, &mut self.digest)?;
         self.counters.objects_read += 1;
         self.counters.object_bytes_read += std::fs::metadata(path)

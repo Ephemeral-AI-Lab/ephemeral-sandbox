@@ -1,0 +1,423 @@
+{
+  "backing": {
+    "filesystem_type": "ext4",
+    "mount_options": [
+      "rw",
+      "relatime"
+    ],
+    "mount_point": "/eos/workspace",
+    "mount_root": "/docker/volumes/eos-9dbbd631-8f81-4f5e-b64d-d54a03de71f2-workspace/_data",
+    "persistent_required": true,
+    "run_root": "/eos/workspace/mpla-poc/scorecard/mpla-booster-20260729T135200Z-hv07",
+    "source": "/dev/vda1",
+    "super_options": [
+      "rw",
+      "discard"
+    ],
+    "tmpfs": false
+  },
+  "base_root": "/eos/layer-stack/base/B000001-base",
+  "build_commit": "11f793ad96754e612ca6615835c11d78cf443a83",
+  "candidate_sandbox_id": "eos-c473c430-6bd1-4286-887e-ba98375447c6",
+  "fixture_logical_bytes": 134217728,
+  "fresh_sweep": {
+    "case_id": "HV-07",
+    "elapsed_ns": 491084167,
+    "failures": [
+      "fence.before-close: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "fence.after-close: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "fence.after-drain: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "sealing.before-write: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "sealing.after-file-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "sealing.after-dir-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "quiesce.before-stop: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "quiesce.after-reap: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "quiesce.after-fd-audit: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "unmount.before-strict: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "unmount.after-strict: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "flush.before-syncfs: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "flush.after-syncfs: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "inventory.after-first: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "inventory.after-stable-second: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "owner.before-intent: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "owner.after-intent-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "owner.before-compare: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "owner.after-generation-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "owner.after-journal-commit: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "owner.after-selector-rename: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "owner.after-selector-dir-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "owner.before-receipt: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "owner.after-receipt-dir-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "canonical.before-install: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "canonical.after-object-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "canonical.after-object-dir-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "canonical.after-root-manifest-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "locator.after-forward: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "locator.after-reverse: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "locator.after-manifest-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "locator.after-selector-rename: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "locator.after-selector-dir-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "ref.before-temp: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "ref.after-temp-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "ref.after-replace: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "ref.after-parent-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "response-loss.publish: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "response-loss.activate: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "response-loss.rollback: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "activate.after-ref-select: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "activate.after-locator-pin: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "activate.after-fresh-owner: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "activate.after-mount: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "activate.after-ready: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "activate.after-binding-fsync: overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+      "physical sweep incomplete: 46 missing points"
+    ],
+    "fixture_logical_bytes": 134217728,
+    "hard_stop_ns": 60000000000,
+    "passed": false,
+    "points": [
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "fence_before_close",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "fence_after_close",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "fence_after_drain",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "sealing_before_write",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "sealing_after_file_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "sealing_after_dir_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "quiesce_before_stop",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "quiesce_after_reap",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "quiesce_after_fd_audit",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "unmount_before_strict",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "unmount_after_strict",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "flush_before_syncfs",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "flush_after_syncfs",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "inventory_after_first",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "inventory_after_stable_second",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "owner_before_intent",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "owner_after_intent_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "owner_before_compare",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "owner_after_generation_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "owner_after_journal_commit",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "owner_after_selector_rename",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "owner_after_selector_dir_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "owner_before_receipt",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "owner_after_receipt_dir_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "canonical_before_install",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "canonical_after_object_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "canonical_after_object_dir_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "canonical_after_root_manifest_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "locator_after_forward",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "locator_after_reverse",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "locator_after_manifest_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "locator_after_selector_rename",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "locator_after_selector_dir_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "ref_before_temp",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "ref_after_temp_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "ref_after_replace",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "ref_after_parent_fsync",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "response_loss_publish",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "response_loss_activate",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "response_loss_rollback",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "activate_after_ref_select",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "activate_after_locator_pin",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "activate_after_fresh_owner",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "activate_after_mount",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "activate_after_ready",
+        "passed": false
+      },
+      {
+        "error": "overlay failure: overlay mount syscall failed at fsopen overlay: Operation not permitted (os error 1)",
+        "fault_point": "activate_after_binding_fsync",
+        "passed": false
+      }
+    ],
+    "required_fault_points": 46,
+    "schema_version": 1,
+    "summary": {
+      "complete_for_requested_mode": false,
+      "failed_attempts": 0,
+      "missing_fault_points": [
+        "fence_before_close",
+        "fence_after_close",
+        "fence_after_drain",
+        "sealing_before_write",
+        "sealing_after_file_fsync",
+        "sealing_after_dir_fsync",
+        "quiesce_before_stop",
+        "quiesce_after_reap",
+        "quiesce_after_fd_audit",
+        "unmount_before_strict",
+        "unmount_after_strict",
+        "flush_before_syncfs",
+        "flush_after_syncfs",
+        "inventory_after_first",
+        "inventory_after_stable_second",
+        "owner_before_intent",
+        "owner_after_intent_fsync",
+        "owner_before_compare",
+        "owner_after_generation_fsync",
+        "owner_after_journal_commit",
+        "owner_after_selector_rename",
+        "owner_after_selector_dir_fsync",
+        "owner_before_receipt",
+        "owner_after_receipt_dir_fsync",
+        "canonical_before_install",
+        "canonical_after_object_fsync",
+        "canonical_after_object_dir_fsync",
+        "canonical_after_root_manifest_fsync",
+        "locator_after_forward",
+        "locator_after_reverse",
+        "locator_after_manifest_fsync",
+        "locator_after_selector_rename",
+        "locator_after_selector_dir_fsync",
+        "ref_before_temp",
+        "ref_after_temp_fsync",
+        "ref_after_replace",
+        "ref_after_parent_fsync",
+        "response_loss_publish",
+        "response_loss_activate",
+        "response_loss_rollback",
+        "activate_after_ref_select",
+        "activate_after_locator_pin",
+        "activate_after_fresh_owner",
+        "activate_after_mount",
+        "activate_after_ready",
+        "activate_after_binding_fsync"
+      ],
+      "passing_fault_points": 0,
+      "physical_missing_fault_points": [
+        "fence_before_close",
+        "fence_after_close",
+        "fence_after_drain",
+        "sealing_before_write",
+        "sealing_after_file_fsync",
+        "sealing_after_dir_fsync",
+        "quiesce_before_stop",
+        "quiesce_after_reap",
+        "quiesce_after_fd_audit",
+        "unmount_before_strict",
+        "unmount_after_strict",
+        "flush_before_syncfs",
+        "flush_after_syncfs",
+        "inventory_after_first",
+        "inventory_after_stable_second",
+        "owner_before_intent",
+        "owner_after_intent_fsync",
+        "owner_before_compare",
+        "owner_after_generation_fsync",
+        "owner_after_journal_commit",
+        "owner_after_selector_rename",
+        "owner_after_selector_dir_fsync",
+        "owner_before_receipt",
+        "owner_after_receipt_dir_fsync",
+        "canonical_before_install",
+        "canonical_after_object_fsync",
+        "canonical_after_object_dir_fsync",
+        "canonical_after_root_manifest_fsync",
+        "locator_after_forward",
+        "locator_after_reverse",
+        "locator_after_manifest_fsync",
+        "locator_after_selector_rename",
+        "locator_after_selector_dir_fsync",
+        "ref_before_temp",
+        "ref_after_temp_fsync",
+        "ref_after_replace",
+        "ref_after_parent_fsync",
+        "response_loss_publish",
+        "response_loss_activate",
+        "response_loss_rollback",
+        "activate_after_ref_select",
+        "activate_after_locator_pin",
+        "activate_after_fresh_owner",
+        "activate_after_mount",
+        "activate_after_ready",
+        "activate_after_binding_fsync"
+      ],
+      "physical_passing_fault_points": 0,
+      "recorded_attempts": 0,
+      "required_fault_points": 46,
+      "schema_version": 1
+    }
+  },
+  "kind": "mpla_hv07_scorecard_result_v1",
+  "run_id": "mpla-booster-20260729T135200Z",
+  "schema_version": 1,
+  "test_exit_code": 101,
+  "tool_root": "/eos/layer-stack/base/B000001-base/_campaign-tools"
+}

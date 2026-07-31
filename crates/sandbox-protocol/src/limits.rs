@@ -9,11 +9,14 @@ pub struct ProtocolLimits {
     pub max_request_bytes: usize,
     /// Deadline for reading one request line off an accepted connection.
     pub request_read_timeout_s: f64,
+    /// Deadline for writing and closing one response line to a connected peer.
+    pub response_write_timeout_s: f64,
 }
 
 impl ProtocolLimits {
     pub const DEFAULT_MAX_REQUEST_BYTES: usize = 16 * 1024 * 1024;
     pub const DEFAULT_REQUEST_READ_TIMEOUT_S: f64 = 30.0;
+    pub const DEFAULT_RESPONSE_WRITE_TIMEOUT_S: f64 = 30.0;
 }
 
 impl Default for ProtocolLimits {
@@ -21,6 +24,7 @@ impl Default for ProtocolLimits {
         Self {
             max_request_bytes: Self::DEFAULT_MAX_REQUEST_BYTES,
             request_read_timeout_s: Self::DEFAULT_REQUEST_READ_TIMEOUT_S,
+            response_write_timeout_s: Self::DEFAULT_RESPONSE_WRITE_TIMEOUT_S,
         }
     }
 }

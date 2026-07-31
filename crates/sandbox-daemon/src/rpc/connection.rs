@@ -31,13 +31,7 @@ impl SandboxDaemonServer {
             Err(err) => self.read_error_response(err, is_tcp),
         };
         let framed = encode_response(&response);
-        if let Err(err) = writer.write_all(&framed).await {
-            return Err(SandboxDaemonError::Io(err));
-        }
-        if let Err(err) = writer.shutdown().await {
-            return Err(SandboxDaemonError::Io(err));
-        }
-        Ok(())
+        write_response_with_limits(&mut writer, &framed, self.config.limits).await
     }
 
     fn read_error_response(&self, err: SandboxDaemonError, _is_tcp: bool) -> OperationResponse {
@@ -64,6 +58,35 @@ where
     R: AsyncRead + Unpin,
 {
     read_request_line_with_limits(reader, limits).await
+}
+
+/// Write and close a response within a deadline independent of operation work.
+/// A caller that stops receiving cannot consume a long-running operation's
+/// entire forwarding budget after the durable outcome has already returned.
+pub(crate) async fn write_response_with_limits<W>(
+    writer: &mut W,
+    framed: &[u8],
+    limits: ProtocolLimits,
+) -> Result<(), SandboxDaemonError>
+where
+    W: AsyncWrite + Unpin,
+{
+    let write = async {
+        writer.write_all(framed).await?;
+        writer.shutdown().await
+    };
+    timeout(
+        Duration::from_secs_f64(limits.response_write_timeout_s),
+        write,
+    )
+    .await
+    .map_err(|_| {
+        SandboxDaemonError::Io(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "daemon response write timed out",
+        ))
+    })??;
+    Ok(())
 }
 
 pub(crate) async fn read_request_line_with_limits<R>(

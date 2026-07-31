@@ -1,0 +1,64 @@
+{
+  "spans": [
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [],
+              "events": [],
+              "offset_ms": 1.0,
+              "span": {
+                "attrs": {
+                  "exit_code": 2
+                },
+                "dur_ms": 263725.0,
+                "name": "namespace.exec.run_shell",
+                "parent": "d-5",
+                "span": "d-6",
+                "status": "error",
+                "trace": "mpla-booster-20260729T154845Z-lifecycle-coordinator",
+                "ts": 1785340560916
+              }
+            }
+          ],
+          "events": [],
+          "offset_ms": 0.0,
+          "span": {
+            "attrs": {
+              "command_security_profile": "mpla_benchmark_qualification",
+              "finalize_policy": "no_op",
+              "namespace_execution_hash": "adcf053f6716d785152cc8189c902435d04b7c43fa2e51980f221b7afd11e252",
+              "scratch_layout_version": 2,
+              "scratch_route": "workspace_scoped",
+              "session_created": false,
+              "workspace_session_hash": "fe5bfd1ca42d4fe405826c7311393b92def5d575013463e87791b6baa3c6e86c"
+            },
+            "dur_ms": 19.0,
+            "name": "command.exec",
+            "parent": "d-4",
+            "span": "d-5",
+            "status": "completed",
+            "trace": "mpla-booster-20260729T154845Z-lifecycle-coordinator",
+            "ts": 1785340297209
+          }
+        }
+      ],
+      "events": [],
+      "offset_ms": 0.0,
+      "span": {
+        "attrs": {
+          "op": "exec_command"
+        },
+        "dur_ms": 19.0,
+        "name": "daemon.dispatch",
+        "span": "d-4",
+        "status": "completed",
+        "trace": "mpla-booster-20260729T154845Z-lifecycle-coordinator",
+        "ts": 1785340297209
+      }
+    }
+  ],
+  "trace": "mpla-booster-20260729T154845Z-lifecycle-coordinator",
+  "view": "trace"
+}

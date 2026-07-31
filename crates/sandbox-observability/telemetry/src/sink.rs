@@ -85,20 +85,32 @@ impl Sink {
 
     /// Serialize into one fixed stack buffer, then perform one append write
     /// while holding the per-store cross-process lock. Storage errors are
-    /// counted once and returned; observer call sites deliberately swallow them.
+    /// counted once and returned.
     pub fn append(&self, record: &Record) -> io::Result<()> {
-        self.append_with_policy(record, false)
+        self.append_with_policy(record, false, false)
     }
 
     /// Append only when the original record fits the fixed line and segment
     /// bounds. Unlike [`Self::append`], this never replaces an oversized
     /// resource sample with a truncation marker.
     pub fn append_strict(&self, record: &Record) -> io::Result<()> {
-        self.append_with_policy(record, true)
+        self.append_with_policy(record, true, false)
     }
 
-    fn append_with_policy(&self, record: &Record, strict: bool) -> io::Result<()> {
-        match self.append_inner(record, strict) {
+    /// Best-effort append for ordinary observer events and spans. A busy
+    /// cross-process writer is treated as one dropped telemetry record so
+    /// closing an observed span cannot stall the business operation.
+    pub fn append_best_effort(&self, record: &Record) -> io::Result<()> {
+        self.append_with_policy(record, false, true)
+    }
+
+    fn append_with_policy(
+        &self,
+        record: &Record,
+        strict: bool,
+        nonblocking_lock: bool,
+    ) -> io::Result<()> {
+        match self.append_inner(record, strict, nonblocking_lock) {
             Ok(()) => Ok(()),
             Err(error) => {
                 self.counters
@@ -109,7 +121,12 @@ impl Sink {
         }
     }
 
-    fn append_inner(&self, record: &Record, strict: bool) -> io::Result<()> {
+    fn append_inner(
+        &self,
+        record: &Record,
+        strict: bool,
+        nonblocking_lock: bool,
+    ) -> io::Result<()> {
         if self.max_line_bytes == 0 || self.max_disk_bytes < 2 {
             self.counters
                 .dropped_oversized
@@ -151,7 +168,12 @@ impl Sink {
             .create(true)
             .truncate(false)
             .open(&self.lock_path)?;
-        flock(&lock, FlockOperation::LockExclusive)?;
+        let lock_mode = if nonblocking_lock {
+            FlockOperation::NonBlockingLockExclusive
+        } else {
+            FlockOperation::LockExclusive
+        };
+        flock(&lock, lock_mode)?;
         let result = self.append_locked(encoded.as_bytes(), segment_cap);
         let _ = flock(&lock, FlockOperation::Unlock);
         result

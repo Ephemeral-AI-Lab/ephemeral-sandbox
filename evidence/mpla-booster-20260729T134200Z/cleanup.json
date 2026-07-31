@@ -1,0 +1,374 @@
+{
+  "baseline": null,
+  "case_cleanup": [],
+  "destroy_attempts": [],
+  "final_manager": {
+    "sandboxes": [
+      {
+        "activity_revision": 0,
+        "daemon": {
+          "host": "127.0.0.1",
+          "port": 55002
+        },
+        "daemon_http": {
+          "host": "127.0.0.1",
+          "port": 55003
+        },
+        "id": "eos-d3344363-34f7-4a6a-9943-5f4fec5f7c85",
+        "resource_profile": {
+          "control_plane_pids_reserve": 64,
+          "daemon_runtime_profile": "build-heavy",
+          "memory_high_bytes": 3221225472,
+          "memory_max_bytes": 4294967296,
+          "name": "build-heavy",
+          "nano_cpus": 4000000000,
+          "pids_max": 1024,
+          "separate_workload_cgroup": true,
+          "workload_memory_high_bytes": 3221225472,
+          "workload_memory_max_bytes": 3221225472,
+          "workload_pids_max": 960
+        },
+        "shared_base": {
+          "readonly": true,
+          "root_hash": "d5ab0f301632b42fe5a22818fa21aad0ff1507cf9e85de91811ab94353e6da56",
+          "source": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/d5ab0f301632b42fe5a22818fa21aad0ff1507cf9e85de91811ab94353e6da56/base",
+          "target": "/eos/layer-stack/base"
+        },
+        "state": "ready",
+        "workspace_root": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-mpla-booster-20260729T133510Z-recovery-goxiyvbq"
+      },
+      {
+        "activity_revision": 0,
+        "daemon": {
+          "host": "127.0.0.1",
+          "port": 55000
+        },
+        "daemon_http": {
+          "host": "127.0.0.1",
+          "port": 55001
+        },
+        "id": "eos-e4c0da21-c10d-401a-9230-a250c0694f41",
+        "resource_profile": {
+          "control_plane_pids_reserve": 64,
+          "daemon_runtime_profile": "build-heavy",
+          "memory_high_bytes": 3221225472,
+          "memory_max_bytes": 4294967296,
+          "name": "build-heavy",
+          "nano_cpus": 4000000000,
+          "pids_max": 1024,
+          "separate_workload_cgroup": true,
+          "workload_memory_high_bytes": 3221225472,
+          "workload_memory_max_bytes": 3221225472,
+          "workload_pids_max": 960
+        },
+        "shared_base": {
+          "readonly": true,
+          "root_hash": "d5ab0f301632b42fe5a22818fa21aad0ff1507cf9e85de91811ab94353e6da56",
+          "source": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/d5ab0f301632b42fe5a22818fa21aad0ff1507cf9e85de91811ab94353e6da56/base",
+          "target": "/eos/layer-stack/base"
+        },
+        "state": "ready",
+        "workspace_root": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-mpla-booster-20260729T133510Z-recovery-goxiyvbq"
+      }
+    ]
+  },
+  "final_observability": {
+    "sandboxes": [
+      {
+        "availability": "available",
+        "daemon": {
+          "daemon_pid": 7,
+          "event_store": {
+            "dropped_oversized": 0,
+            "dropped_storage": 0,
+            "truncated_records": 0
+          },
+          "runtime_dir": "/eos/runtime/daemon"
+        },
+        "errors": [],
+        "lifecycle_state": "ready",
+        "resources": {
+          "history": [],
+          "latest": {
+            "deltas": {},
+            "metrics": {
+              "cpu_usec": 10474057,
+              "io_rbytes": 5259264,
+              "io_wbytes": 670220288,
+              "mem_cur": 406839296,
+              "mem_max": 4109398016,
+              "metrics_source": "docker_engine"
+            },
+            "sample_delta_ms": null,
+            "ts": 1785332481322
+          }
+        },
+        "sampled_at_unix_ms": 1785332482500,
+        "sandbox_id": "eos-d3344363-34f7-4a6a-9943-5f4fec5f7c85",
+        "stack": {
+          "active_leases": 1,
+          "layer_count": 1,
+          "layers_allocated_bytes": null,
+          "layers_bytes": null,
+          "resources": {
+            "active_buffers": 0,
+            "active_leases": 1,
+            "active_operations": 0,
+            "active_publications": 0,
+            "active_tasks": 0,
+            "active_workers": 0,
+            "byte_permits_in_use": 0,
+            "cache_entries": 0,
+            "counter_saturated": false,
+            "high_water_active_buffers": 0,
+            "high_water_active_leases": 1,
+            "high_water_active_operations": 0,
+            "high_water_active_publications": 0,
+            "high_water_active_tasks": 0,
+            "high_water_active_workers": 0,
+            "high_water_byte_permits_in_use": 0,
+            "high_water_cache_entries": 0,
+            "high_water_mapped_bytes": 0,
+            "high_water_materialization_byte_reservations": 0,
+            "high_water_materialization_owners": 0,
+            "high_water_materialization_targets": 0,
+            "high_water_materialization_waiters": 0,
+            "high_water_materialization_workspace_bytes": 0,
+            "high_water_open_file_descriptors": 0,
+            "high_water_open_transactions": 0,
+            "high_water_owned_bytes": 496,
+            "high_water_queued_bytes": 0,
+            "high_water_queued_items": 0,
+            "high_water_registry_entries": 1,
+            "high_water_staging_owners": 0,
+            "live_owned_bytes": 496,
+            "logical_cleanup_complete": false,
+            "mapped_bytes": 0,
+            "materialization_byte_reservations": 0,
+            "materialization_owners": 0,
+            "materialization_targets": 0,
+            "materialization_waiters": 0,
+            "materialization_workspace_bytes": 0,
+            "observation_epoch": 3,
+            "open_file_descriptors": 0,
+            "open_transactions": 0,
+            "queued_bytes": 0,
+            "queued_items": 0,
+            "quiescence_ms": null,
+            "registry_entries": 1,
+            "schema_version": 1,
+            "staging_owners": 0,
+            "writer_lock_acquisitions": 0,
+            "writer_lock_forbidden_cleanups": 0,
+            "writer_lock_forbidden_history_scans": 0,
+            "writer_lock_forbidden_payload_verifications": 0,
+            "writer_lock_forbidden_permit_or_flight_waits": 0,
+            "writer_lock_forbidden_provider_payload_io": 0,
+            "writer_lock_forbidden_tree_walks": 0,
+            "writer_lock_forbidden_worker_joins": 0,
+            "writer_lock_hold_ns": 0,
+            "writer_lock_maximum_hold_ns": 0,
+            "writer_lock_maximum_wait_ns": 0,
+            "writer_lock_wait_ns": 0
+          },
+          "route": {
+            "bytes_hashed": 0,
+            "bytes_newly_retained": 0,
+            "bytes_read": 0,
+            "bytes_reused": 0,
+            "bytes_scanned": 0,
+            "bytes_written": 0,
+            "configured_mode": "legacy",
+            "counter_saturated": false,
+            "fallback_count": 0,
+            "fallback_reason_counts": [],
+            "last_quiescence_epoch": 0,
+            "mismatch_count": 0,
+            "native_route": {
+              "admission_count": 0,
+              "cdc_count": 0,
+              "compaction_count": 0,
+              "fallback_count": 0,
+              "gc_count": 0,
+              "hash_count": 0,
+              "locator_merge_count": 0,
+              "lookup_count": 0,
+              "materialization_count": 0,
+              "mount_count": 0,
+              "object_traversal_count": 0,
+              "pack_count": 0,
+              "squash_count": 0,
+              "validation_count": 0
+            },
+            "observation_epoch": 3,
+            "read_authority": "legacy_v1",
+            "schema_version": 1,
+            "shadow_comparison_count": 0,
+            "shadow_completed_count": 0,
+            "write_authority": "legacy_v1"
+          },
+          "staging_entry_count": 0,
+          "storage_allocated_bytes": 7172096
+        },
+        "workspaces": [
+          {
+            "active_namespace_executions": [],
+            "finalization_state": "active",
+            "finalize_policy": "no_op",
+            "layers": {
+              "base_root_hash": "6158805bdb0976490e45c9c206d73f474d7b449a55ba489a5af80fa4f6103070",
+              "layer_count": 1
+            },
+            "lifecycle_state": "active",
+            "namespace_fd_count": 3,
+            "network_profile": "shared",
+            "resources": {
+              "history": [],
+              "latest": null
+            },
+            "workspace_id": "00000118c6c65cda44cd03"
+          }
+        ]
+      },
+      {
+        "availability": "available",
+        "daemon": {
+          "daemon_pid": 7,
+          "event_store": {
+            "dropped_oversized": 0,
+            "dropped_storage": 0,
+            "truncated_records": 0
+          },
+          "runtime_dir": "/eos/runtime/daemon"
+        },
+        "errors": [],
+        "lifecycle_state": "ready",
+        "resources": {
+          "history": [],
+          "latest": {
+            "deltas": {},
+            "metrics": {
+              "cpu_usec": 38361,
+              "io_rbytes": 139264,
+              "io_wbytes": 57344,
+              "mem_cur": 2007040,
+              "mem_max": 4109398016,
+              "metrics_source": "docker_engine"
+            },
+            "sample_delta_ms": null,
+            "ts": 1785332481322
+          }
+        },
+        "sampled_at_unix_ms": 1785332482500,
+        "sandbox_id": "eos-e4c0da21-c10d-401a-9230-a250c0694f41",
+        "stack": {
+          "active_leases": 0,
+          "layer_count": 1,
+          "layers_allocated_bytes": null,
+          "layers_bytes": null,
+          "resources": {
+            "active_buffers": 0,
+            "active_leases": 0,
+            "active_operations": 0,
+            "active_publications": 0,
+            "active_tasks": 0,
+            "active_workers": 0,
+            "byte_permits_in_use": 0,
+            "cache_entries": 0,
+            "counter_saturated": false,
+            "high_water_active_buffers": 0,
+            "high_water_active_leases": 0,
+            "high_water_active_operations": 0,
+            "high_water_active_publications": 0,
+            "high_water_active_tasks": 0,
+            "high_water_active_workers": 0,
+            "high_water_byte_permits_in_use": 0,
+            "high_water_cache_entries": 0,
+            "high_water_mapped_bytes": 0,
+            "high_water_materialization_byte_reservations": 0,
+            "high_water_materialization_owners": 0,
+            "high_water_materialization_targets": 0,
+            "high_water_materialization_waiters": 0,
+            "high_water_materialization_workspace_bytes": 0,
+            "high_water_open_file_descriptors": 0,
+            "high_water_open_transactions": 0,
+            "high_water_owned_bytes": 496,
+            "high_water_queued_bytes": 0,
+            "high_water_queued_items": 0,
+            "high_water_registry_entries": 0,
+            "high_water_staging_owners": 0,
+            "live_owned_bytes": 496,
+            "logical_cleanup_complete": true,
+            "mapped_bytes": 0,
+            "materialization_byte_reservations": 0,
+            "materialization_owners": 0,
+            "materialization_targets": 0,
+            "materialization_waiters": 0,
+            "materialization_workspace_bytes": 0,
+            "observation_epoch": 3,
+            "open_file_descriptors": 0,
+            "open_transactions": 0,
+            "queued_bytes": 0,
+            "queued_items": 0,
+            "quiescence_ms": 36767,
+            "registry_entries": 0,
+            "schema_version": 1,
+            "staging_owners": 0,
+            "writer_lock_acquisitions": 0,
+            "writer_lock_forbidden_cleanups": 0,
+            "writer_lock_forbidden_history_scans": 0,
+            "writer_lock_forbidden_payload_verifications": 0,
+            "writer_lock_forbidden_permit_or_flight_waits": 0,
+            "writer_lock_forbidden_provider_payload_io": 0,
+            "writer_lock_forbidden_tree_walks": 0,
+            "writer_lock_forbidden_worker_joins": 0,
+            "writer_lock_hold_ns": 0,
+            "writer_lock_maximum_hold_ns": 0,
+            "writer_lock_maximum_wait_ns": 0,
+            "writer_lock_wait_ns": 0
+          },
+          "route": {
+            "bytes_hashed": 0,
+            "bytes_newly_retained": 0,
+            "bytes_read": 0,
+            "bytes_reused": 0,
+            "bytes_scanned": 0,
+            "bytes_written": 0,
+            "configured_mode": "legacy",
+            "counter_saturated": false,
+            "fallback_count": 0,
+            "fallback_reason_counts": [],
+            "last_quiescence_epoch": 1,
+            "mismatch_count": 0,
+            "native_route": {
+              "admission_count": 0,
+              "cdc_count": 0,
+              "compaction_count": 0,
+              "fallback_count": 0,
+              "gc_count": 0,
+              "hash_count": 0,
+              "locator_merge_count": 0,
+              "lookup_count": 0,
+              "materialization_count": 0,
+              "mount_count": 0,
+              "object_traversal_count": 0,
+              "pack_count": 0,
+              "squash_count": 0,
+              "validation_count": 0
+            },
+            "observation_epoch": 3,
+            "read_authority": "legacy_v1",
+            "schema_version": 1,
+            "shadow_comparison_count": 0,
+            "shadow_completed_count": 0,
+            "write_authority": "legacy_v1"
+          },
+          "staging_entry_count": 0,
+          "storage_allocated_bytes": 7172096
+        },
+        "workspaces": []
+      }
+    ]
+  },
+  "staging_removed": false
+}

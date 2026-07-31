@@ -607,19 +607,38 @@ fn hv06(_context: &HeavyContext) -> CampaignResult<CaseExecution> {
 }
 
 fn hv07(context: &HeavyContext) -> CampaignResult<CaseExecution> {
-    let started = Instant::now();
     let fault_point = NamedFaultPoint::parse(&required_env("MPLA_POC_FAULT_POINT")?)?;
+    let smoke_context = Context::from_env()?;
+    hv07_point(
+        &smoke_context,
+        &context.case_dir("HV-07"),
+        fault_point,
+        None,
+    )
+    .map(|(execution, _)| execution)
+}
+
+fn hv07_point(
+    smoke_context: &Context,
+    case_dir: &Path,
+    fault_point: NamedFaultPoint,
+    semantic_override: Option<SemanticBuildReceipt>,
+) -> CampaignResult<(CaseExecution, SemanticBuildReceipt)> {
+    let started = Instant::now();
     let expectation = hv07_fault_expectations()
         .into_iter()
         .find(|expectation| expectation.fault_point == fault_point)
         .ok_or("HV-07 point is absent from the frozen registry")?;
     let point_component = fault_point.as_str().replace(['.', '-'], "_");
-    let case_dir = context.case_dir("HV-07");
     let point_dir = case_dir.join("faults").join(&point_component);
     fs::create_dir_all(&point_dir)?;
 
-    let smoke_context = Context::from_env()?;
-    let candidate = prepare_sm12_recovery_candidate(&smoke_context, &point_dir, &point_component)?;
+    let candidate = prepare_sm12_recovery_candidate(
+        smoke_context,
+        &point_dir,
+        &point_component,
+        semantic_override,
+    )?;
     let state_path = candidate
         .recovery_root
         .join("operations")
@@ -651,8 +670,8 @@ fn hv07(context: &HeavyContext) -> CampaignResult<CaseExecution> {
             allocation_id: candidate.allocation.descriptor.allocation_id.clone(),
             owner_epoch: candidate.owner_epoch,
             publication_id: candidate.publication_id.clone(),
-            semantic_roots: candidate.semantic.receipt.roots.clone(),
-            canonical: candidate.semantic.receipt.durability.clone(),
+            semantic_roots: candidate.semantic.roots.clone(),
+            canonical: candidate.semantic.durability.clone(),
             accounted_bytes: candidate.accounted_bytes,
             branch: candidate.branch.clone(),
         },
@@ -701,6 +720,11 @@ fn hv07(context: &HeavyContext) -> CampaignResult<CaseExecution> {
     let marker: PhysicalFaultMarker = durable::read_json(&marker_path)?;
     let real_operation_witness: RealOperationWitness =
         durable::read_json(&point_dir.join("real-operation.json"))?;
+    let child_qualification_capabilities: Value = durable::read_json(
+        &point_dir
+            .join("real-operation")
+            .join("qualification-capabilities.json"),
+    )?;
     if marker.fault_point != fault_point
         || marker.ordinal != 1
         || marker.process_id != child_pid
@@ -738,7 +762,7 @@ fn hv07(context: &HeavyContext) -> CampaignResult<CaseExecution> {
         Some(selected)
             if selected.operation_id == candidate.operation_id
                 && selected.publication_id == candidate.publication_id
-                && selected.roots == candidate.semantic.receipt.roots =>
+                && selected.roots == candidate.semantic.roots =>
         {
             SelectedVisibility::CompleteNew
         }
@@ -901,60 +925,230 @@ fn hv07(context: &HeavyContext) -> CampaignResult<CaseExecution> {
             "final_owner": final_owner,
             "final_locator": final_locator.receipt,
             "final_ref": final_ref,
+            "child_qualification_capabilities": child_qualification_capabilities,
+            "semantic_receipt_reused": candidate.semantic_reused,
         }),
     )?;
     let elapsed_ns = ns(started.elapsed());
-    Ok(CaseExecution {
-        assertions: vec![
-            assertion(
-                "physical_attempt_passed",
-                record.passed && record.observation.execution_mode.is_physical(),
-                format!("{record:?}"),
-                "passing process-SIGKILL attempt",
-            ),
-            assertion(
-                "durable_stop_then_sigkill",
-                marker.process_id == child_pid
-                    && marker.fault_point == fault_point
-                    && marker.marker_parent_synced,
-                format!("{marker:?}"),
-                "durable exact marker followed by SIGKILL",
-            ),
-            assertion(
-                "same_operation_exact_replay",
-                record.observation.idempotent_retry_same_result
-                    && record.observation.operation_id == record.observation.retry_operation_id,
-                format!("{:?}", record.observation),
-                "same operation ID and exact selected result",
-            ),
-            assertion(
-                "old_or_complete_new_visibility",
-                selected_visibility != SelectedVisibility::PartialNew,
-                format!("{selected_visibility:?}"),
-                "Old or CompleteNew",
-            ),
-            assertion(
-                "no_failed_attempts_or_unclassified_debt",
-                summary.failed_attempts == 0 && record.observation.unclassified_debt_bytes == 0,
-                format!("{summary:?}"),
-                "zero failed attempts and zero unclassified debt",
-            ),
-            assertion(
-                "case_hard_stop",
-                elapsed_ns <= 60_000_000_000,
-                elapsed_ns,
-                "<=60000000000ns",
-            ),
-        ],
-        details: json!({
-            "fault_point": fault_point,
-            "attempt": attempt,
-            "point_receipt": point_receipt,
-            "record": record,
-            "summary": summary,
+    let exact_fixture_requested = std::env::var_os("MPLA_POC_HV07_FIXTURE_BYTES").is_some();
+    let semantic = candidate.semantic.clone();
+    Ok((
+        CaseExecution {
+            assertions: vec![
+                assertion(
+                    "exact_fixture_bytes",
+                    !exact_fixture_requested || candidate.fixture_logical_bytes == 128 * HEAVY_MIB,
+                    candidate.fixture_logical_bytes,
+                    "134217728 logical bytes when the HV-07 fixture is requested",
+                ),
+                assertion(
+                    "physical_attempt_passed",
+                    record.passed && record.observation.execution_mode.is_physical(),
+                    format!("{record:?}"),
+                    "passing process-SIGKILL attempt",
+                ),
+                assertion(
+                    "durable_stop_then_sigkill",
+                    marker.process_id == child_pid
+                        && marker.fault_point == fault_point
+                        && marker.marker_parent_synced,
+                    format!("{marker:?}"),
+                    "durable exact marker followed by SIGKILL",
+                ),
+                assertion(
+                    "same_operation_exact_replay",
+                    record.observation.idempotent_retry_same_result
+                        && record.observation.operation_id == record.observation.retry_operation_id,
+                    format!("{:?}", record.observation),
+                    "same operation ID and exact selected result",
+                ),
+                assertion(
+                    "old_or_complete_new_visibility",
+                    selected_visibility != SelectedVisibility::PartialNew,
+                    format!("{selected_visibility:?}"),
+                    "Old or CompleteNew",
+                ),
+                assertion(
+                    "no_failed_attempts_or_unclassified_debt",
+                    summary.failed_attempts == 0 && record.observation.unclassified_debt_bytes == 0,
+                    format!("{summary:?}"),
+                    "zero failed attempts and zero unclassified debt",
+                ),
+                assertion(
+                    "case_hard_stop",
+                    elapsed_ns <= 60_000_000_000,
+                    elapsed_ns,
+                    "<=60000000000ns",
+                ),
+            ],
+            details: json!({
+                "fault_point": fault_point,
+                "attempt": attempt,
+                "point_receipt": point_receipt,
+                "record": record,
+                "summary": summary,
+                "fixture_logical_bytes": candidate.fixture_logical_bytes,
+                "child_qualification_capabilities": child_qualification_capabilities,
+                "semantic_receipt_reused": candidate.semantic_reused,
+                "elapsed_ns": elapsed_ns,
+            }),
+        },
+        semantic,
+    ))
+}
+
+pub fn run_hv07_fresh_sweep() -> CampaignResult {
+    const HV07_HARD_STOP_NS: u64 = 60_000_000_000;
+    let started = Instant::now();
+    let context = Context::from_env()?;
+    let qualification_capabilities = qualification_capability_receipt()?;
+    let requested_fixture_bytes = required_env("MPLA_POC_HV07_FIXTURE_BYTES")?.parse::<u64>()?;
+    if requested_fixture_bytes != 128 * HEAVY_MIB {
+        return Err(format!(
+            "HV-07 fresh sweep requires exactly {} fixture bytes, got {requested_fixture_bytes}",
+            128 * HEAVY_MIB
+        )
+        .into());
+    }
+    let case_dir = context.evidence_root.join("cases").join("HV-07");
+    fs::create_dir_all(&case_dir)?;
+    let mut points = Vec::with_capacity(NamedFaultPoint::ALL.len());
+    let mut failures = Vec::new();
+    let mut shared_semantic = None;
+    let mut canonical_semantic_builds = 0_u64;
+    for fault_point in NamedFaultPoint::ALL {
+        let semantic_receipt_reused = shared_semantic.is_some();
+        match hv07_point(&context, &case_dir, *fault_point, shared_semantic.clone()) {
+            Ok((execution, semantic)) => {
+                if !semantic_receipt_reused {
+                    canonical_semantic_builds += 1;
+                    shared_semantic = Some(semantic);
+                }
+                let passed = execution
+                    .assertions
+                    .iter()
+                    .all(|assertion| assertion.passed);
+                if !passed {
+                    failures.push(format!("{} assertion failure", fault_point.as_str()));
+                }
+                points.push(json!({
+                    "fault_point": fault_point,
+                    "passed": passed,
+                    "semantic_receipt_reused": semantic_receipt_reused,
+                    "assertions": execution.assertions,
+                    "details": execution.details,
+                }));
+            }
+            Err(error) => {
+                failures.push(format!("{}: {error}", fault_point.as_str()));
+                points.push(json!({
+                    "fault_point": fault_point,
+                    "passed": false,
+                    "error": error.to_string(),
+                }));
+            }
+        }
+    }
+    let ledger = CrashSweepLedger::open(case_dir.join("crash-ledger"))?;
+    let summary = ledger.summary(true)?;
+    if !summary.complete_for_requested_mode {
+        failures.push(format!(
+            "physical sweep incomplete: {} missing points",
+            summary.physical_missing_fault_points.len()
+        ));
+    }
+    let elapsed_ns = ns(started.elapsed());
+    if elapsed_ns > HV07_HARD_STOP_NS {
+        failures.push(format!(
+            "HV-07 fresh sweep exceeded hard stop: {elapsed_ns}ns > {HV07_HARD_STOP_NS}ns"
+        ));
+    }
+    let passed = failures.is_empty();
+    durable::replace_json(
+        &case_dir.join("fresh-sweep-result.json"),
+        &json!({
+            "schema_version": SCHEMA_VERSION,
+            "case_id": "HV-07",
+            "fixture_logical_bytes": requested_fixture_bytes,
+            "qualification_capabilities": qualification_capabilities,
+            "required_fault_points": NamedFaultPoint::ALL.len(),
+            "canonical_semantic_builds": canonical_semantic_builds,
+            "semantic_receipt_reuses": points.iter().filter(|point| {
+                point
+                    .get("semantic_receipt_reused")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+            }).count(),
             "elapsed_ns": elapsed_ns,
+            "hard_stop_ns": HV07_HARD_STOP_NS,
+            "summary": summary,
+            "points": points,
+            "failures": failures,
+            "passed": passed,
         }),
-    })
+    )?;
+    if passed {
+        Ok(())
+    } else {
+        Err("HV-07 fresh crash sweep failed".into())
+    }
+}
+
+fn qualification_capability_receipt() -> CampaignResult<Value> {
+    const CAP_SYS_ADMIN_BIT: u64 = 1_u64 << 21;
+    let status = fs::read_to_string("/proc/self/status")?;
+    let status_field = |key: &str| -> CampaignResult<String> {
+        status
+            .lines()
+            .find_map(|line| line.strip_prefix(key))
+            .map(|value| value.trim().to_owned())
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("/proc/self/status omitted {key}"),
+                )
+                .into()
+            })
+    };
+    let effective = status_field("CapEff:")?;
+    let permitted = status_field("CapPrm:")?;
+    let bounding = status_field("CapBnd:")?;
+    let effective_bits = u64::from_str_radix(&effective, 16)?;
+    let permitted_bits = u64::from_str_radix(&permitted, 16)?;
+    let bounding_bits = u64::from_str_radix(&bounding, 16)?;
+    let cap_sys_admin = json!({
+        "bit": 21,
+        "effective": effective_bits & CAP_SYS_ADMIN_BIT != 0,
+        "permitted": permitted_bits & CAP_SYS_ADMIN_BIT != 0,
+        "bounding": bounding_bits & CAP_SYS_ADMIN_BIT != 0,
+    });
+    if !cap_sys_admin
+        .get("effective")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+        || !cap_sys_admin
+            .get("permitted")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        || !cap_sys_admin
+            .get("bounding")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    {
+        return Err(
+            "qualified coordinator lacks CAP_SYS_ADMIN in an effective, permitted, or bounding set"
+                .into(),
+        );
+    }
+    Ok(json!({
+        "process_id": std::process::id(),
+        "cap_eff": effective,
+        "cap_prm": permitted,
+        "cap_bnd": bounding,
+        "cap_sys_admin": cap_sys_admin,
+        "no_new_privs": status_field("NoNewPrivs:")?,
+        "seccomp": status_field("Seccomp:")?,
+    }))
 }
 
 pub fn run_hv07_child() -> CampaignResult {
@@ -968,6 +1162,12 @@ pub fn run_hv07_child() -> CampaignResult {
         return Err("HV-07 child request and configured faultpoint disagree".into());
     }
     fs::create_dir_all(&request.operation_root)?;
+    durable::replace_json(
+        &request
+            .operation_root
+            .join("qualification-capabilities.json"),
+        &qualification_capability_receipt()?,
+    )?;
     match request.fault_point {
         NamedFaultPoint::LocatorAfterForward
         | NamedFaultPoint::LocatorAfterReverse

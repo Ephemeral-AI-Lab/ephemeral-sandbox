@@ -62,10 +62,40 @@ pub fn build_shared_base_seed_archive(
     root_hash: &str,
 ) -> io::Result<Bytes> {
     let mut builder = tar::Builder::new(Vec::new());
-    append_dir(&mut builder, workspace_root)?;
-    append_dir(&mut builder, &layer_stack_root.join(LAYERS_DIR))?;
-    append_dir(&mut builder, &layer_stack_root.join(STAGING_DIR))?;
-    append_dir(&mut builder, &layer_stack_root.join(LAYER_METADATA_DIR))?;
+    append_shared_base_seed_entries(&mut builder, layer_stack_root, workspace_root, root_hash)?;
+    let inner = builder.into_inner()?;
+    Ok(Bytes::from(inner))
+}
+
+/// Build the one-time seed archive for a trusted fixture builder whose shared
+/// base lives beneath a writable persistent volume. Unlike the regular path,
+/// the base tree itself is copied into that volume, so it survives the builder
+/// sandbox and can subsequently be mounted read-only by consumers.
+pub fn build_materialized_shared_base_seed_archive(
+    layer_stack_root: &Path,
+    workspace_root: &Path,
+    root_hash: &str,
+    shared_base_source: &Path,
+) -> io::Result<Bytes> {
+    let mut builder = tar::Builder::new(Vec::new());
+    append_shared_base_seed_entries(&mut builder, layer_stack_root, workspace_root, root_hash)?;
+    let base_root = layer_stack_root.join(SHARED_BASE_DIR);
+    append_dir(&mut builder, &base_root)?;
+    append_host_tree(&mut builder, shared_base_source, &base_root)?;
+    let inner = builder.into_inner()?;
+    Ok(Bytes::from(inner))
+}
+
+fn append_shared_base_seed_entries(
+    builder: &mut tar::Builder<Vec<u8>>,
+    layer_stack_root: &Path,
+    workspace_root: &Path,
+    root_hash: &str,
+) -> io::Result<()> {
+    append_dir(builder, workspace_root)?;
+    append_dir(builder, &layer_stack_root.join(LAYERS_DIR))?;
+    append_dir(builder, &layer_stack_root.join(STAGING_DIR))?;
+    append_dir(builder, &layer_stack_root.join(LAYER_METADATA_DIR))?;
 
     let manifest = json!({
         "schema_version": MANIFEST_SCHEMA_VERSION,
@@ -77,7 +107,7 @@ pub fn build_shared_base_seed_archive(
     });
     let manifest_json = serde_json::to_vec_pretty(&manifest).map_err(json_error)?;
     append_file(
-        &mut builder,
+        builder,
         &layer_stack_root.join(ACTIVE_MANIFEST_FILE),
         &manifest_json,
         CONFIG_FILE_MODE,
@@ -90,14 +120,14 @@ pub fn build_shared_base_seed_archive(
     };
     let binding_json = serde_json::to_vec_pretty(&binding).map_err(json_error)?;
     append_file(
-        &mut builder,
+        builder,
         &layer_stack_root.join(WORKSPACE_BINDING_FILE),
         &binding_json,
         CONFIG_FILE_MODE,
     )?;
 
     append_file(
-        &mut builder,
+        builder,
         &layer_stack_root
             .join(LAYER_METADATA_DIR)
             .join(format!("{WORKSPACE_BASE_LAYER_ID}.digest")),
@@ -105,8 +135,7 @@ pub fn build_shared_base_seed_archive(
         CONFIG_FILE_MODE,
     )?;
 
-    let inner = builder.into_inner()?;
-    Ok(Bytes::from(inner))
+    Ok(())
 }
 
 pub fn build_shared_base_volume_archive(

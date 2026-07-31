@@ -1,0 +1,4 @@
+{
+  "error": "publication preparation failed: status='timed_out'; exit_code=124; command_total_time_seconds=600.038555232; output=''",
+  "type": "CampaignError"
+}

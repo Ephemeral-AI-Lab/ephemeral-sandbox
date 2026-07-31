@@ -1,0 +1,8 @@
+{
+  "coverage": "all evidence files created before manifest.sha256; this post-seal verification record is intentionally excluded to avoid self-reference",
+  "kind": "mpla_booster_manifest_verification_v1",
+  "manifest": "manifest.sha256",
+  "manifest_sha256": "d7776455b387f85816c479336df6121058ec1d9f6326b46cd71c4169bbee9715",
+  "schema_version": 1,
+  "verified": true
+}

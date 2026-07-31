@@ -7,7 +7,8 @@ use serde_json::json;
 
 use sandbox_runtime_namespace_process::runner::file_op::FileRunnerOp;
 use sandbox_runtime_workspace::model::{
-    CaptureChangesRequest, CreateWorkspaceRequest, DestroyWorkspaceRequest, NetworkProfile,
+    CaptureChangesRequest, CreateWorkspaceRequest, DestroyWorkspaceRequest, ExternalOverlayLayout,
+    NetworkProfile,
 };
 use sandbox_runtime_workspace::session::{ResourceCaps, WorkspaceManager};
 use sandbox_runtime_workspace::{holder_exit_channel, HolderExitWait, WorkspaceRuntimeService};
@@ -57,6 +58,54 @@ fn runtime_service_create_and_destroy_are_backed_by_impl_files(
 
     assert_eq!(destroyed.lease_released, Some(true));
     assert_eq!(destroyed.lease_release_error, None);
+    assert_eq!(destroyed.active_leases_after, 0);
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires real Linux namespace, mount, and network privileges"
+)]
+fn external_mpla_overlay_does_not_acquire_or_persist_an_ordinary_layerstack_lease(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = Fixture::new("external-mpla-unleased")?;
+    let service = fixture.service();
+    let external_root = fixture.base.join("external");
+    let upperdir = external_root.join("upper");
+    let workdir = external_root.join("work");
+    let lowerdir = external_root.join("lower");
+    let workspace_root = external_root.join("workspace");
+    for path in [&upperdir, &workdir, &lowerdir, &workspace_root] {
+        std::fs::create_dir_all(path)?;
+    }
+
+    let handle = service.create_workspace_with_external_overlay(
+        create_request(&service)?,
+        ExternalOverlayLayout {
+            workspace_root,
+            upperdir,
+            workdir,
+            lower_dirs_newest_first: vec![lowerdir.clone()],
+        },
+    )?;
+
+    assert_eq!(handle.snapshot.layer_paths, vec![lowerdir]);
+    assert!(handle.snapshot.lease_id.0.starts_with("external-mpla:"));
+    assert_eq!(
+        sandbox_runtime_layerstack::LayerStack::open(fixture.layer_stack_root.clone())?
+            .active_lease_count(),
+        0
+    );
+    let persisted: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(fixture.scratch_root.join("manager.json"))?)?;
+    assert!(
+        persisted["handles"][0]["lease_id"].is_null(),
+        "an external MPLA overlay must not claim an ordinary LayerStack lease"
+    );
+
+    let destroyed = service.destroy_workspace(handle, DestroyWorkspaceRequest::default())?;
+    assert_eq!(destroyed.lease_released, Some(true));
     assert_eq!(destroyed.active_leases_after, 0);
     Ok(())
 }

@@ -1,0 +1,13 @@
+{
+  "command_session_id": "namespace_execution_1",
+  "command_total_time_seconds": 600.038555232,
+  "end_offset": 0,
+  "exit_code": 124,
+  "original_token_count": 0,
+  "output": "",
+  "start_offset": 0,
+  "status": "timed_out",
+  "total_lines": 0,
+  "wall_time_seconds": 604.357209192,
+  "workspace_session_id": "00000118c6d96a8e4ecf22"
+}

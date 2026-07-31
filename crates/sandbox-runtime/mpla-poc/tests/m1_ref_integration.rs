@@ -17,10 +17,10 @@ use sandbox_runtime_mpla_poc::recovery::{
 };
 use sandbox_runtime_mpla_poc::ref_store::PairedRefStore;
 use sandbox_runtime_mpla_poc::{
-    AllocationHandle, AttributionRootId, CanonicalDurabilityReceipt, CanonicalRootPair,
-    InodeWitness, LocatorGeneration, LocatorRefCandidate, NamedFaultInjector, NamedFaultPoint,
-    OperationId, OwnerSubject, OwnerTransitionRequest, PhysicalSnapshot, PocError, PublicationId,
-    RefSequence, RootId, SessionId, StableAllocationReceipt, SCHEMA_VERSION,
+    AllocationHandle, AttributionInput, AttributionRootId, CanonicalDurabilityReceipt,
+    CanonicalRootPair, InodeWitness, LocatorGeneration, LocatorRefCandidate, NamedFaultInjector,
+    NamedFaultPoint, OperationId, OwnerSubject, OwnerTransitionRequest, PhysicalSnapshot, PocError,
+    PublicationId, RefSequence, RootId, SessionId, StableAllocationReceipt, SCHEMA_VERSION,
 };
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -473,6 +473,10 @@ fn canonical_receipt(root: &Path, label: &str) -> CanonicalDurabilityReceipt {
         .expect("fsync canonical directory");
     CanonicalDurabilityReceipt {
         root_manifest: manifest,
+        semantic_attribution: AttributionInput {
+            actor_id: "test-actor".to_owned(),
+            semantic_operation_id: label.to_owned(),
+        },
         immutable_object_count: 2,
         immutable_object_bytes: 8_192,
         object_set_sha256: digest_hex(&format!("objects-{label}")),

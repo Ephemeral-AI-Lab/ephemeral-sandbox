@@ -1,0 +1,4 @@
+{
+  "error": "publication coordinator failed: status='error'; exit_code=2; command_total_time_seconds=23.950802136; output='MPLA_SCORECARD_ERROR {\"error\":\"LayerStack failure: layer-stack storage error: hidden candidate publication failed: invalid v3 page input: adjacent sparse descriptors must be coalesced\"}'",
+  "type": "CampaignError"
+}

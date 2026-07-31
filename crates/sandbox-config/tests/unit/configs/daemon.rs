@@ -33,6 +33,7 @@ fn config_server_limits_default_to_shipped_policy() {
     assert_eq!(cfg.server.max_concurrent_connections, 64);
     assert_eq!(cfg.server.max_request_bytes, 16 * 1024 * 1024);
     assert!((cfg.server.request_read_timeout_s - 30.0).abs() < f64::EPSILON);
+    assert!((cfg.server.response_write_timeout_s - 30.0).abs() < f64::EPSILON);
 }
 
 #[test]
@@ -93,6 +94,7 @@ fn config_server_limits_and_forward_overrides_deserialize() {
         "    max_concurrent_connections: 2
     max_request_bytes: 65536
     request_read_timeout_s: 5.5
+    response_write_timeout_s: 6.5
   http:
     forward:
       connect_timeout_s: 1.5
@@ -104,6 +106,7 @@ fn config_server_limits_and_forward_overrides_deserialize() {
     assert_eq!(cfg.server.max_concurrent_connections, 2);
     assert_eq!(cfg.server.max_request_bytes, 65536);
     assert!((cfg.server.request_read_timeout_s - 5.5).abs() < f64::EPSILON);
+    assert!((cfg.server.response_write_timeout_s - 6.5).abs() < f64::EPSILON);
     assert!((cfg.http.forward.connect_timeout_s - 1.5).abs() < f64::EPSILON);
     assert!((cfg.http.forward.response_timeout_s - 0.1).abs() < f64::EPSILON);
 }
@@ -139,6 +142,10 @@ fn config_validation_rejects_server_limit_edge_values() {
     let mut cfg = prd_config();
     cfg.server.request_read_timeout_s = 0.0;
     assert_invalid(cfg, "daemon.server.request_read_timeout_s");
+
+    let mut cfg = prd_config();
+    cfg.server.response_write_timeout_s = 0.0;
+    assert_invalid(cfg, "daemon.server.response_write_timeout_s");
 }
 
 #[test]

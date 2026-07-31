@@ -7,9 +7,9 @@ use sandbox_runtime_mpla_poc::locator::{
 };
 use sandbox_runtime_mpla_poc::ref_store::{PairedRefStore, RefCommitOutcome};
 use sandbox_runtime_mpla_poc::{
-    AttributionRootId, CanonicalDurabilityReceipt, CanonicalRootPair, LocatorGeneration,
-    LocatorRefCandidate, NamedFaultInjector, NamedFaultPoint, OperationId, PocError, PublicationId,
-    RefSequence, RootId, SCHEMA_VERSION,
+    AttributionInput, AttributionRootId, CanonicalDurabilityReceipt, CanonicalRootPair,
+    LocatorGeneration, LocatorRefCandidate, NamedFaultInjector, NamedFaultPoint, OperationId,
+    PocError, PublicationId, RefSequence, RootId, SCHEMA_VERSION,
 };
 use uuid::Uuid;
 
@@ -29,6 +29,24 @@ impl Drop for TestRoot {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.path);
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn sealed_paired_ref_store_reads_without_writable_lock() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = TestRoot::new("sealed-paired-ref-read");
+    let refs_root = root.path.join("refs");
+    let store = PairedRefStore::open(&refs_root).expect("create paired ref store");
+    let lock_path = refs_root.join("LOCK");
+    std::fs::set_permissions(&lock_path, std::fs::Permissions::from_mode(0o400))
+        .expect("seal existing lock file");
+
+    assert!(store
+        .read("fixture-depth-1")
+        .expect("read sealed paired ref store")
+        .is_none());
 }
 
 #[test]
@@ -489,6 +507,10 @@ fn canonical_receipt(root: &Path, label: &str) -> CanonicalDurabilityReceipt {
         .expect("fsync canonical directory");
     CanonicalDurabilityReceipt {
         root_manifest: manifest,
+        semantic_attribution: AttributionInput {
+            actor_id: "test-actor".to_owned(),
+            semantic_operation_id: label.to_owned(),
+        },
         immutable_object_count: 2,
         immutable_object_bytes: 8_192,
         object_set_sha256: "ab".repeat(32),

@@ -1,10 +1,12 @@
 use std::sync::Arc;
 
-use tokio::io::{AsyncWrite, AsyncWriteExt};
+use tokio::io::AsyncWrite;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 
-use super::{error, GatewayError, SandboxGatewayServer};
+use super::{
+    connection::write_framed_response_with_timeout, error, GatewayError, SandboxGatewayServer,
+};
 
 impl SandboxGatewayServer {
     pub async fn serve(self) -> Result<(), GatewayError> {
@@ -63,10 +65,8 @@ where
         "gateway is at connection capacity",
         serde_json::json!({ "max_concurrent_connections": max_connections }),
     );
-    let _ = stream
-        .write_all(&sandbox_protocol::response_line(&response))
-        .await;
-    let _ = stream.shutdown().await;
+    let framed = sandbox_protocol::response_line(&response);
+    let _ = write_framed_response_with_timeout(&mut stream, &framed).await;
 }
 
 async fn cleanup_paths(server: &SandboxGatewayServer) {

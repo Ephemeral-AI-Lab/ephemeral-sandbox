@@ -2,6 +2,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod activation;
 pub mod allocation;
+#[cfg(target_os = "linux")]
+pub mod atomic_cgroup_process;
 pub mod config;
 pub mod controls;
 pub mod docker_protocol;
@@ -10,6 +12,7 @@ pub mod error;
 pub mod evacuation;
 pub mod evidence;
 pub mod evidence_schema;
+pub mod external_publication;
 pub mod fault;
 pub mod fixtures;
 pub mod id;
@@ -20,10 +23,12 @@ pub mod m1_contract;
 pub mod occ;
 pub mod overlay_adapter;
 pub mod owner;
+pub mod prepared_fixture;
 pub mod process_tree;
 pub mod projection;
 pub mod protocol;
 pub mod publication;
+pub mod publication_qualification;
 pub mod qualify;
 pub mod quiesce;
 pub mod reconcile;
@@ -37,7 +42,8 @@ pub mod state;
 pub mod storage_admin;
 
 pub use activation::{
-    ActivatedSession, ActivationBinding, ActivationReceipt, ExactActivationRequest,
+    inherit_projection_root_metadata, ActivatedSession, ActivationBinding, ActivationReceipt,
+    ExactActivationRequest,
 };
 pub use config::PocConfig;
 pub use controls::{
@@ -47,12 +53,16 @@ pub use controls::{
     ControlChangeSet, ControlCollectionLimits, ControlIntent, ControlMaterializationOutcome,
     ControlOperationReceipt, ControlPublicationOutcome, ControlSelectionKey, ControlSourceProfile,
     ControlVerdict, CurrentI2ClosingRequest, CurrentI2MaterializationRequest,
-    ExternalReadinessReceipt, MonotonicClock, MonotonicSpan,
+    ExternalReadinessReceipt, MonotonicClock, MonotonicSpan, MonotonicTimer,
+    MATCHED_PUBLICATION_START_BOUNDARY, MATCHED_PUBLICATION_STOP_BOUNDARY,
 };
 pub use error::{PocError, PocResult};
 pub use evidence_schema::{
     ArtifactStatus, EnvironmentReceipt, InodeWitness, PhysicalSnapshot, ProbeReceipt, ProbeStatus,
     QualificationReceipt,
+};
+pub use external_publication::{
+    stationary_adopt_prepared, ExternalStationaryPublicationReceipt, ExternalStationarySeal,
 };
 pub use fault::{
     physical_reach, FaultInjector, FaultPoint, NamedFaultInjector, NamedFaultPoint,
@@ -73,13 +83,29 @@ pub use m1_contract::{
     SemanticPhaseSpan,
 };
 pub use overlay_adapter::{PermanentOverlayMount, UnmountedOverlay};
+pub use prepared_fixture::{
+    prepared_fixture_manifest_path, prepared_fixture_storage_requirement,
+    read_prepared_fixture_manifest, validate_prepared_fixture_cache_layout,
+    write_prepared_fixture_manifest, PreparedFixtureBranch, PreparedFixtureControlSource,
+    PreparedFixtureLayoutReceipt, PreparedFixtureManifest, PreparedFixtureStorageRequirement,
+    PREPARED_FIXTURE_ALLOCATION_COUNT, PREPARED_FIXTURE_BASE_SHA256,
+    PREPARED_FIXTURE_BUILDER_HEADROOM_BYTES, PREPARED_FIXTURE_CHAIN_DEPTH,
+    PREPARED_FIXTURE_CONTROL_ROOT, PREPARED_FIXTURE_CONTROL_SOURCE,
+    PREPARED_FIXTURE_CONTROL_SOURCE_BYTES, PREPARED_FIXTURE_CONTROL_SOURCE_MANIFEST_SHA256,
+    PREPARED_FIXTURE_DEPTH_EIGHT_BYTES, PREPARED_FIXTURE_DEPTH_FIVE_BYTES,
+    PREPARED_FIXTURE_LARGE_DELTA_SHA256, PREPARED_FIXTURE_MANIFEST,
+    PREPARED_FIXTURE_MARKER_LAYER_BYTES, PREPARED_FIXTURE_MINIMUM_AVAILABLE_INODES,
+    PREPARED_FIXTURE_PAYLOAD_ROOT, PREPARED_FIXTURE_PROFILE, PREPARED_FIXTURE_ROOT,
+    PREPARED_FIXTURE_RUN_ID, PREPARED_FIXTURE_SINGLE_FILE_LAYER_BYTES,
+    PREPARED_FIXTURE_SMALL_DELTA_SHA256,
+};
 pub use process_tree::{CommandReceipt, ManagedProcessTree, ProcessAudit};
 pub use projection::{ExactProjectionReceipt, ProjectionRecipe};
 pub use protocol::{
     AdoptionReceipt, AllocationDescriptor, AllocationHandle, DeletionCapability, MutableLease,
     OwnerTransitionRequest, QualificationRequest, StableAllocationReceipt, StorageAdminAction,
-    StorageAdminAuthorization, StorageAdminOutcome, StorageAdminReceipt, StorageAdminRequest,
-    StorageAdminScope, WriterCapability,
+    StorageAdminAuthorization, StorageAdminDurability, StorageAdminOutcome, StorageAdminReceipt,
+    StorageAdminRequest, StorageAdminScope, WriterCapability,
 };
 pub use publication::{
     PublicationOperationRecord, ReceiptHitPublicationReceipt, StationaryPublicationReceipt,
@@ -104,7 +130,7 @@ pub use state::{OwnerGeneration, OwnerSubject, PublicationPhase, SessionPhase};
 pub const INTERFACE_VERSION: &str = "m2r-iface-v1";
 pub const STORAGE_ADMIN_PROFILE_ID: &str = "mpla-storage-admin-v1";
 /// Dedicated physical-qualification profile for the one OverlayFS VFS
-/// credential contract identified in Stage 04.6.  It is not a production
+/// credential contract identified in Stage 04.6. It is not a production
 /// default and can only be selected by the loaded daemon configuration.
 pub const STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID: &str =
     "mpla-storage-admin-overlayfs-dac-override-qualification-v1";

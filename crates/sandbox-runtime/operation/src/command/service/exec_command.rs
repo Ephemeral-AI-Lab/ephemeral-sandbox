@@ -20,6 +20,8 @@ use crate::workspace_session::{
     WorkspaceSessionHandler,
 };
 
+use super::security_profile::selected_command_security_profile;
+
 impl CommandOperationService {
     pub fn exec_command(
         &self,
@@ -287,68 +289,6 @@ impl CommandOperationService {
     }
 }
 
-fn selected_command_security_profile(
-    configured: CommandSecurityProfile,
-    command: &str,
-) -> CommandSecurityProfile {
-    if configured == CommandSecurityProfile::MplaBenchmarkQualification
-        && is_frozen_mpla_benchmark_command(command)
-    {
-        CommandSecurityProfile::MplaBenchmarkQualification
-    } else {
-        CommandSecurityProfile::Standard
-    }
-}
-
-fn is_frozen_mpla_benchmark_command(command: &str) -> bool {
-    const PROGRAM: &str = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1";
-    const AUTHORITY_ROOT: &str = "/eos/workspace/mpla-poc/authority/";
-    const SPEED_ROOT: &str = "/eos/workspace/mpla-poc/speed/";
-    const ORACLE: &str = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-poc-oracle";
-    const EXPORTER: &str =
-        "/eos/layer-stack/base/B000001-base/_campaign-tools/sandbox-catalog-export";
-    const CATALOG: &str = "/eos/layer-stack/base/B000001-base/_campaign-tools/product-catalog.json";
-    const LEDGER: &str = "/eos/workspace/samples.jsonl";
-
-    let fields = command.split_ascii_whitespace().collect::<Vec<_>>();
-    if fields.iter().any(|field| {
-        field.is_empty()
-            || !field.bytes().all(|byte| {
-                byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b'.' | b'_' | b'-')
-            })
-    }) || fields.first().copied() != Some(PROGRAM)
-    {
-        return false;
-    }
-
-    match fields.as_slice() {
-        [_, "authority-probe", "--probe-root", probe_root] => {
-            is_direct_safe_child(probe_root, AUTHORITY_ROOT)
-        }
-        [_, "measure", "--run-id", run_id, "--run-root", run_root, "--oracle", ORACLE, "--catalog-exporter", EXPORTER, "--catalog", CATALOG, "--build-commit", build_commit, "--samples-ledger", LEDGER] => {
-            is_safe_identifier(run_id)
-                && *run_root == format!("{SPEED_ROOT}{run_id}")
-                && build_commit.len() == 40
-                && build_commit
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-        }
-        _ => false,
-    }
-}
-
-fn is_direct_safe_child(path: &str, parent: &str) -> bool {
-    path.strip_prefix(parent)
-        .is_some_and(|name| is_safe_identifier(name) && !name.contains('/'))
-}
-
-fn is_safe_identifier(value: &str) -> bool {
-    !value.is_empty()
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-}
-
 fn stable_identifier_hash(value: &str) -> String {
     use sha2::{Digest, Sha256};
 
@@ -365,47 +305,4 @@ fn workspace_entry(
         .map_err(|error| CommandServiceError::InvalidCommand {
             message: error.to_string(),
         })
-}
-
-#[cfg(test)]
-mod benchmark_security_profile_tests {
-    use super::*;
-
-    const QUALIFICATION: CommandSecurityProfile =
-        CommandSecurityProfile::MplaBenchmarkQualification;
-
-    #[test]
-    fn only_frozen_benchmark_commands_receive_the_qualification_profile() {
-        let authority = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 authority-probe --probe-root /eos/workspace/mpla-poc/authority/run-1";
-        let measurement = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 measure --run-id run-1 --run-root /eos/workspace/mpla-poc/speed/run-1 --oracle /eos/layer-stack/base/B000001-base/_campaign-tools/mpla-poc-oracle --catalog-exporter /eos/layer-stack/base/B000001-base/_campaign-tools/sandbox-catalog-export --catalog /eos/layer-stack/base/B000001-base/_campaign-tools/product-catalog.json --build-commit 0123456789abcdef0123456789abcdef01234567 --samples-ledger /eos/workspace/samples.jsonl";
-        assert_eq!(
-            selected_command_security_profile(QUALIFICATION, authority),
-            QUALIFICATION
-        );
-        assert_eq!(
-            selected_command_security_profile(QUALIFICATION, measurement),
-            QUALIFICATION
-        );
-        assert_eq!(
-            selected_command_security_profile(
-                QUALIFICATION,
-                "mount -t tmpfs none .mpla-ordinary-mount-probe"
-            ),
-            CommandSecurityProfile::Standard
-        );
-    }
-
-    #[test]
-    fn shell_suffixes_and_contract_drift_are_not_privileged() {
-        let suffix = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 authority-probe --probe-root /eos/workspace/mpla-poc/authority/run-1 ; mount -t tmpfs none /mnt";
-        let traversal = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 authority-probe --probe-root /eos/workspace/mpla-poc/authority/../escape";
-        assert_eq!(
-            selected_command_security_profile(QUALIFICATION, suffix),
-            CommandSecurityProfile::Standard
-        );
-        assert_eq!(
-            selected_command_security_profile(QUALIFICATION, traversal),
-            CommandSecurityProfile::Standard
-        );
-    }
 }

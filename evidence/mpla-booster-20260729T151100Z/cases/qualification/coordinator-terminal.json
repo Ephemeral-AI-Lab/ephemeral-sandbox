@@ -1,0 +1,13 @@
+{
+  "command_session_id": "namespace_execution_1",
+  "command_total_time_seconds": 0.051476459,
+  "end_offset": 1,
+  "exit_code": 2,
+  "original_token_count": 42,
+  "output": "MPLA_SCORECARD_ERROR {\"error\":\"CAP_SYS_ADMIN bit 21 is not effective, permitted and bounded: CapEff=00000000880024ff CapPrm=00000000880024ff CapBnd=00000000880024ff\"}",
+  "start_offset": 0,
+  "status": "error",
+  "total_lines": 1,
+  "wall_time_seconds": 1.070421167,
+  "workspace_session_id": "00000118c6c9adee09e7de"
+}

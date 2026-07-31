@@ -269,6 +269,7 @@ daemon:
     max_concurrent_connections: 256
     max_request_bytes: 16777216
     request_read_timeout_s: 30.0
+    response_write_timeout_s: 30.0
   http:
     forward:
       connect_timeout_s: 10.0

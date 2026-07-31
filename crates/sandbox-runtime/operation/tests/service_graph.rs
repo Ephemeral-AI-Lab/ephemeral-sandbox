@@ -256,6 +256,12 @@ fn runtime_operation_catalog_exports_only_public_runtime_operations() {
             "file_blame",
             "create_workspace_session",
             "create_mpla_workspace_session",
+            "attach_mpla_prepared_fixture",
+            "activate_workspace_session",
+            "fork_workspace_session",
+            "rollback_workspace_session",
+            "publish_mpla_workspace_session",
+            "squash_mpla_branch",
             "publish_workspace_session",
             "destroy_workspace_session",
             "mpla_storage_admin",
@@ -338,15 +344,20 @@ fn service_graph_workspace_session_source_boundaries_stay_private() {
     let adapter = include_str!("../src/operations/registry/workspace_session_operations.rs");
     assert!(adapter.contains(".create_workspace_session("));
     assert!(adapter.contains(".create_mpla_workspace_session("));
+    assert!(adapter.contains(".attach_mpla_prepared_fixture("));
     assert!(adapter.contains(".guarded_destroy("));
     assert!(adapter.contains("dispatch_mpla_storage_admin"));
-    assert!(adapter.contains("binding.storage_admin_profile != selected_profile"));
-    assert!(adapter.contains("require_daemon_selected_storage_admin_profile"));
-    assert_eq!(adapter.matches("OperationEntry::public").count(), 5);
+    assert!(adapter.contains("dispatch_attach_mpla_prepared_fixture"));
+    assert_eq!(adapter.matches("OperationEntry::public").count(), 11);
     assert!(adapter.contains("name: CREATE_WORKSPACE_SESSION_LEGACY_SCRATCH_ADAPTER"));
     assert_eq!(adapter.matches("spec: None").count(), 1);
     assert!(!adapter.contains("WorkspaceDestroyAdmission"));
     assert!(!adapter.contains("begin_workspace_destroy_admission"));
+
+    let storage_admin =
+        include_str!("../src/workspace_session/service/impls/mpla_storage_admin.rs");
+    assert!(storage_admin.contains("binding.storage_admin_profile != selected_profile"));
+    assert!(storage_admin.contains("require_daemon_selected_storage_admin_profile"));
 
     let file_adapter = include_str!("../src/operations/registry/file_operations.rs");
     assert!(file_adapter.contains("const FILE_LIST_ENTRY: OperationEntry = OperationEntry {"));

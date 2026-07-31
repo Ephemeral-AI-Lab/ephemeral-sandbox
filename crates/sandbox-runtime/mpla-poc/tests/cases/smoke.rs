@@ -3,6 +3,7 @@ use std::fs::{self, File};
 use std::io::{BufReader, Read, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{FileExt, MetadataExt, PermissionsExt};
+use std::os::unix::io::AsRawFd;
 use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -177,7 +178,9 @@ struct Sm12RecoveryCandidate {
     publication_id: PublicationId,
     owner_epoch: u64,
     accounted_bytes: u64,
-    semantic: SemanticBuildOutput,
+    fixture_logical_bytes: u64,
+    semantic: SemanticBuildReceipt,
+    semantic_reused: bool,
     recovery_root: PathBuf,
     locator_root: PathBuf,
     ref_root: PathBuf,
@@ -2055,7 +2058,7 @@ fn run_sm12_publication_edge(
     edge: &str,
     fault: NamedFaultPoint,
 ) -> CampaignResult<Value> {
-    let candidate = prepare_sm12_recovery_candidate(context, case_root, edge)?;
+    let candidate = prepare_sm12_recovery_candidate(context, case_root, edge, None)?;
     let edge_root = case_root.join(edge);
     let child_request_path = edge_root.join("child-request.json");
     let child_witness_path = edge_root.join("child-witness.json");
@@ -2080,7 +2083,7 @@ fn run_sm12_publication_edge(
     let old_or_complete_new = post_kill_ref.as_ref().is_none_or(|selected| {
         selected.operation_id == candidate.operation_id
             && selected.publication_id == candidate.publication_id
-            && selected.roots == candidate.semantic.receipt.roots
+            && selected.roots == candidate.semantic.roots
     });
     let recovery = PublicationRecovery::open(&candidate.recovery_root)?;
     let locator_store = LocatorStore::open(&candidate.locator_root)?;
@@ -2166,52 +2169,82 @@ fn prepare_sm12_recovery_candidate(
     context: &Context,
     case_root: &Path,
     edge: &str,
+    semantic_override: Option<SemanticBuildReceipt>,
 ) -> CampaignResult<Sm12RecoveryCandidate> {
     let operation_id = OperationId::from_string(format!("{}-sm12-{edge}", context.run_id));
     let publication_id = PublicationId::from_string(format!("{}-sm12-{edge}", context.run_id));
     let allocation = create_allocation(&context.arena_root(), &operation_id)?;
+    let fixture_logical_bytes = install_hv07_fixture(context, &allocation)?;
     let lease = issue_workspace_lease(&allocation, SessionId::new(), &operation_id)?;
-    let mut session = sandbox_runtime_mpla_poc::MplaSession::open(
-        &context.control_root,
-        allocation.clone(),
-        lease.clone(),
-        context.raw_session_lower_dirs(),
-        context.cgroup_procs_path.clone(),
-    )?;
-    let command = session.execute(
-        &lease.writer,
-        Path::new("/bin/sh"),
-        &["-c".to_owned(), format!("printf '{edge}' > sm12.txt")],
-        Duration::from_secs(2),
-    )?;
-    if !command.success {
-        return Err(format!("SM-12 {edge} payload preparation failed").into());
-    }
-    let stationary = stationary_adopt(
-        &mut session,
-        &StationaryPublicationRequest {
-            schema_version: SCHEMA_VERSION,
-            operation_id: operation_id.clone(),
-            publication_id: publication_id.clone(),
-        },
-        &context.control_root.join("operations"),
-        &mut FaultInjector::default(),
-    )?;
-    let semantic = full_build(
-        &context.campaign_root(),
-        &context.preparation.canonical_object_dir,
-        &allocation,
-        &format!("sm12-{edge}"),
-    )?;
-    let owner_epoch = stationary.adoption.new_owner.owner_epoch;
-    let accounted_bytes = stationary.stable.after.allocated_bytes.max(1);
+    let (owner_epoch, accounted_bytes) = if fixture_logical_bytes > 0 {
+        prepare_hv07_unmounted_candidate(
+            &allocation,
+            &lease,
+            &operation_id,
+            &publication_id,
+            case_root,
+            fixture_logical_bytes,
+        )?
+    } else {
+        let mut session = sandbox_runtime_mpla_poc::MplaSession::open(
+            &context.control_root,
+            allocation.clone(),
+            lease.clone(),
+            context.raw_session_lower_dirs(),
+            context.cgroup_procs_path.clone(),
+        )?;
+        let command = session.execute(
+            &lease.writer,
+            Path::new("/bin/sh"),
+            &["-c".to_owned(), format!("printf '{edge}' > sm12.txt")],
+            Duration::from_secs(2),
+        )?;
+        if !command.success {
+            return Err(format!("SM-12 {edge} payload preparation failed").into());
+        }
+        let stationary = stationary_adopt(
+            &mut session,
+            &StationaryPublicationRequest {
+                schema_version: SCHEMA_VERSION,
+                operation_id: operation_id.clone(),
+                publication_id: publication_id.clone(),
+            },
+            &context.control_root.join("operations"),
+            &mut FaultInjector::default(),
+        )?;
+        (
+            stationary.adoption.new_owner.owner_epoch,
+            stationary.stable.after.allocated_bytes.max(1),
+        )
+    };
+    let (semantic, semantic_reused) = match semantic_override {
+        Some(mut semantic) => {
+            if fixture_logical_bytes != 128 * 1024 * 1024 {
+                return Err(
+                    "shared HV-07 semantic receipt requires the exact 128 MiB fixture".into(),
+                );
+            }
+            semantic.operation_id = operation_id.clone();
+            (semantic, true)
+        }
+        None => (
+            full_build(
+                &context.campaign_root(),
+                &context.preparation.canonical_object_dir,
+                &allocation,
+                &format!("sm12-{edge}"),
+            )?
+            .receipt,
+            false,
+        ),
+    };
     let edge_root = case_root.join(edge);
     let recovery_root = edge_root.join("recovery");
     let locator_root = edge_root.join("locators");
     let ref_root = edge_root.join("refs");
     let occ_root = edge_root.join("occ");
     let branch = format!("sm12-{edge}");
-    let payload_root = PayloadRootId::parse(semantic.receipt.roots.root_id.as_str())?;
+    let payload_root = PayloadRootId::parse(semantic.roots.root_id.as_str())?;
     let locator_delta = LocatorDelta {
         schema_version: SCHEMA_VERSION,
         operation_id: operation_id.clone(),
@@ -2251,11 +2284,11 @@ fn prepare_sm12_recovery_candidate(
             schema_version: SCHEMA_VERSION,
             operation_id: operation_id.clone(),
             publication_id: publication_id.clone(),
-            roots: semantic.receipt.roots.clone(),
+            roots: semantic.roots.clone(),
             locator_generation: sandbox_runtime_mpla_poc::LocatorGeneration::INITIAL,
             expected_sequence: RefSequence::ZERO,
         },
-        canonical: semantic.receipt.durability.clone(),
+        canonical: semantic.durability.clone(),
         changed_paths: ChangedPathSet::new(["sm12.txt".to_owned()])?,
     })?;
     Ok(Sm12RecoveryCandidate {
@@ -2264,13 +2297,112 @@ fn prepare_sm12_recovery_candidate(
         publication_id,
         owner_epoch,
         accounted_bytes,
+        fixture_logical_bytes,
         semantic,
+        semantic_reused,
         recovery_root,
         locator_root,
         ref_root,
         occ_root,
         branch,
     })
+}
+
+fn prepare_hv07_unmounted_candidate(
+    allocation: &AllocationHandle,
+    lease: &sandbox_runtime_mpla_poc::MutableLease,
+    operation_id: &OperationId,
+    publication_id: &PublicationId,
+    case_root: &Path,
+    fixture_logical_bytes: u64,
+) -> CampaignResult<(u64, u64)> {
+    let payload_path = allocation.upper_dir.join("sm12.txt");
+    let mut payload = File::create(&payload_path)?;
+    payload.write_all(b"hv07-qualified-stable-payload-v1")?;
+    payload.sync_all()?;
+    let upper = File::open(&allocation.upper_dir)?;
+    if unsafe { libc::syncfs(upper.as_raw_fd()) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    File::open(&allocation.owner_dir)?.sync_all()?;
+    let (before, after) = capture_stable_pair(allocation)?;
+    let stable = StableAllocationReceipt {
+        schema_version: SCHEMA_VERSION,
+        operation_id: operation_id.clone(),
+        allocation: allocation.descriptor.clone(),
+        expected_owner_epoch: lease.owner_epoch,
+        before: before.physical,
+        after: after.physical,
+        sync_completed: true,
+    };
+    let adoption = compare_and_adopt(
+        &allocation.allocation_root,
+        &stable,
+        &OwnerTransitionRequest {
+            schema_version: SCHEMA_VERSION,
+            operation_id: operation_id.clone(),
+            publication_id: publication_id.clone(),
+            session_id: lease.session_id.clone(),
+            allocation_id: allocation.descriptor.allocation_id.clone(),
+            expected_lease_epoch: lease.lease_epoch,
+            expected_owner_epoch: lease.owner_epoch,
+        },
+    )?;
+    durable::replace_json(
+        &case_root.join("hv07-unmounted-candidate.json"),
+        &json!({
+            "schema_version": SCHEMA_VERSION,
+            "setup": "unmounted-stable-allocation",
+            "ordinary_workload_mount_authority": false,
+            "fixture_logical_bytes": fixture_logical_bytes,
+            "semantic_payload_key": "hv07-qualified-stable-payload-v1",
+            "stable": stable,
+            "adoption": adoption,
+        }),
+    )?;
+    Ok((
+        adoption.new_owner.owner_epoch,
+        stable.after.allocated_bytes.max(1),
+    ))
+}
+
+fn install_hv07_fixture(context: &Context, allocation: &AllocationHandle) -> CampaignResult<u64> {
+    let requested = match std::env::var("MPLA_POC_HV07_FIXTURE_BYTES") {
+        Ok(value) => value.parse::<u64>()?,
+        Err(std::env::VarError::NotPresent) => return Ok(0),
+        Err(error) => return Err(error.into()),
+    };
+    const HV07_FIXTURE_BYTES: u64 = 128 * 1024 * 1024;
+    if requested != HV07_FIXTURE_BYTES {
+        return Err(format!(
+            "HV-07 requires exactly {HV07_FIXTURE_BYTES} fixture bytes, got {requested}"
+        )
+        .into());
+    }
+    let fixture = context
+        .preparation
+        .fixtures
+        .iter()
+        .find(|fixture| fixture.fixture_id == FixtureId::S2Large)
+        .ok_or("prepared S2-large fixture is missing")?;
+    let source_allocation = open_allocation(&context.arena_root(), &fixture.allocation_id)?;
+    let mut logical_bytes = 0_u64;
+    for source_name in ["large-0.bin", "large-1.bin"] {
+        let source = source_allocation.upper_dir.join(source_name);
+        let target = allocation.upper_dir.join(source_name);
+        fs::hard_link(&source, &target)?;
+        logical_bytes = logical_bytes
+            .checked_add(fs::metadata(&target)?.len())
+            .ok_or("HV-07 fixture byte count overflow")?;
+    }
+    if logical_bytes != HV07_FIXTURE_BYTES {
+        return Err(format!(
+            "HV-07 fixture logical bytes mismatch: expected {HV07_FIXTURE_BYTES}, got {logical_bytes}"
+        )
+        .into());
+    }
+    File::open(&allocation.upper_dir)?.sync_all()?;
+    Ok(logical_bytes)
 }
 
 fn spawn_sm12_child(

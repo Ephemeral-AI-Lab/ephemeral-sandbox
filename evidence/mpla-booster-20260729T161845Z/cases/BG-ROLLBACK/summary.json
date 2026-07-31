@@ -1,0 +1,14 @@
+{
+  "activate_exact_preferred": false,
+  "activate_exact_required": true,
+  "activate_same_preferred": false,
+  "activate_same_required": true,
+  "fork_preferred": false,
+  "fork_required": true,
+  "result_bytes": 6278052,
+  "result_path": "/workspace/scorecard-lifecycle-result.json",
+  "result_sha256": "4f8c5dfc9b0209f04665800cdb52eddf53aff86d774b7a65e3def9e95f41c5af",
+  "rollback_preferred": false,
+  "rollback_required": false,
+  "squash_required": false
+}

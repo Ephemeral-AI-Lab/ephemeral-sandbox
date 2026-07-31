@@ -44,6 +44,8 @@ pub struct DaemonServerConfig {
     pub max_request_bytes: usize,
     /// Deadline for reading one request line off an accepted connection.
     pub request_read_timeout_s: f64,
+    /// Deadline for writing and closing one response line to a connected peer.
+    pub response_write_timeout_s: f64,
     #[doc(hidden)]
     pub legacy_worker_threads_alias_used: bool,
 }
@@ -65,6 +67,8 @@ struct DaemonServerConfigDocument {
     max_request_bytes: usize,
     #[serde(default = "default_request_read_timeout_s")]
     request_read_timeout_s: f64,
+    #[serde(default = "default_response_write_timeout_s")]
+    response_write_timeout_s: f64,
 }
 
 impl<'de> Deserialize<'de> for DaemonServerConfig {
@@ -96,6 +100,7 @@ impl<'de> Deserialize<'de> for DaemonServerConfig {
             max_concurrent_connections: document.max_concurrent_connections,
             max_request_bytes: document.max_request_bytes,
             request_read_timeout_s: document.request_read_timeout_s,
+            response_write_timeout_s: document.response_write_timeout_s,
             legacy_worker_threads_alias_used,
         })
     }
@@ -194,6 +199,11 @@ impl DaemonConfig {
             "daemon.server.request_read_timeout_s",
         )?;
         require_f64_gt(
+            self.server.response_write_timeout_s,
+            0.0,
+            "daemon.server.response_write_timeout_s",
+        )?;
+        require_f64_gt(
             self.http.forward.connect_timeout_s,
             0.0,
             "daemon.http.forward.connect_timeout_s",
@@ -224,5 +234,9 @@ fn default_max_request_bytes() -> usize {
 }
 
 fn default_request_read_timeout_s() -> f64 {
+    30.0
+}
+
+fn default_response_write_timeout_s() -> f64 {
     30.0
 }

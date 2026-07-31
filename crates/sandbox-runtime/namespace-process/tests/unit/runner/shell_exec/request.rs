@@ -66,6 +66,25 @@ fn command_environment_forwards_proxy_vars_from_host() {
     );
 }
 
+#[test]
+fn command_environment_forwards_the_allowlisted_scorecard_gateway() {
+    let key = "MPLA_RUNTIME_GATEWAY_SOCKET";
+    let previous = std::env::var(key).ok();
+    std::env::set_var(key, "host.docker.internal:7882");
+
+    let env = command_environment(&serde_json::json!({}));
+
+    match previous {
+        Some(value) => std::env::set_var(key, value),
+        None => std::env::remove_var(key),
+    }
+
+    assert_eq!(
+        env.get(key).map(String::as_str),
+        Some("host.docker.internal:7882")
+    );
+}
+
 fn request(args: serde_json::Value) -> NamespaceRunnerRequest {
     NamespaceRunnerRequest {
         request_id: "test".to_owned(),

@@ -1,0 +1,34 @@
+{
+  "artifacts": {
+    "gateway.token": {
+      "bytes": 65,
+      "sha256": "97f9189fbd49f779ec994dfd602bb870dcd099d5ef08b99246885efe76e964b9"
+    },
+    "mpla-poc-oracle": {
+      "bytes": 446880,
+      "sha256": "cd2aa0c32a414d9851faf91177c24d85d393ee56f7e4cf9c65ff061b90cb7415"
+    },
+    "mpla-speed-poc-v1": {
+      "bytes": 2859752,
+      "sha256": "36e8824720e16c9dbe476df8e5d4fd457cdf4391ee5a9e2dbab0b5ba8ca9047f"
+    },
+    "product-catalog.json": {
+      "bytes": 48532,
+      "sha256": "9dac328b19c05e9510eae7e38d6f11745441c0554ea3c80c0660d9f6e2fc0f79"
+    },
+    "sandbox-catalog-export": {
+      "bytes": 387296,
+      "sha256": "76853bea1491a3c4a90db20f458c29cb8a4791a2946e3ce897644b05bbdc02e0"
+    },
+    "sandbox-runtime-cli": {
+      "bytes": 996576,
+      "sha256": "2dd36cda63a8e2c30ef15cfdb43b5351a5111d1976abc04d3c9fb48d0729a9d9"
+    }
+  },
+  "r0_manifest_sha256": null,
+  "r0_source": null,
+  "r0_staged": false,
+  "required_stage_bytes_with_margin": 0,
+  "stage_root": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-mpla-booster-20260730T045000Z-publication-w6f_erx4",
+  "staging_free_bytes_before_copy": 389457543168
+}

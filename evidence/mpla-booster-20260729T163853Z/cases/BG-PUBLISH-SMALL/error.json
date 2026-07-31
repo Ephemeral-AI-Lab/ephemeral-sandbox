@@ -1,0 +1,4 @@
+{
+  "error": "coordinator command exceeded campaign deadline",
+  "type": "CampaignError"
+}

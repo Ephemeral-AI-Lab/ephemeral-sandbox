@@ -1,0 +1,8 @@
+{
+  "cgroup_limits": {},
+  "failure_reason": "case records lack the required sampled memory, inode, FD, worker, and OOM evidence",
+  "kind": "mpla_booster_resources_v1",
+  "memory_inode_fd_oom_samples": "NOT_PROVED",
+  "schema_version": 1,
+  "status": "FAIL"
+}

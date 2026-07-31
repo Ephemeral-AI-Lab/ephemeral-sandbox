@@ -3,6 +3,9 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+#[cfg(target_os = "linux")]
+use std::cell::{Cell, RefCell};
+
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -11,23 +14,100 @@ use crate::{PocError, PocResult};
 const MAX_JSON_BYTES: u64 = 1024 * 1024;
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(1);
 
+#[cfg(target_os = "linux")]
+thread_local! {
+    static DURABILITY_BATCH_DEPTH: Cell<u32> = const { Cell::new(0) };
+    static DURABILITY_BATCH_TARGETS: RefCell<Vec<DurabilityTarget>> = const {
+        RefCell::new(Vec::new())
+    };
+}
+
+/// Defers individual file and directory barriers for a fresh, undiscoverable
+/// object graph and commits only that exact graph as one batch.
+///
+/// Callers must not publish authority for the graph until `commit` succeeds.
+/// The optimization is Linux-only. Other targets retain the ordinary
+/// per-record barriers.
+pub struct DurabilityBatch {
+    active: bool,
+}
+
+#[cfg(target_os = "linux")]
+enum DurabilityTarget {
+    File(File),
+    Directory(PathBuf),
+}
+
+impl DurabilityBatch {
+    pub fn commit(mut self, _roots: &[&Path]) -> PocResult<()> {
+        if !self.active {
+            return Ok(());
+        }
+        let result = sync_batch_targets();
+        self.leave();
+        result
+    }
+
+    /// Discards deferred barriers after a separate durable record has assumed
+    /// crash-recovery authority for the unpublished object graph.
+    pub fn discard(mut self) {
+        self.leave();
+    }
+
+    fn leave(&mut self) {
+        if self.active {
+            leave_durability_batch();
+            self.active = false;
+            clear_abandoned_batch_if_outermost();
+        }
+    }
+}
+
+impl Drop for DurabilityBatch {
+    fn drop(&mut self) {
+        self.leave();
+    }
+}
+
+#[must_use]
+pub fn begin_durability_batch() -> DurabilityBatch {
+    #[cfg(target_os = "linux")]
+    {
+        DURABILITY_BATCH_DEPTH.with(|depth| {
+            if depth.get() == 0 {
+                DURABILITY_BATCH_TARGETS.with(|targets| targets.borrow_mut().clear());
+            }
+            depth.set(depth.get().saturating_add(1));
+        });
+        DurabilityBatch { active: true }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        DurabilityBatch { active: false }
+    }
+}
+
 pub(crate) struct FileLock {
     _file: File,
 }
 
 impl FileLock {
     pub(crate) fn exclusive(path: &Path) -> PocResult<Self> {
-        Self::acquire(path, lock_exclusive)
+        Self::acquire(path, true, lock_exclusive)
     }
 
     pub(crate) fn shared(path: &Path) -> PocResult<Self> {
-        Self::acquire(path, lock_shared)
+        Self::acquire(path, false, lock_shared)
     }
 
-    fn acquire(path: &Path, lock: fn(&File) -> std::io::Result<()>) -> PocResult<Self> {
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
+    fn acquire(
+        path: &Path,
+        writable: bool,
+        lock: fn(&File) -> std::io::Result<()>,
+    ) -> PocResult<Self> {
+        let mut options = OpenOptions::new();
+        options.read(true).write(writable);
+        let file = options
             .open(path)
             .map_err(|source| PocError::io("open allocation lock", path, source))?;
         lock(&file).map_err(|source| PocError::io("lock allocation", path, source))?;
@@ -46,7 +126,7 @@ pub fn replace_json<T: Serialize>(path: &Path, value: &T) -> PocResult<()> {
     let result = (|| {
         file.write_all(&bytes)
             .map_err(|source| PocError::io("write durable selector", &temporary, source))?;
-        file.sync_all()
+        sync_all(&file)
             .map_err(|source| PocError::io("fsync durable selector", &temporary, source))?;
         drop(file);
         std::fs::rename(&temporary, path)
@@ -109,7 +189,7 @@ pub(crate) fn write_immutable_json<T: Serialize>(path: &Path, value: &T) -> PocR
     let result = (|| {
         file.write_all(&bytes)
             .map_err(|source| PocError::io("write immutable JSON", &temporary, source))?;
-        file.sync_all()
+        sync_all(&file)
             .map_err(|source| PocError::io("fsync immutable JSON", &temporary, source))?;
         drop(file);
         match std::fs::hard_link(&temporary, path) {
@@ -142,8 +222,157 @@ pub(crate) fn write_immutable_json<T: Serialize>(path: &Path, value: &T) -> PocR
 }
 
 pub(crate) fn fsync_dir(path: &Path) -> PocResult<()> {
+    if durability_is_deferred() {
+        register_batch_directory(path);
+        return Ok(());
+    }
     fsync_directory(path).map_err(|source| PocError::io("fsync directory", path, source))
 }
+
+/// Synchronize one file unless the caller is constructing an unpublished
+/// object graph inside a [`DurabilityBatch`].
+pub fn sync_all(file: &File) -> std::io::Result<()> {
+    if durability_is_deferred() {
+        register_batch_file(file)
+    } else {
+        file.sync_all()
+    }
+}
+
+/// Synchronize one file's data unless the caller is constructing an
+/// unpublished object graph inside a [`DurabilityBatch`].
+pub fn sync_data(file: &File) -> std::io::Result<()> {
+    if durability_is_deferred() {
+        register_batch_file(file)
+    } else {
+        file.sync_data()
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn durability_is_deferred() -> bool {
+    DURABILITY_BATCH_DEPTH.with(|depth| depth.get() != 0)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn durability_is_deferred() -> bool {
+    false
+}
+
+#[cfg(target_os = "linux")]
+fn leave_durability_batch() {
+    DURABILITY_BATCH_DEPTH.with(|depth| depth.set(depth.get().saturating_sub(1)));
+}
+
+#[cfg(not(target_os = "linux"))]
+fn leave_durability_batch() {}
+
+#[cfg(target_os = "linux")]
+fn register_batch_directory(path: &Path) {
+    DURABILITY_BATCH_TARGETS.with(|targets| {
+        targets
+            .borrow_mut()
+            .push(DurabilityTarget::Directory(path.to_path_buf()));
+    });
+}
+
+#[cfg(not(target_os = "linux"))]
+fn register_batch_directory(_path: &Path) {}
+
+#[cfg(target_os = "linux")]
+fn register_batch_file(file: &File) -> std::io::Result<()> {
+    let file = file.try_clone()?;
+    DURABILITY_BATCH_TARGETS.with(|targets| {
+        targets.borrow_mut().push(DurabilityTarget::File(file));
+    });
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn register_batch_file(_file: &File) -> std::io::Result<()> {
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn sync_batch_targets() -> PocResult<()> {
+    use std::collections::BTreeSet;
+    use std::os::unix::fs::MetadataExt;
+
+    let targets =
+        DURABILITY_BATCH_TARGETS.with(|targets| std::mem::take(&mut *targets.borrow_mut()));
+    let mut synced_inodes = BTreeSet::new();
+    let mut directories = BTreeSet::new();
+    let mut directory_files = Vec::new();
+    for target in targets {
+        match target {
+            DurabilityTarget::Directory(path) => {
+                directories.insert(path);
+            }
+            DurabilityTarget::File(file) => {
+                let metadata = file.metadata().map_err(|source| {
+                    PocError::io("stat durability batch file", "<batched-file>", source)
+                })?;
+                if !synced_inodes.insert((metadata.dev(), metadata.ino())) {
+                    continue;
+                }
+                if metadata.is_dir() {
+                    directory_files.push(file);
+                } else {
+                    file.sync_all().map_err(|source| {
+                        PocError::io("sync durability batch file", "<batched-file>", source)
+                    })?;
+                }
+            }
+        }
+    }
+    for directory in directory_files {
+        directory.sync_all().map_err(|source| {
+            PocError::io(
+                "sync durability batch directory",
+                "<batched-directory>",
+                source,
+            )
+        })?;
+    }
+    let mut directories = directories.into_iter().collect::<Vec<_>>();
+    directories.sort_by(|left, right| {
+        right
+            .components()
+            .count()
+            .cmp(&left.components().count())
+            .then_with(|| left.cmp(right))
+    });
+    for directory in directories {
+        let file = File::open(&directory).map_err(|source| {
+            PocError::io("open durability batch directory", &directory, source)
+        })?;
+        let metadata = file.metadata().map_err(|source| {
+            PocError::io("stat durability batch directory", &directory, source)
+        })?;
+        if !synced_inodes.insert((metadata.dev(), metadata.ino())) {
+            continue;
+        }
+        file.sync_all().map_err(|source| {
+            PocError::io("sync durability batch directory", &directory, source)
+        })?;
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn sync_batch_targets() -> PocResult<()> {
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn clear_abandoned_batch_if_outermost() {
+    if DURABILITY_BATCH_DEPTH.with(|depth| depth.get() == 0) {
+        DURABILITY_BATCH_TARGETS.with(|targets| targets.borrow_mut().clear());
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn clear_abandoned_batch_if_outermost() {}
 
 fn encoded_json<T: Serialize>(value: &T) -> PocResult<Vec<u8>> {
     let mut bytes = serde_json::to_vec(value)?;

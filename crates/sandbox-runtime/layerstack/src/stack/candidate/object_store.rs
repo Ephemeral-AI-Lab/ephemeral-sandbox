@@ -1,13 +1,15 @@
 use std::fmt;
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use sandbox_runtime_layerstack_core::{
     decode_v3_record, encode_digest_preimage_header, encode_v3_record, v3_record_id,
     CanonicalRecordV3, CanonicalSink, CanonicalSource, Digest32, DigestDomain, Error, ErrorKind,
-    FieldClass, RawDigest, RecordKindV3, TypedDigest, MAX_V3_RECORD_BYTES, ROOT_FORMAT_V3,
+    FieldClass, FileNodeId, RawDigest, RecordKindV3, TypedDigest, MAX_V3_RECORD_BYTES,
+    ROOT_FORMAT_V3,
 };
 
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
@@ -62,6 +64,7 @@ pub(crate) enum ObjectStoreError {
     Core(Error),
     ObjectCollisionOrCorruption { kind: RecordKindV3, id: Digest32 },
     UnsupportedObjectKind(RecordKindV3),
+    InvalidBatch(&'static str),
     Injected(InstallStage),
 }
 
@@ -73,7 +76,7 @@ impl ObjectStoreError {
                 Some(ErrorKind::ObjectCollisionOrCorruption)
             }
             Self::UnsupportedObjectKind(_) => Some(ErrorKind::WrongKind),
-            Self::Io(_) | Self::Injected(_) => None,
+            Self::Io(_) | Self::InvalidBatch(_) | Self::Injected(_) => None,
         }
     }
 }
@@ -95,6 +98,9 @@ impl fmt::Display for ObjectStoreError {
                     "record kind {kind:?} is not an immutable loose object"
                 )
             }
+            Self::InvalidBatch(message) => {
+                write!(formatter, "loose object commit batch is invalid: {message}")
+            }
             Self::Injected(stage) => write!(formatter, "injected object install stop at {stage:?}"),
         }
     }
@@ -107,6 +113,7 @@ impl std::error::Error for ObjectStoreError {
             Self::Core(error) => Some(error),
             Self::ObjectCollisionOrCorruption { .. }
             | Self::UnsupportedObjectKind(_)
+            | Self::InvalidBatch(_)
             | Self::Injected(_) => None,
         }
     }
@@ -127,6 +134,13 @@ impl From<Error> for ObjectStoreError {
 #[derive(Clone, Debug)]
 pub(crate) struct LooseObjectStore {
     storage_root: PathBuf,
+    batch: Option<Arc<CommitBatch>>,
+}
+
+#[derive(Debug)]
+struct CommitBatch {
+    committed: AtomicBool,
+    mutation_lock: Mutex<()>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -153,7 +167,36 @@ impl LooseObjectStore {
             )
             .into());
         }
-        Ok(Self { storage_root })
+        Ok(Self {
+            storage_root,
+            batch: None,
+        })
+    }
+
+    /// Open an operation-local deferred-durability batch.
+    ///
+    /// Complete objects are installed atomically at their content-addressed
+    /// paths but remain unreachable until the caller validates the candidate
+    /// root and publishes its ref. `commit_batch` performs one storage-wide
+    /// durability barrier before that publication. A crash before the barrier
+    /// can leave only unreferenced objects, and every subsequent load
+    /// authenticates their content. The ordinary constructor retains its
+    /// per-object durability contract unchanged.
+    pub(crate) fn new_commit_batch(storage_root: PathBuf) -> Result<Self, ObjectStoreError> {
+        if !std::fs::metadata(&storage_root)?.is_dir() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotADirectory,
+                "layer-stack storage root is not a directory",
+            )
+            .into());
+        }
+        Ok(Self {
+            storage_root,
+            batch: Some(Arc::new(CommitBatch {
+                committed: AtomicBool::new(false),
+                mutation_lock: Mutex::new(()),
+            })),
+        })
     }
 
     pub(crate) fn object_path(&self, kind: RecordKindV3, id: Digest32) -> PathBuf {
@@ -166,6 +209,122 @@ impl LooseObjectStore {
             .join(digest)
     }
 
+    /// Install a whole-file native acceleration object for one immutable file
+    /// node.
+    ///
+    /// The canonical chunk graph remains the source of truth. This extra file
+    /// is addressed by the complete file-node digest and is used only as a
+    /// copy-on-write extent source when constructing a native carrier. It is
+    /// atomically installed and covered by the publication batch's single
+    /// storage-wide durability barrier before the publication becomes
+    /// reachable.
+    pub(crate) fn install_native_file(
+        &self,
+        id: FileNodeId,
+        source: &Path,
+        logical_length: u64,
+    ) -> Result<PathBuf, ObjectStoreError> {
+        let batch = self.require_open_batch()?;
+        let _batch_guard = batch
+            .mutation_lock
+            .lock()
+            .map_err(|_| ObjectStoreError::InvalidBatch("batch lock is poisoned"))?;
+        self.require_open_batch()?;
+
+        let source_metadata = std::fs::symlink_metadata(source)?;
+        if !source_metadata.file_type().is_file() || source_metadata.len() != logical_length {
+            return Err(ObjectStoreError::InvalidBatch(
+                "native acceleration source is not the exact regular file",
+            ));
+        }
+        let final_path = self.native_file_path(id);
+        if path_is_present(&final_path)? {
+            validate_native_file(&final_path, logical_length)?;
+            return Ok(final_path);
+        }
+        let parent = final_path.parent().ok_or(ObjectStoreError::InvalidBatch(
+            "native acceleration path has no parent",
+        ))?;
+        ensure_real_directory_tree(&self.storage_root, parent)?;
+        let temp = parent.join(format!(
+            ".native.{}.{}.tmp",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        let mut guard = TempGuard::new(temp.clone());
+        let mut source_file = File::open(source)?;
+        let mut native_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&temp)?;
+        if !clone_file_extents(&native_file, &source_file)? {
+            source_file.seek(SeekFrom::Start(0))?;
+            native_file.set_len(0)?;
+            let copied = std::io::copy(&mut source_file, &mut native_file)?;
+            if copied != logical_length {
+                return Err(ObjectStoreError::InvalidBatch(
+                    "native acceleration fallback copied the wrong length",
+                ));
+            }
+        }
+        if native_file.metadata()?.len() != logical_length {
+            return Err(ObjectStoreError::InvalidBatch(
+                "native acceleration object has the wrong length",
+            ));
+        }
+        drop(native_file);
+        drop(source_file);
+        match std::fs::hard_link(&temp, &final_path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                validate_native_file(&final_path, logical_length)?;
+            }
+            Err(error) => return Err(error.into()),
+        }
+        guard.remove()?;
+        Ok(final_path)
+    }
+
+    /// Open a native acceleration object without following a final symlink.
+    ///
+    /// A missing object is an ordinary cache miss and reconstruction falls
+    /// back to authenticated chunks. A malformed object fails closed; it is
+    /// never treated as canonical publication data.
+    pub(crate) fn open_native_file(
+        &self,
+        id: FileNodeId,
+        logical_length: u64,
+    ) -> Result<Option<File>, ObjectStoreError> {
+        let path = self.native_file_path(id);
+        match std::fs::symlink_metadata(&path) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error.into()),
+            Ok(_) => validate_native_file(&path, logical_length)?,
+        }
+        let fd = rustix::fs::open(
+            &path,
+            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::CLOEXEC,
+            rustix::fs::Mode::empty(),
+        )
+        .map_err(std::io::Error::from)?;
+        let file = File::from(fd);
+        if file.metadata()?.len() != logical_length {
+            return Err(ObjectStoreError::InvalidBatch(
+                "native acceleration object changed while opening",
+            ));
+        }
+        Ok(Some(file))
+    }
+
+    pub(crate) fn native_file_path(&self, id: FileNodeId) -> PathBuf {
+        let encoded = hex_digest(id.digest());
+        self.storage_root
+            .join("native-files-v1")
+            .join(&encoded[..2])
+            .join(encoded)
+    }
+
     pub(crate) fn install<D>(
         &self,
         record: &CanonicalRecordV3,
@@ -174,7 +333,11 @@ impl LooseObjectStore {
     where
         D: TypedDigest + RawDigest,
     {
-        self.install_with_hook(record, digest, |_| Ok(()))
+        if self.batch.is_some() {
+            self.install_batched(record, digest)
+        } else {
+            self.install_with_hook(record, digest, |_| Ok(()))
+        }
     }
 
     pub(crate) fn install_chunk_slices<D>(
@@ -186,6 +349,19 @@ impl LooseObjectStore {
     where
         D: TypedDigest,
     {
+        let _batch_guard = self
+            .batch
+            .as_ref()
+            .map(|batch| {
+                batch
+                    .mutation_lock
+                    .lock()
+                    .map_err(|_| ObjectStoreError::InvalidBatch("batch lock is poisoned"))
+            })
+            .transpose()?;
+        if self.batch.is_some() {
+            self.require_open_batch()?;
+        }
         let length = first.len().checked_add(second.len()).ok_or_else(|| {
             Error::new(
                 ErrorKind::ArithmeticOverflow,
@@ -207,18 +383,22 @@ impl LooseObjectStore {
         let header = chunk_header(length)?;
         let id = chunk_slices_id(first, second, digest)?;
         let kind = RecordKindV3::Chunk;
-        let path = self.object_path(kind, id);
-        if path.exists() {
-            self.verify_existing_chunk(&path, id, &header, first, second)?;
+        let final_path = self.object_path(kind, id);
+        if path_is_present(&final_path)? {
+            self.verify_existing_chunk(&final_path, id, &header, first, second)?;
             return Ok(StoredObject {
                 kind,
                 id,
-                path,
+                path: final_path,
                 disposition: InstallDisposition::AlreadyPresent,
             });
         }
-
-        self.ensure_object_parent(kind, id)?;
+        let path = final_path;
+        if self.batch.is_some() {
+            self.ensure_object_parent_unflushed(kind, id)?;
+        } else {
+            self.ensure_object_parent(kind, id)?;
+        }
         let parent = path.parent().ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -238,7 +418,9 @@ impl LooseObjectStore {
         file.write_all(&header)?;
         file.write_all(first)?;
         file.write_all(second)?;
-        file.sync_all()?;
+        if self.batch.is_none() {
+            file.sync_all()?;
+        }
         drop(file);
 
         let disposition = match std::fs::hard_link(&temp, &path) {
@@ -250,7 +432,9 @@ impl LooseObjectStore {
             Err(error) => return Err(error.into()),
         };
         guard.remove()?;
-        fsync_dir(parent)?;
+        if self.batch.is_none() {
+            fsync_dir(parent)?;
+        }
         Ok(StoredObject {
             kind,
             id,
@@ -269,6 +453,11 @@ impl LooseObjectStore {
         D: TypedDigest + RawDigest,
         H: FnMut(InstallStage) -> Result<(), ObjectStoreError>,
     {
+        if self.batch.is_some() {
+            return Err(ObjectStoreError::InvalidBatch(
+                "failpoint installation is only supported by an ordinary store",
+            ));
+        }
         ensure_installable(record.kind())?;
         let bytes = canonical_bytes(record)?;
         let id = v3_record_id(record, digest)?;
@@ -342,7 +531,7 @@ impl LooseObjectStore {
         D: TypedDigest + RawDigest,
     {
         ensure_installable(kind)?;
-        let path = self.object_path(kind, id);
+        let path = self.resolve_object_path(kind, id)?;
         let bytes = read_bounded(&path)?;
         let mut source = SliceSource::new(&bytes);
         let record = decode_v3_record(&mut source, digest).map_err(|_| self.collision(kind, id))?;
@@ -366,9 +555,26 @@ impl LooseObjectStore {
     where
         D: TypedDigest,
     {
+        let mut encoded = Vec::new();
+        self.load_authenticated_chunk_into(id, digest, &mut encoded)?;
+        Ok(AuthenticatedChunk { encoded })
+    }
+
+    /// Read and authenticate one canonical chunk into an operation-owned
+    /// buffer. Large graph traversals can reuse the allocation without
+    /// retaining chunk payloads or cycling through allocator size classes.
+    pub(crate) fn load_authenticated_chunk_into<D>(
+        &self,
+        id: Digest32,
+        digest: &mut D,
+        encoded: &mut Vec<u8>,
+    ) -> Result<(), ObjectStoreError>
+    where
+        D: TypedDigest,
+    {
         let kind = RecordKindV3::Chunk;
-        let path = self.object_path(kind, id);
-        let encoded = read_chunk_bounded(&path).map_err(|_| self.collision(kind, id))?;
+        let path = self.resolve_object_path(kind, id)?;
+        read_chunk_bounded_into(&path, encoded).map_err(|_| self.collision(kind, id))?;
         let payload_length = encoded
             .len()
             .checked_sub(RECORD_HEADER_BYTES)
@@ -383,7 +589,126 @@ impl LooseObjectStore {
         if found != id {
             return Err(self.collision(kind, id));
         }
-        Ok(AuthenticatedChunk { encoded })
+        Ok(())
+    }
+
+    pub(crate) fn commit_batch(&self) -> Result<(), ObjectStoreError> {
+        let batch = self.batch.as_ref().ok_or(ObjectStoreError::InvalidBatch(
+            "ordinary stores cannot commit a batch",
+        ))?;
+        if batch.committed.load(Ordering::Acquire) {
+            return Err(ObjectStoreError::InvalidBatch(
+                "batch was already committed",
+            ));
+        }
+        let _batch_guard = batch
+            .mutation_lock
+            .lock()
+            .map_err(|_| ObjectStoreError::InvalidBatch("batch lock is poisoned"))?;
+        if batch.committed.load(Ordering::Acquire) {
+            return Err(ObjectStoreError::InvalidBatch(
+                "batch was already committed",
+            ));
+        }
+
+        sync_storage_root(&self.storage_root)?;
+        batch.committed.store(true, Ordering::Release);
+        Ok(())
+    }
+
+    fn install_batched<D>(
+        &self,
+        record: &CanonicalRecordV3,
+        digest: &mut D,
+    ) -> Result<StoredObject, ObjectStoreError>
+    where
+        D: TypedDigest + RawDigest,
+    {
+        let batch = self.require_open_batch()?;
+        let _batch_guard = batch
+            .mutation_lock
+            .lock()
+            .map_err(|_| ObjectStoreError::InvalidBatch("batch lock is poisoned"))?;
+        self.require_open_batch()?;
+        ensure_installable(record.kind())?;
+        let bytes = canonical_bytes(record)?;
+        let id = v3_record_id(record, digest)?;
+        let final_path = self.object_path(record.kind(), id);
+        if path_is_present(&final_path)? {
+            self.verify_existing(&final_path, record.kind(), id, &bytes, digest)?;
+            return Ok(StoredObject {
+                kind: record.kind(),
+                id,
+                path: final_path,
+                disposition: InstallDisposition::AlreadyPresent,
+            });
+        }
+        let path = final_path;
+        self.ensure_object_parent_unflushed(record.kind(), id)?;
+        let parent = path.parent().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "batched loose object path has no parent",
+            )
+        })?;
+        let temp = parent.join(format!(
+            ".object.{}.{}.tmp",
+            std::process::id(),
+            NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
+        ));
+        let mut guard = TempGuard::new(temp.clone());
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)?;
+        file.write_all(&bytes)?;
+        drop(file);
+        let disposition = match std::fs::hard_link(&temp, &path) {
+            Ok(()) => InstallDisposition::Installed,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                self.verify_existing(&path, record.kind(), id, &bytes, digest)?;
+                InstallDisposition::AlreadyPresent
+            }
+            Err(error) => return Err(error.into()),
+        };
+        guard.remove()?;
+        Ok(StoredObject {
+            kind: record.kind(),
+            id,
+            path,
+            disposition,
+        })
+    }
+
+    fn require_open_batch(&self) -> Result<&CommitBatch, ObjectStoreError> {
+        let batch = self
+            .batch
+            .as_deref()
+            .ok_or(ObjectStoreError::InvalidBatch("store has no commit batch"))?;
+        if batch.committed.load(Ordering::Acquire) {
+            return Err(ObjectStoreError::InvalidBatch("batch is already committed"));
+        }
+        Ok(batch)
+    }
+
+    pub(crate) fn resolve_object_path(
+        &self,
+        kind: RecordKindV3,
+        id: Digest32,
+    ) -> Result<PathBuf, ObjectStoreError> {
+        Ok(self.object_path(kind, id))
+    }
+
+    fn ensure_object_parent_unflushed(
+        &self,
+        kind: RecordKindV3,
+        id: Digest32,
+    ) -> Result<(), ObjectStoreError> {
+        let path = self.object_path(kind, id);
+        let parent = path.parent().ok_or(ObjectStoreError::InvalidBatch(
+            "final object path has no parent",
+        ))?;
+        ensure_real_directory_tree(&self.storage_root, parent)
     }
 
     fn ensure_object_parent(
@@ -490,6 +815,98 @@ impl LooseObjectStore {
     const fn collision(&self, kind: RecordKindV3, id: Digest32) -> ObjectStoreError {
         ObjectStoreError::ObjectCollisionOrCorruption { kind, id }
     }
+}
+
+fn ensure_real_directory_tree(root: &Path, target: &Path) -> Result<(), ObjectStoreError> {
+    let relative = target
+        .strip_prefix(root)
+        .map_err(|_| ObjectStoreError::InvalidBatch("directory escapes its trusted root"))?;
+    let mut current = root.to_path_buf();
+    for component in relative.components() {
+        let std::path::Component::Normal(component) = component else {
+            return Err(ObjectStoreError::InvalidBatch(
+                "directory contains a non-normal component",
+            ));
+        };
+        current.push(component);
+        match std::fs::create_dir(&current) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                let metadata = std::fs::symlink_metadata(&current)?;
+                if !metadata.file_type().is_dir() {
+                    return Err(ObjectStoreError::InvalidBatch(
+                        "directory component is not a real directory",
+                    ));
+                }
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(())
+}
+
+fn validate_native_file(path: &Path, logical_length: u64) -> Result<(), ObjectStoreError> {
+    let metadata = std::fs::symlink_metadata(path)?;
+    if !metadata.file_type().is_file() || metadata.len() != logical_length {
+        return Err(ObjectStoreError::InvalidBatch(
+            "native acceleration object is not an exact regular file",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn clone_file_extents(destination: &File, source: &File) -> Result<bool, ObjectStoreError> {
+    match rustix::fs::ioctl_ficlone(destination, source) {
+        Ok(()) => Ok(true),
+        Err(error)
+            if matches!(
+                error,
+                rustix::io::Errno::XDEV
+                    | rustix::io::Errno::NOTSUP
+                    | rustix::io::Errno::INVAL
+                    | rustix::io::Errno::NOSYS
+            ) =>
+        {
+            Ok(false)
+        }
+        Err(error) => Err(std::io::Error::from(error).into()),
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn clone_file_extents(_destination: &File, _source: &File) -> Result<bool, ObjectStoreError> {
+    Ok(false)
+}
+
+fn hex_digest(digest: Digest32) -> String {
+    let mut output = String::with_capacity(64);
+    for byte in digest.as_bytes() {
+        use std::fmt::Write as _;
+        let _ = write!(output, "{byte:02x}");
+    }
+    output
+}
+
+fn path_is_present(path: &Path) -> Result<bool, ObjectStoreError> {
+    match std::fs::symlink_metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error.into()),
+    }
+}
+
+fn sync_storage_root(storage_root: &Path) -> Result<(), ObjectStoreError> {
+    #[cfg(target_os = "linux")]
+    {
+        let root = File::open(storage_root)?;
+        rustix::fs::syncfs(&root)
+            .map_err(std::io::Error::from)
+            .map_err(ObjectStoreError::Io)?;
+    }
+    #[cfg(not(target_os = "linux"))]
+    File::open(storage_root)?.sync_all()?;
+    Ok(())
 }
 
 pub(crate) fn decode_embedded_record<D>(
@@ -676,7 +1093,7 @@ fn read_bounded(path: &Path) -> Result<Vec<u8>, ObjectStoreError> {
     Ok(bytes)
 }
 
-fn read_chunk_bounded(path: &Path) -> Result<Vec<u8>, ObjectStoreError> {
+fn read_chunk_bounded_into(path: &Path, encoded: &mut Vec<u8>) -> Result<(), ObjectStoreError> {
     let maximum = RECORD_HEADER_BYTES + MAX_CHUNK_BYTES;
     let metadata = std::fs::symlink_metadata(path)?;
     let length = usize::try_from(metadata.len()).unwrap_or(usize::MAX);
@@ -688,10 +1105,11 @@ fn read_chunk_bounded(path: &Path) -> Result<Vec<u8>, ObjectStoreError> {
             u32::try_from(metadata.len()).unwrap_or(u32::MAX),
         )));
     }
-    let mut encoded = Vec::with_capacity(length);
+    encoded.clear();
+    encoded.reserve(length);
     File::open(path)?
         .take(u64::try_from(maximum + 1).unwrap_or(u64::MAX))
-        .read_to_end(&mut encoded)?;
+        .read_to_end(encoded)?;
     if encoded.len() != length {
         return Err(ObjectStoreError::Core(Error::new(
             ErrorKind::ObjectCollisionOrCorruption,
@@ -700,7 +1118,7 @@ fn read_chunk_bounded(path: &Path) -> Result<Vec<u8>, ObjectStoreError> {
             u32::try_from(encoded.len()).unwrap_or(u32::MAX),
         )));
     }
-    Ok(encoded)
+    Ok(())
 }
 
 #[cfg(not(windows))]

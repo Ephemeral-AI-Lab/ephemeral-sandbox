@@ -1,0 +1,2843 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import json
+import math
+import os
+import pathlib
+import shlex
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+from typing import Any
+
+
+REPO = pathlib.Path("/Users/yifanxu/Ephemeral-AI-Lab/ephemeral-sandbox")
+R0 = pathlib.Path(
+    "/Users/yifanxu/Ephemeral-AI-Lab/experiment/"
+    "materialization-benchmark-20260727/corpus/console-release"
+)
+IMAGE = (
+    "ubuntu@sha256:"
+    "4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90"
+)
+GATEWAY_SOCKET = "127.0.0.1:7903"
+BUILD_COMMIT = "11f793ad96754e612ca6615835c11d78cf443a83"
+M3_SCORECARD_CONFIG = REPO / "config/mpla-poc-m3-phase-profile-sparse-v1.yml"
+STAGED_COORDINATOR_PATH = "/workspace/_campaign-tools/mpla-speed-poc-v1"
+PREPARED_FIXTURE_PROFILE = "s4-chain-sparse-v1"
+MANAGER = REPO / "bin/sandbox-manager-cli"
+RUNTIME = REPO / "bin/sandbox-runtime-cli"
+OBSERVABILITY = REPO / "bin/sandbox-observability-cli"
+COORDINATOR = (
+    REPO
+    / "target/aarch64-unknown-linux-musl/release/mpla-speed-poc-v1"
+)
+ORACLE = (
+    REPO / "target/aarch64-unknown-linux-musl/release/mpla-poc-oracle"
+)
+LINUX_RUNTIME = (
+    REPO
+    / "target/aarch64-unknown-linux-musl/release/sandbox-runtime-cli"
+)
+LINUX_EXPORTER = (
+    REPO
+    / "target/aarch64-unknown-linux-musl/release/sandbox-catalog-export"
+)
+NATIVE_EXPORTER = REPO / "target/release/sandbox-catalog-export"
+HV07_TEST_DIR = REPO / "target/aarch64-unknown-linux-musl/release/deps"
+TOKEN = pathlib.Path("/Users/yifanxu/.ephemeral-sandbox/gateway.token")
+RESULT_PREFIX = "MPLA_SCORECARD_RESULT "
+ERROR_PREFIX = "MPLA_SCORECARD_ERROR "
+SCORECARD_CASES = (
+    "qualification",
+    "activation",
+    "fork",
+    "rollback",
+    "publication",
+    "squash",
+    "stream",
+    "recovery",
+)
+PHASE_CASES = (*SCORECARD_CASES, "sealing")
+CASE_RUNNERS = {
+    "qualification": "mpla_qualification_scorecard",
+    "activation": "mpla_activation_scorecard",
+    "fork": "mpla_fork_scorecard",
+    "rollback": "mpla_rollback_scorecard",
+    "publication": "mpla_publication_scorecard",
+    "squash": "mpla_squash_scorecard",
+    "stream": "mpla_stream_scorecard",
+    "recovery": "mpla_hv07_scorecard",
+    "sealing": "mpla_sealing_scorecard",
+}
+CASE_GATES = {
+    "qualification": (),
+    "activation": ("BG-ACTIVATE-EXACT", "BG-ACTIVATE-SAME"),
+    "fork": ("BG-FORK",),
+    "rollback": ("BG-ROLLBACK",),
+    "publication": ("BG-PUBLISH-SMALL",),
+    "squash": ("AG-SQUASH",),
+    "stream": ("AG-STREAM",),
+    "recovery": ("HV-07",),
+}
+FORMAL_GATES = tuple(gate for gates in CASE_GATES.values() for gate in gates)
+CORRECTNESS_CHECKS = (
+    "exact_content_mode_ownership_oracle",
+    "immutable_layer_immutability",
+    "restart_durability",
+    "rollback_correctness",
+    "fork_isolation",
+    "branch_session_ownership_authorization",
+    "lease_reconciliation",
+    "collision_recovery",
+    "no_stale_run_resources",
+    "no_second_full_payload_copy",
+    "fixture_chain_under_ten_gib",
+    "memory_inode_bounds",
+    "storage_helper_capability_boundary",
+    "final_inventory_matches_baseline",
+    "hv07_crash_sweep",
+)
+CASE_RESULT_FILES = {
+    "qualification": "scorecard-qualification-result.json",
+    "activation": "scorecard-activation-result.json",
+    "fork": "scorecard-fork-result.json",
+    "rollback": "scorecard-rollback-result.json",
+    "publication": "scorecard-publication-result.json",
+    "squash": "scorecard-squash-result.json",
+    "stream": "scorecard-stream-result.json",
+    "recovery": "hv07-result.json",
+}
+CASE_PROGRESS_FILES = {
+    "activation": "scorecard-activation-progress.jsonl",
+    "fork": "scorecard-fork-progress.jsonl",
+    "rollback": "scorecard-rollback-progress.jsonl",
+    "publication": "scorecard-publication-progress.jsonl",
+    "squash": "scorecard-squash-progress.jsonl",
+}
+APPROVED_STORAGE_ADMIN_PROFILES = (
+    "mpla-storage-admin-v1",
+    "mpla-storage-admin-overlayfs-dac-override-qualification-v1",
+)
+CASE_DEADLINES_SECONDS = {
+    "qualification": 60,
+    "activation": 120,
+    "fork": 60,
+    "rollback": 60,
+    "publication": 70,
+    "squash": 60,
+    "stream": 40,
+    "recovery": 120,
+    "sealing": 30,
+}
+CASE_SUGGESTED_BUDGET_SECONDS = {
+    "qualification": 60,
+    "activation": 60,
+    "fork": 30,
+    "rollback": 30,
+    "publication": 35,
+    "squash": 30,
+    "stream": 20,
+    "recovery": 60,
+    "sealing": 30,
+}
+SETUP_OPERATION_DEADLINE_SECONDS = 120
+LIFECYCLE_CONTROL_PREPARATION_DEADLINE_SECONDS = 120
+PUBLICATION_PREPARATION_DEADLINE_SECONDS = 5
+WARM_ATTACHMENT_SERVICE_TARGET_NS = 50_000_000
+WARM_FIXTURE_PREPARATION_TARGET_NS = 1_000_000_000
+PREPARED_FIXTURE_LOGICAL_BYTES = 8 * 1024 * 1024 * 1024
+PREPARED_FIXTURE_ALLOCATION_COUNT = 8
+PREPARED_FIXTURE_BRANCHES = [
+    "fixture-depth-1",
+    "fixture-depth-5",
+    "fixture-depth-8",
+]
+COLD_CACHE_RECEIPT_FILE = "fixture-cache-construction.json"
+WARM_CACHE_RECEIPT_FILE = "fixture-cache-attachment.json"
+MAX_POLLS_PER_CASE = 60
+STARTUP_POLL_DELAYS_SECONDS = (1, 2, 4)
+STEADY_POLL_DELAY_SECONDS = 11
+RESULT_READ_PAGE_LINES = 256
+MAX_RESULT_READ_PAGES = 4096
+MEMORY_HIGH_BYTES = 96 * 1024 * 1024
+MEMORY_MAX_BYTES = 128 * 1024 * 1024
+RESOURCE_SAMPLE_FIELDS = (
+    "process_rss_bytes",
+    "process_io_rchar_bytes",
+    "process_io_wchar_bytes",
+    "process_io_read_bytes",
+    "process_io_write_bytes",
+    "cgroup_memory_current_bytes",
+    "cgroup_memory_peak_bytes",
+    "open_fds",
+    "run_tree_logical_bytes",
+    "run_tree_allocated_bytes",
+    "run_tree_inodes",
+)
+CASE_RESULT_KINDS = {
+    "qualification": "mpla_booster_qualification_scorecard_v1",
+    "activation": "mpla_booster_activation_scorecard_v1",
+    "fork": "mpla_booster_fork_scorecard_v1",
+    "rollback": "mpla_booster_rollback_scorecard_v1",
+    "publication": "mpla_booster_publication_scorecard_v1",
+    "squash": "mpla_booster_squash_scorecard_v1",
+    "stream": "mpla_booster_stream_scorecard_v1",
+    "recovery": "mpla_hv07_scorecard_result_v1",
+}
+
+
+class CampaignError(RuntimeError):
+    pass
+
+
+COMMON_SCORECARD_TOOL_SOURCE_INPUTS = (
+    REPO / "Cargo.toml",
+    REPO / "Cargo.lock",
+    REPO / ".cargo" / "config.toml",
+)
+SCORECARD_TOOL_SOURCE_SUFFIXES = (".rs", ".toml")
+
+
+def cargo_dep_info_source_inputs(artifact: pathlib.Path) -> tuple[pathlib.Path, ...]:
+    """Return the exact Rust inputs Cargo recorded for one scorecard executable."""
+    dep_info = artifact.with_suffix(".d")
+    try:
+        raw = dep_info.read_text()
+    except OSError as error:
+        raise CampaignError(
+            f"Cargo dep-info is absent for scorecard artifact: {artifact}"
+        ) from error
+    _target, separator, encoded_dependencies = raw.partition(": ")
+    if not separator:
+        raise CampaignError(f"Cargo dep-info is malformed for scorecard artifact: {artifact}")
+    try:
+        dependencies = tuple(pathlib.Path(value) for value in shlex.split(encoded_dependencies))
+    except ValueError as error:
+        raise CampaignError(
+            f"Cargo dep-info is malformed for scorecard artifact: {artifact}"
+        ) from error
+    inputs = [*COMMON_SCORECARD_TOOL_SOURCE_INPUTS]
+    inputs.extend(path for path in dependencies if path.suffix in SCORECARD_TOOL_SOURCE_SUFFIXES)
+    if len(inputs) == len(COMMON_SCORECARD_TOOL_SOURCE_INPUTS):
+        raise CampaignError(f"Cargo dep-info has no Rust sources for scorecard artifact: {artifact}")
+    return tuple(inputs)
+
+
+def require_fresh_scorecard_tools(
+    artifacts: tuple[pathlib.Path, ...],
+    source_inputs: tuple[pathlib.Path, ...],
+) -> dict[str, Any]:
+    """Fail closed when a staged scorecard executable predates its sources."""
+    if not artifacts:
+        raise CampaignError("scorecard tool artifacts are absent")
+    if not source_inputs:
+        raise CampaignError("scorecard tool source inputs are absent")
+    missing = [path for path in (*artifacts, *source_inputs) if not path.is_file()]
+    if missing:
+        raise CampaignError(f"scorecard tool input is absent: {missing[0]}")
+    source_mtimes = {str(path): path.stat().st_mtime_ns for path in source_inputs}
+    artifact_mtimes = {str(path): path.stat().st_mtime_ns for path in artifacts}
+    newest_source_mtime_ns = max(source_mtimes.values())
+    stale = [
+        path
+        for path in artifacts
+        if artifact_mtimes[str(path)] < newest_source_mtime_ns
+    ]
+    if stale:
+        raise CampaignError(
+            "scorecard artifact is older than its source inputs; rebuild: "
+            + ", ".join(str(path) for path in stale)
+        )
+    return {
+        "source_input_count": len(source_inputs),
+        "newest_source_mtime_ns": newest_source_mtime_ns,
+        "artifact_mtime_ns": artifact_mtimes,
+    }
+
+
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def sha256_file(path: pathlib.Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_new_json(path: pathlib.Path, value: Any) -> None:
+    payload = json.dumps(value, indent=2, sort_keys=True).encode() + b"\n"
+    write_new_bytes(path, payload)
+
+
+def write_new_bytes(path: pathlib.Path, payload: bytes) -> None:
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    try:
+        with os.fdopen(descriptor, "wb", closefd=False) as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+    finally:
+        os.close(descriptor)
+
+
+def append_json_line(path: pathlib.Path, value: Any) -> None:
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    with path.open("ab") as handle:
+        handle.write(payload + b"\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def command(
+    argv: list[str],
+    *,
+    timeout: int,
+    check: bool = True,
+) -> subprocess.CompletedProcess[bytes]:
+    completed = subprocess.run(
+        argv,
+        cwd=REPO,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=timeout,
+        check=False,
+    )
+    if check and completed.returncode != 0:
+        raise CampaignError(
+            f"command exited {completed.returncode}: {argv!r}; "
+            f"stdout={completed.stdout.decode('utf-8', 'replace')}; "
+            f"stderr={completed.stderr.decode('utf-8', 'replace')}"
+        )
+    return completed
+
+
+def parse_json_output(completed: subprocess.CompletedProcess[bytes], action: str) -> Any:
+    if completed.returncode != 0:
+        raise CampaignError(
+            f"{action} exited {completed.returncode}: "
+            f"{completed.stderr.decode('utf-8', 'replace')}"
+        )
+    try:
+        return json.loads(completed.stdout)
+    except json.JSONDecodeError as error:
+        raise CampaignError(
+            f"{action} did not emit one JSON value: "
+            f"{completed.stdout.decode('utf-8', 'replace')}"
+        ) from error
+
+
+def poll_delay_seconds(poll: int) -> int:
+    if poll < len(STARTUP_POLL_DELAYS_SECONDS):
+        return STARTUP_POLL_DELAYS_SECONDS[poll]
+    return STEADY_POLL_DELAY_SECONDS
+
+
+def hv07_test_binary() -> pathlib.Path:
+    candidates = sorted(
+        path
+        for path in HV07_TEST_DIR.glob("hv07_campaign-*")
+        if path.is_file() and os.access(path, os.X_OK) and path.suffix == ""
+    )
+    if len(candidates) != 1:
+        raise CampaignError(
+            "expected exactly one executable release HV-07 test artifact, "
+            f"found {candidates!r}"
+        )
+    return candidates[0]
+
+
+class Campaign:
+    def __init__(
+        self,
+        run_id: str,
+        evidence_root: pathlib.Path,
+        case: str,
+        phase_roots: dict[str, pathlib.Path] | None = None,
+        cold_cache_root: pathlib.Path | None = None,
+    ) -> None:
+        self.run_id = run_id
+        self.evidence_root = evidence_root
+        self.case = case
+        self.cases = [case]
+        self.phase_roots = phase_roots or {}
+        self.cold_cache_root = cold_cache_root
+        self.ledger = evidence_root / "command-ledger.jsonl"
+        self.stage_root: pathlib.Path | None = None
+        self.sandbox_ids: list[str] = []
+        self.candidate_sandbox_id: str | None = None
+        self.coordinator_sandbox_id: str | None = None
+        self.workspace_session_id: str | None = None
+        self.phase_started_ns: int | None = None
+        self.phase_elapsed_ns: int | None = None
+        self.baseline: dict[str, Any] | None = None
+        self.cleanup: dict[str, Any] = {
+            "destroy_attempts": [],
+            "case_cleanup": [],
+            "staging_removed": False,
+            "final_manager": None,
+            "final_observability": None,
+        }
+
+    def prepare_evidence(self) -> None:
+        if self.evidence_root.exists():
+            raise CampaignError(
+                f"refusing pre-existing evidence root {self.evidence_root}"
+            )
+        directories = ["cases"]
+        if self.case == "sealing":
+            directories.append("cases/sealing")
+        else:
+            directories.extend(
+                f"cases/{gate}" for gate in CASE_GATES[self.case]
+            )
+            if not CASE_GATES[self.case]:
+                directories.append(f"cases/{self.case}")
+        for relative in directories:
+            (self.evidence_root / relative).mkdir(parents=True, exist_ok=True)
+        source_diff = command(["git", "diff", "--binary"], timeout=120).stdout
+        source_status = command(
+            ["git", "status", "--porcelain=v1"], timeout=30
+        ).stdout
+        current_commit = (
+            command(["git", "rev-parse", "HEAD"], timeout=30)
+            .stdout.decode()
+            .strip()
+        )
+        if current_commit != BUILD_COMMIT:
+            raise CampaignError(
+                f"source commit {current_commit} does not match {BUILD_COMMIT}"
+            )
+        worktree_names = set(
+            command(["git", "diff", "--name-only"], timeout=30)
+            .stdout.decode()
+            .splitlines()
+        )
+        worktree_names.update(
+            command(
+                ["git", "ls-files", "--others", "--exclude-standard"],
+                timeout=30,
+            )
+            .stdout.decode()
+            .splitlines()
+        )
+        worktree_files = {}
+        for name in sorted(worktree_names):
+            path = REPO / name
+            if path.is_file():
+                worktree_files[name] = {
+                    "bytes": path.stat().st_size,
+                    "sha256": sha256_file(path),
+                }
+        write_new_json(
+            self.evidence_root / "source.json",
+            {
+                "commit": current_commit,
+                "tree": command(
+                    ["git", "show", "-s", "--format=%T", "HEAD"], timeout=30
+                ).stdout.decode().strip(),
+                "tracked_diff_sha256": sha256_bytes(source_diff),
+                "tracked_diff_bytes": len(source_diff),
+                "porcelain_sha256": sha256_bytes(source_status),
+                "porcelain": source_status.decode(),
+                "worktree_files": worktree_files,
+            },
+        )
+        write_new_json(
+            self.evidence_root / "environment.json",
+            {
+                "run_id": self.run_id,
+                "case": self.case,
+                "image": IMAGE,
+                "platform": "linux/arm64",
+                "gateway_socket": GATEWAY_SOCKET,
+                "gateway_config": str(M3_SCORECARD_CONFIG),
+                "r0": str(R0),
+                "build_commit": BUILD_COMMIT,
+                "created_utc": dt.datetime.now(dt.UTC).isoformat(),
+            },
+        )
+
+    def case_paths(self, case: str, name: str) -> list[pathlib.Path]:
+        gate_paths = [
+            self.evidence_root / "cases" / gate / name
+            for gate in CASE_GATES[case]
+        ]
+        return gate_paths or [self.evidence_root / "cases" / case / name]
+
+    def write_case_record(self, case: str, name: str, value: Any) -> None:
+        for path in self.case_paths(case, name):
+            write_new_json(path, value)
+
+    def r0_fixture_manifest(self) -> dict[str, Any]:
+        if not R0.is_dir() or R0.resolve() != R0:
+            raise CampaignError(f"R0 fixture is not its exact source directory: {R0}")
+        files = sorted(R0.rglob("*"), key=lambda value: value.relative_to(R0).as_posix())
+        manifest = hashlib.sha256(b"mpla-booster-scorecard-r0-manifest-v1\\0")
+        entries = []
+        logical_bytes = 0
+        for path in files:
+            relative = path.relative_to(R0).as_posix()
+            details = path.lstat()
+            if path.is_symlink():
+                raise CampaignError(f"R0 fixture contains a symlink: {relative}")
+            if path.is_dir():
+                continue
+            if not path.is_file():
+                raise CampaignError(f"R0 fixture contains an unsupported entry: {relative}")
+            content_sha256 = sha256_file(path)
+            logical_bytes += details.st_size
+            entries.append(
+                {
+                    "path": relative,
+                    "logical_bytes": details.st_size,
+                    "mode": stat.S_IMODE(details.st_mode),
+                    "sha256": content_sha256,
+                }
+            )
+            manifest.update(relative.encode() + b"\\0regular\\0")
+            manifest.update(str(details.st_size).encode() + b"\\0")
+            manifest.update(str(stat.S_IMODE(details.st_mode)).encode() + b"\\0")
+            manifest.update(content_sha256.encode() + b"\\0")
+        if logical_bytes != 912_350_100 or len(entries) != 3_602:
+            raise CampaignError(
+                "R0 fixture identity mismatch: "
+                f"logical_bytes={logical_bytes}; files={len(entries)}"
+            )
+        return {
+            "schema_version": 1,
+            "kind": "mpla_r0_console_release_manifest_v1",
+            "source": str(R0),
+            "logical_bytes": logical_bytes,
+            "regular_file_count": len(entries),
+            "manifest_sha256": manifest.hexdigest(),
+            "entries": entries,
+        }
+
+    def cli(
+        self,
+        program: pathlib.Path,
+        args: list[str],
+        action: str,
+        timeout: int,
+    ) -> Any:
+        argv = [str(program), "--gateway-socket", GATEWAY_SOCKET, *args]
+        started = time.monotonic_ns()
+        completed = command(argv, timeout=timeout, check=False)
+        elapsed_ns = time.monotonic_ns() - started
+        append_json_line(
+            self.ledger,
+            {
+                "action": action,
+                "argv": [program.name, "--gateway-socket", GATEWAY_SOCKET, *args],
+                "elapsed_ns": elapsed_ns,
+                "exit_code": completed.returncode,
+                "stdout_sha256": sha256_bytes(completed.stdout),
+                "stderr_sha256": sha256_bytes(completed.stderr),
+            },
+        )
+        return parse_json_output(completed, action)
+
+    def manager(self, args: list[str], action: str, timeout: int = 300) -> Any:
+        return self.cli(MANAGER, args, action, timeout)
+
+    def runtime(
+        self,
+        sandbox_id: str,
+        args: list[str],
+        action: str,
+        timeout: int = 300,
+    ) -> Any:
+        return self.cli(
+            RUNTIME,
+            ["--sandbox-id", sandbox_id, *args],
+            action,
+            timeout,
+        )
+
+    def observability(self, action: str) -> Any:
+        return self.cli(OBSERVABILITY, ["snapshot"], action, 60)
+
+    def coordinator_trace(self, sandbox_id: str, case: str) -> Any:
+        return self.cli(
+            OBSERVABILITY,
+            [
+                "trace",
+                "--sandbox-id",
+                sandbox_id,
+                "--trace-id",
+                f"{self.run_id}-{case}-coordinator",
+            ],
+            f"{case}_coordinator_trace",
+            60,
+        )
+
+    def publication_candidate_request_id(self, progress: dict[str, Any]) -> str:
+        file_read = progress.get("file_read")
+        if not isinstance(file_read, dict):
+            raise CampaignError("publication progress lacks a file-read receipt")
+        content = file_read.get("content")
+        if not isinstance(content, str):
+            raise CampaignError("publication progress content is malformed")
+        for line in reversed(content.splitlines()):
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as error:
+                raise CampaignError("publication progress contains invalid JSON") from error
+            details = record.get("details")
+            if (
+                record.get("stage") != "chain_layer_action_started"
+                or not isinstance(details, dict)
+                or details.get("action") != "publish"
+            ):
+                continue
+            layer = details.get("layer")
+            if type(layer) is not int or layer < 1 or layer > 999:
+                raise CampaignError("publication progress publish layer is malformed")
+            return f"{self.run_id}-layer-{layer:03}-publish"
+        raise CampaignError("publication progress has no started publish action")
+
+    def publication_candidate_trace(
+        self, candidate_sandbox_id: str, request_id: str
+    ) -> Any:
+        return self.cli(
+            OBSERVABILITY,
+            [
+                "trace",
+                "--sandbox-id",
+                candidate_sandbox_id,
+                "--trace-id",
+                request_id,
+            ],
+            "publication_candidate_trace",
+            60,
+        )
+
+    def publication_candidate_events(self, candidate_sandbox_id: str) -> Any:
+        return self.cli(
+            OBSERVABILITY,
+            [
+                "events",
+                "--sandbox-id",
+                candidate_sandbox_id,
+                "--name",
+                "mpla_publication.checkpoint",
+                "--last-n",
+                "128",
+            ],
+            "publication_candidate_events",
+            60,
+        )
+
+    def require_empty_inventory(self) -> None:
+        manager = self.manager(["list_sandboxes"], "pre_manager_inventory", 60)
+        observability = self.observability("pre_observability_inventory")
+        if manager.get("sandboxes") != [] or observability.get("sandboxes") != []:
+            raise CampaignError("qualification inventories are not empty")
+        self.baseline = {"manager": manager, "observability": observability}
+
+    def stage(self) -> None:
+        needs_hv07 = self.case == "recovery"
+        hv07_test = hv07_test_binary() if needs_hv07 else None
+        needs_r0 = self.case in {"activation", "fork", "rollback", "squash"}
+        required_inputs = [
+            COORDINATOR,
+            ORACLE,
+            LINUX_RUNTIME,
+            LINUX_EXPORTER,
+            NATIVE_EXPORTER,
+            TOKEN,
+        ]
+        if hv07_test is not None:
+            required_inputs.append(hv07_test)
+        if needs_r0:
+            required_inputs.append(R0)
+        for path in required_inputs:
+            if not path.exists():
+                raise CampaignError(f"required input is absent: {path}")
+        scorecard_tool_freshness = {
+            artifact.name: require_fresh_scorecard_tools(
+                (artifact,), cargo_dep_info_source_inputs(artifact)
+            )
+            for artifact in (COORDINATOR, ORACLE)
+        }
+        fixture_manifest = self.r0_fixture_manifest() if needs_r0 else None
+        if fixture_manifest is not None:
+            write_new_json(self.evidence_root / "fixture-manifest.json", fixture_manifest)
+        required_stage_bytes = (
+            int(fixture_manifest["logical_bytes"]) * 2 * 6 // 5
+            if fixture_manifest is not None
+            else 0
+        )
+        free_bytes = shutil.disk_usage(tempfile.gettempdir()).free
+        if free_bytes < required_stage_bytes:
+            raise CampaignError(
+                "insufficient staging disk with required 20% margin: "
+                f"free={free_bytes}; required={required_stage_bytes}"
+            )
+        root = pathlib.Path(
+            tempfile.mkdtemp(prefix=f"eos-{self.run_id}-{self.case}-")
+        )
+        self.stage_root = root
+        tools = root / "_campaign-tools"
+        tools.mkdir()
+        if fixture_manifest is not None:
+            shutil.copytree(R0, root / "r0", symlinks=True)
+        staged = {}
+        stage_sources = [
+            COORDINATOR,
+            ORACLE,
+            LINUX_RUNTIME,
+            LINUX_EXPORTER,
+            TOKEN,
+        ]
+        if hv07_test is not None:
+            stage_sources.append(hv07_test)
+        for source in stage_sources:
+            target = tools / (
+                "gateway.token"
+                if source == TOKEN
+                else "hv07_campaign"
+                if source == hv07_test
+                else source.name
+            )
+            shutil.copy2(source, target)
+            if source != TOKEN:
+                target.chmod(
+                    target.stat().st_mode
+                    | stat.S_IXUSR
+                    | stat.S_IXGRP
+                    | stat.S_IXOTH
+                )
+            staged[target.name] = {
+                "bytes": target.stat().st_size,
+                "sha256": sha256_file(target),
+            }
+        catalog = command([str(NATIVE_EXPORTER)], timeout=120).stdout
+        parsed = json.loads(catalog)
+        if (
+            parsed.get("schema_version") != 1
+            or parsed.get("kind") != "ephemeral_sandbox_product_catalog"
+        ):
+            raise CampaignError("native product catalog export is malformed")
+        catalog_path = tools / "product-catalog.json"
+        descriptor = os.open(
+            catalog_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644
+        )
+        try:
+            os.write(descriptor, catalog)
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        staged[catalog_path.name] = {
+            "bytes": len(catalog),
+            "sha256": sha256_bytes(catalog),
+        }
+        write_new_json(
+            self.evidence_root / "staged-artifacts.json",
+            {
+                "stage_root": str(root),
+                "artifacts": staged,
+                "r0_staged": fixture_manifest is not None,
+                "r0_source": str(R0) if fixture_manifest is not None else None,
+                "r0_manifest_sha256": (
+                    fixture_manifest["manifest_sha256"]
+                    if fixture_manifest is not None
+                    else None
+                ),
+                "staging_free_bytes_before_copy": free_bytes,
+                "required_stage_bytes_with_margin": required_stage_bytes,
+                "scorecard_tool_freshness": scorecard_tool_freshness,
+            },
+        )
+
+    def create_sandbox(self, role: str) -> str:
+        if self.stage_root is None:
+            raise CampaignError("staging is not prepared")
+        response = self.manager(
+            [
+                "create_sandbox",
+                "--image",
+                IMAGE,
+                "--workspace-bind-root",
+                str(self.stage_root),
+            ],
+            f"create_{role}_sandbox",
+            SETUP_OPERATION_DEADLINE_SECONDS,
+        )
+        sandbox_id = response.get("id") or response.get("sandbox_id")
+        if not isinstance(sandbox_id, str) or not sandbox_id.startswith("eos-"):
+            raise CampaignError(f"{role} create response omitted sandbox ID")
+        self.sandbox_ids.append(sandbox_id)
+        return sandbox_id
+
+    def coordinator_budget_ms(self) -> int:
+        return CASE_DEADLINES_SECONDS[self.case] * 1_000
+
+    def wait_command(
+        self,
+        sandbox_id: str,
+        initial: dict[str, Any],
+        deadline_seconds: int,
+    ) -> dict[str, Any]:
+        response = initial
+        expected_start = 0
+        command_session_id: str | None = None
+        output_chunks: list[str] = []
+        poll = 0
+        deadline = time.monotonic() + deadline_seconds
+        while True:
+            status = response.get("status")
+            start = response.get("start_offset")
+            end = response.get("end_offset")
+            total = response.get("total_lines")
+            output = response.get("output")
+            if (
+                status
+                not in {"running", "ok", "error", "timed_out", "cancelled"}
+                or not isinstance(start, int)
+                or not isinstance(end, int)
+                or not isinstance(total, int)
+                or not isinstance(output, str)
+                or start != expected_start
+                or not (start <= end <= total)
+            ):
+                raise CampaignError("coordinator command chronology is malformed")
+            current_id = response.get("command_session_id")
+            if current_id is not None:
+                if not isinstance(current_id, str):
+                    raise CampaignError("coordinator command session ID is malformed")
+                if command_session_id is None:
+                    command_session_id = current_id
+                elif command_session_id != current_id:
+                    raise CampaignError("coordinator command session ID changed")
+            if end > start:
+                output_chunks.append(output)
+            expected_start = end
+            if status != "running" and end == total:
+                if time.monotonic() > deadline:
+                    raise CampaignError("coordinator command exceeded its phase-local deadline")
+                terminal = dict(response)
+                terminal["output"] = "\n".join(output_chunks)
+                return terminal
+            if time.monotonic() >= deadline:
+                raise CampaignError("coordinator command exceeded host deadline")
+            if command_session_id is None:
+                raise CampaignError("running coordinator omitted command session ID")
+            if poll >= MAX_POLLS_PER_CASE:
+                raise CampaignError("coordinator command exceeded the 60-poll case limit")
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise CampaignError("coordinator command exceeded host deadline")
+            time.sleep(min(poll_delay_seconds(poll), remaining))
+            poll += 1
+            response = self.runtime(
+                sandbox_id,
+                [
+                    "--request-id",
+                    f"{self.run_id}-{self.case}-poll-{poll:04}",
+                    "read_command_lines",
+                    "--command-session-id",
+                    command_session_id,
+                    "--start-offset",
+                    str(expected_start),
+                    "--limit",
+                    "100",
+                ],
+                f"coordinator_poll_{poll:04}",
+                60,
+            )
+
+    def read_result(
+        self, sandbox_id: str, case: str
+    ) -> tuple[dict[str, Any], str]:
+        if self.workspace_session_id is None:
+            raise CampaignError("coordinator workspace session is absent")
+        result_file = CASE_RESULT_FILES[case]
+        chunks: list[str] = []
+        offset = 1
+        total_lines: int | None = None
+        total_bytes: int | None = None
+        for page in range(1, MAX_RESULT_READ_PAGES + 1):
+            response = self.runtime(
+                sandbox_id,
+                [
+                    "--request-id",
+                    f"{self.run_id}-{case}-read-result-{page:04}",
+                    "file_read",
+                    "--path",
+                    result_file,
+                    "--offset",
+                    str(offset),
+                    "--limit",
+                    str(RESULT_READ_PAGE_LINES),
+                    "--workspace-session-id",
+                    self.workspace_session_id,
+                ],
+                f"read_scorecard_result_{page:04}",
+                120,
+            )
+            content = response.get("content")
+            start_line = response.get("start_line")
+            num_lines = response.get("num_lines")
+            current_total_lines = response.get("total_lines")
+            current_total_bytes = response.get("total_bytes")
+            next_offset = response.get("next_offset")
+            truncated = response.get("truncated")
+            if not isinstance(content, str):
+                raise CampaignError("scorecard result page omitted content")
+            if start_line != offset:
+                raise CampaignError("scorecard result page is not contiguous")
+            if type(num_lines) is not int or num_lines < 1:
+                raise CampaignError("scorecard result page has invalid line count")
+            if type(current_total_lines) is not int or current_total_lines < 1:
+                raise CampaignError("scorecard result page has invalid total lines")
+            if type(current_total_bytes) is not int or current_total_bytes < 1:
+                raise CampaignError("scorecard result page has invalid total bytes")
+            if response.get("bytes_read") != len(content.encode()):
+                raise CampaignError("scorecard result page byte count is inconsistent")
+            if total_lines is None:
+                total_lines = current_total_lines
+                total_bytes = current_total_bytes
+            elif (
+                current_total_lines != total_lines
+                or current_total_bytes != total_bytes
+            ):
+                raise CampaignError("scorecard result changed during retrieval")
+            chunks.append(content)
+            expected_next = offset + num_lines
+            if next_offset is None:
+                if truncated is not False or expected_next != total_lines + 1:
+                    raise CampaignError("scorecard result final page is inconsistent")
+                break
+            if (
+                type(next_offset) is not int
+                or next_offset != expected_next
+                or next_offset > total_lines
+                or truncated is not True
+            ):
+                raise CampaignError("scorecard result pagination is inconsistent")
+            offset = next_offset
+        else:
+            raise CampaignError("scorecard result exceeded the page limit")
+        content = "\n".join(chunks)
+        if total_bytes != len(content.encode()):
+            raise CampaignError("scorecard result assembled byte count is inconsistent")
+        try:
+            result = json.loads(content)
+        except json.JSONDecodeError as error:
+            raise CampaignError("scorecard result is not valid JSON") from error
+        self.write_case_record(case, "raw-result.json", result)
+        return result, sha256_bytes(content.encode())
+
+    def read_progress(self, sandbox_id: str, case: str) -> dict[str, Any]:
+        if self.workspace_session_id is None:
+            raise CampaignError("coordinator workspace session is absent")
+        progress_file = CASE_PROGRESS_FILES.get(case)
+        if progress_file is None:
+            raise CampaignError(f"{case} has no coordinator progress file")
+        response = self.runtime(
+            sandbox_id,
+            [
+                "--request-id",
+                f"{self.run_id}-{case}-read-progress",
+                "file_read",
+                "--path",
+                progress_file,
+                "--offset",
+                "1",
+                "--limit",
+                "256",
+                "--workspace-session-id",
+                self.workspace_session_id,
+            ],
+            "read_scorecard_progress",
+            120,
+        )
+        content = response.get("content")
+        if not isinstance(content, str) or response.get("start_line") != 1:
+            raise CampaignError("coordinator progress response is malformed")
+        if response.get("bytes_read") != len(content.encode()):
+            raise CampaignError("coordinator progress byte count is inconsistent")
+        if response.get("truncated") is not False or response.get("next_offset") is not None:
+            raise CampaignError("coordinator progress exceeded the single evidence page")
+        return {"path": f"/workspace/{progress_file}", "file_read": response}
+
+    def prepare_execution(self) -> None:
+        candidate = self.create_sandbox("candidate")
+        coordinator = self.create_sandbox("coordinator")
+        self.candidate_sandbox_id = candidate
+        self.coordinator_sandbox_id = coordinator
+        session = self.runtime(
+            coordinator,
+            ["create_workspace_session"],
+            "create_coordinator_workspace_session",
+            120,
+        )
+        workspace_session_id = session.get("workspace_session_id")
+        if not isinstance(workspace_session_id, str):
+            raise CampaignError("coordinator workspace create omitted session ID")
+        self.workspace_session_id = workspace_session_id
+
+    def fixture_preparation_run_id(self) -> str:
+        run_id = (
+            f"{self.run_id}-p0-warm"
+            if self.case == "qualification"
+            else self.run_id
+        )
+        if (
+            not run_id
+            or len(run_id) > 96
+            or any(
+                not (
+                    character.isascii()
+                    and (character.isalnum() or character in "_-")
+                )
+                for character in run_id
+            )
+        ):
+            raise CampaignError(
+                "fixture-preparation run ID is not a safe identifier"
+            )
+        return run_id
+
+    def run_publication_preparation(self) -> None:
+        if (
+            self.candidate_sandbox_id is None
+            or self.coordinator_sandbox_id is None
+            or self.workspace_session_id is None
+        ):
+            raise CampaignError("publication preparation sandboxes are not prepared")
+        deadline_seconds = PUBLICATION_PREPARATION_DEADLINE_SECONDS
+        fixture_run_id = self.fixture_preparation_run_id()
+        frozen = (
+            f"{STAGED_COORDINATOR_PATH} "
+            "prepare-publication-fixture "
+            f"--run-id {fixture_run_id} "
+            f"--candidate-sandbox-id {self.candidate_sandbox_id} "
+            f"--build-commit {BUILD_COMMIT} "
+            f"--fixture-profile {PREPARED_FIXTURE_PROFILE}"
+        )
+        initial = self.runtime(
+            self.coordinator_sandbox_id,
+            [
+                "--request-id",
+                f"{self.run_id}-publication-prepare",
+                "exec_command",
+                "--workspace-session-id",
+                self.workspace_session_id,
+                "--timeout-ms",
+                str(deadline_seconds * 1000),
+                "--yield-time-ms",
+                "0",
+                frozen,
+            ],
+            "start_publication_preparation",
+            SETUP_OPERATION_DEADLINE_SECONDS,
+        )
+        terminal = self.wait_command(
+            self.coordinator_sandbox_id,
+            initial,
+            deadline_seconds,
+        )
+        self.write_case_record(self.case, "fixture-preparation-terminal.json", terminal)
+        output = terminal.get("output")
+        if terminal.get("status") != "ok" or terminal.get("exit_code") != 0:
+            progress: dict[str, Any] | None = None
+            try:
+                progress = self.read_progress(self.coordinator_sandbox_id, "publication")
+                self.write_case_record(self.case, "fixture-preparation-progress.json", progress)
+            except Exception as error:
+                self.write_case_record(
+                    self.case,
+                    "fixture-preparation-progress-error.json",
+                    {"error": str(error)},
+                )
+            if progress is not None:
+                try:
+                    candidate_request_id = self.publication_candidate_request_id(progress)
+                    self.write_case_record(
+                        self.case,
+                        "fixture-preparation-candidate-trace.json",
+                        {
+                            "request_id": candidate_request_id,
+                            "trace": self.publication_candidate_trace(
+                                self.candidate_sandbox_id,
+                                candidate_request_id,
+                            ),
+                        },
+                    )
+                except Exception as error:
+                    self.write_case_record(
+                        self.case,
+                        "fixture-preparation-candidate-trace-error.json",
+                        {"error": str(error)},
+                    )
+                try:
+                    self.write_case_record(
+                        self.case,
+                        "fixture-preparation-candidate-events.json",
+                        self.publication_candidate_events(self.candidate_sandbox_id),
+                    )
+                except Exception as error:
+                    self.write_case_record(
+                        "publication",
+                        "fixture-preparation-candidate-events-error.json",
+                        {"error": str(error)},
+                    )
+            try:
+                self.write_case_record(
+                    self.case,
+                    "fixture-preparation-trace.json",
+                    self.coordinator_trace(self.coordinator_sandbox_id, "publication"),
+                )
+            except Exception as error:
+                self.write_case_record(
+                    self.case,
+                    "fixture-preparation-trace-error.json",
+                    {"error": str(error)},
+                )
+            raise CampaignError(
+                "publication preparation failed: "
+                f"status={terminal.get('status')!r}; "
+                f"exit_code={terminal.get('exit_code')!r}; "
+                "command_total_time_seconds="
+                f"{terminal.get('command_total_time_seconds')!r}; "
+                f"output={output!r}"
+            )
+        lines = [
+            line
+            for line in str(output).splitlines()
+            if line.startswith(RESULT_PREFIX) or line.startswith(ERROR_PREFIX)
+        ]
+        if len(lines) != 1 or not lines[0].startswith(RESULT_PREFIX):
+            raise CampaignError(
+                f"publication preparation summary is malformed: {output}"
+            )
+        summary = json.loads(lines[0][len(RESULT_PREFIX) :])
+        if summary.get("result_path") != "/workspace/scorecard-publication-preparation.json":
+            raise CampaignError("publication preparation returned an unexpected result path")
+        if (
+            summary.get("fixture_profile") != PREPARED_FIXTURE_PROFILE
+            or type(summary.get("fixture_logical_bytes")) is not int
+            or summary["fixture_logical_bytes"] != PREPARED_FIXTURE_LOGICAL_BYTES
+            or type(summary.get("chain_depth")) is not int
+            or summary["chain_depth"] != 8
+            or type(summary.get("prepared_depth_one_candidates")) is not int
+            or summary["prepared_depth_one_candidates"] != 3
+            or summary.get("attachment_operation") != "attach_mpla_prepared_fixture"
+            or type(summary.get("payload_bytes_copied")) is not int
+            or summary["payload_bytes_copied"] != 0
+            or type(summary.get("cached_allocation_count")) is not int
+            or summary["cached_allocation_count"]
+            != PREPARED_FIXTURE_ALLOCATION_COUNT
+            or summary.get("attached_branches") != PREPARED_FIXTURE_BRANCHES
+        ):
+            raise CampaignError("publication preparation summary is incomplete")
+        attachment_elapsed_ns = summary.get("attachment_service_elapsed_ns")
+        preparation_elapsed_ns = summary.get("fixture_preparation_elapsed_ns")
+        if (
+            type(attachment_elapsed_ns) is not int
+            or attachment_elapsed_ns <= 0
+            or attachment_elapsed_ns >= WARM_ATTACHMENT_SERVICE_TARGET_NS
+            or type(preparation_elapsed_ns) is not int
+            or preparation_elapsed_ns <= 0
+            or preparation_elapsed_ns >= WARM_FIXTURE_PREPARATION_TARGET_NS
+        ):
+            raise CampaignError(
+                "publication fixture attachment exceeded its P0-WARM acceptance target"
+            )
+        attachment_receipt = {
+            **summary,
+            "schema_version": 1,
+            "phase": "P0-WARM",
+            "phase_liveness_cap_seconds": deadline_seconds,
+            "attachment_service_target_ns": WARM_ATTACHMENT_SERVICE_TARGET_NS,
+            "fixture_preparation_target_ns": WARM_FIXTURE_PREPARATION_TARGET_NS,
+            "payload_bytes_were_copied": False,
+            "attachment_run_id": fixture_run_id,
+            "phase_run_id": self.run_id,
+        }
+        write_new_json(
+            self.evidence_root / "fixture-cache-attachment.json",
+            attachment_receipt,
+        )
+        self.write_case_record(self.case, "fixture-preparation-summary.json", summary)
+
+    def run_lifecycle_control_preparation(self) -> None:
+        if (
+            self.case not in {"activation", "fork", "rollback"}
+            or self.candidate_sandbox_id is None
+            or self.coordinator_sandbox_id is None
+            or self.workspace_session_id is None
+        ):
+            raise CampaignError(
+                "lifecycle control preparation requires a prepared lifecycle case"
+            )
+        deadline_seconds = LIFECYCLE_CONTROL_PREPARATION_DEADLINE_SECONDS
+        frozen = (
+            f"{STAGED_COORDINATOR_PATH} "
+            "prepare-lifecycle-control "
+            f"--run-id {self.run_id} --phase {self.case} "
+            f"--candidate-sandbox-id {self.candidate_sandbox_id} "
+            f"--build-commit {BUILD_COMMIT}"
+        )
+        initial = self.runtime(
+            self.coordinator_sandbox_id,
+            [
+                "--request-id",
+                f"{self.run_id}-{self.case}-control-prepare",
+                "exec_command",
+                "--workspace-session-id",
+                self.workspace_session_id,
+                "--timeout-ms",
+                str(deadline_seconds * 1000),
+                "--yield-time-ms",
+                "0",
+                frozen,
+            ],
+            f"start_{self.case}_control_preparation",
+            SETUP_OPERATION_DEADLINE_SECONDS,
+        )
+        terminal = self.wait_command(
+            self.coordinator_sandbox_id,
+            initial,
+            deadline_seconds,
+        )
+        self.write_case_record(
+            self.case, "control-preparation-terminal.json", terminal
+        )
+        output = terminal.get("output")
+        if terminal.get("status") != "ok" or terminal.get("exit_code") != 0:
+            raise CampaignError(
+                f"{self.case} control preparation failed: "
+                f"status={terminal.get('status')!r}; "
+                f"exit_code={terminal.get('exit_code')!r}; "
+                f"command_total_time_seconds="
+                f"{terminal.get('command_total_time_seconds')!r}; "
+                f"output={output!r}"
+            )
+        lines = [
+            line
+            for line in str(output).splitlines()
+            if line.startswith(RESULT_PREFIX) or line.startswith(ERROR_PREFIX)
+        ]
+        if len(lines) != 1 or not lines[0].startswith(RESULT_PREFIX):
+            raise CampaignError(
+                f"{self.case} control preparation summary is malformed: {output}"
+            )
+        summary = json.loads(lines[0][len(RESULT_PREFIX) :])
+        expected_state_root = (
+            "/eos/workspace/mpla-poc/scorecard-control-preparations/"
+            f"{self.run_id}-{self.case}/state"
+        )
+        collection_elapsed_ns = summary.get("collection_elapsed_ns")
+        closing_publication_elapsed_ns = summary.get(
+            "closing_publication_elapsed_ns"
+        )
+        preparation_elapsed_ns = summary.get("preparation_elapsed_ns")
+        candidate_preparation_elapsed_ns = summary.get(
+            "candidate_preparation_elapsed_ns"
+        )
+        if (
+            summary.get("schema_version") != 1
+            or summary.get("kind")
+            != "mpla_booster_lifecycle_control_preparation_summary_v1"
+            or summary.get("run_id") != self.run_id
+            or summary.get("phase") != self.case
+            or summary.get("candidate_sandbox_id")
+            != self.candidate_sandbox_id
+            or summary.get("build_commit") != BUILD_COMMIT
+            or summary.get("state_root") != expected_state_root
+            or summary.get("fixture_entries") != 4_295
+            or summary.get("fixture_logical_bytes") != 912_350_100
+            or summary.get("control_immutable_publication_count") != 1
+            or summary.get("candidate_immutable_publication_count") != 1
+            or summary.get("immutable_publication_count") != 2
+            or summary.get("control_pre_materialized_carrier_count") != 0
+            or summary.get("candidate_oracle_materialization_count") != 1
+            or type(collection_elapsed_ns) is not int
+            or collection_elapsed_ns <= 0
+            or collection_elapsed_ns > deadline_seconds * 1_000_000_000
+            or type(closing_publication_elapsed_ns) is not int
+            or closing_publication_elapsed_ns <= 0
+            or closing_publication_elapsed_ns
+            > deadline_seconds * 1_000_000_000
+            or type(preparation_elapsed_ns) is not int
+            or preparation_elapsed_ns <= 0
+            or preparation_elapsed_ns > deadline_seconds * 1_000_000_000
+            or type(candidate_preparation_elapsed_ns) is not int
+            or candidate_preparation_elapsed_ns <= 0
+            or candidate_preparation_elapsed_ns
+            > deadline_seconds * 1_000_000_000
+            or collection_elapsed_ns > preparation_elapsed_ns
+            or closing_publication_elapsed_ns > preparation_elapsed_ns
+            or candidate_preparation_elapsed_ns > preparation_elapsed_ns
+            or not isinstance(summary.get("source_manifest_sha256"), str)
+            or len(summary["source_manifest_sha256"]) != 64
+            or not isinstance(summary.get("catalog_binding_id"), str)
+            or len(summary["catalog_binding_id"]) != 64
+            or not isinstance(summary.get("receipt_checksum_sha256"), str)
+            or len(summary["receipt_checksum_sha256"]) != 64
+        ):
+            raise CampaignError(
+                f"{self.case} control preparation summary is incomplete"
+            )
+        write_new_json(
+            self.evidence_root / "control-preparation.json",
+            {
+                **summary,
+                "preparation_liveness_cap_seconds": deadline_seconds,
+                "excluded_from_phase_operation_timer": True,
+            },
+        )
+        self.write_case_record(
+            self.case, "control-preparation-summary.json", summary
+        )
+
+    def run_scorecard_case(self, case: str) -> dict[str, Any]:
+        if (
+            self.candidate_sandbox_id is None
+            or self.coordinator_sandbox_id is None
+            or self.workspace_session_id is None
+        ):
+            raise CampaignError("scorecard execution sandboxes are not prepared")
+        candidate = self.candidate_sandbox_id
+        coordinator = self.coordinator_sandbox_id
+        workspace_session_id = self.workspace_session_id
+        frozen = (
+            f"{STAGED_COORDINATOR_PATH} "
+            "scorecard-case "
+            f"--run-id {self.run_id} --case {case} "
+            f"--candidate-sandbox-id {candidate} --build-commit {BUILD_COMMIT}"
+        )
+        deadline_ms = self.coordinator_budget_ms()
+        initial = self.runtime(
+            coordinator,
+            [
+                "--request-id",
+                f"{self.run_id}-{case}-coordinator",
+                "exec_command",
+                "--workspace-session-id",
+                workspace_session_id,
+                "--timeout-ms",
+                str(deadline_ms),
+                "--yield-time-ms",
+                "0",
+                frozen,
+            ],
+            f"start_{case}_coordinator",
+            SETUP_OPERATION_DEADLINE_SECONDS,
+        )
+        try:
+            terminal = self.wait_command(
+                coordinator,
+                initial,
+                deadline_ms / 1_000,
+            )
+        except Exception:
+            self.capture_coordinator_failure(case, coordinator)
+            raise
+        self.write_case_record(case, "coordinator-terminal.json", terminal)
+        output = terminal.get("output")
+        if terminal.get("status") != "ok" or terminal.get("exit_code") != 0:
+            self.capture_coordinator_failure(case, coordinator)
+            raise CampaignError(
+                f"{case} coordinator failed: "
+                f"status={terminal.get('status')!r}; "
+                f"exit_code={terminal.get('exit_code')!r}; "
+                f"command_total_time_seconds="
+                f"{terminal.get('command_total_time_seconds')!r}; "
+                f"output={output!r}"
+            )
+        lines = [
+            line
+            for line in str(output).splitlines()
+            if line.startswith(RESULT_PREFIX) or line.startswith(ERROR_PREFIX)
+        ]
+        if len(lines) != 1 or not lines[0].startswith(RESULT_PREFIX):
+            raise CampaignError(f"{case} coordinator summary is malformed: {output}")
+        summary = json.loads(lines[0][len(RESULT_PREFIX) :])
+        expected_path = f"/workspace/{CASE_RESULT_FILES[case]}"
+        if summary.get("result_path") != expected_path:
+            raise CampaignError(
+                f"{case} coordinator returned an unexpected result path"
+            )
+        result, raw_result_sha256 = self.read_result(coordinator, case)
+        if raw_result_sha256 != summary.get("result_sha256"):
+            raise CampaignError("retrieved scorecard result hash does not match summary")
+        if case in {"activation", "fork", "rollback"}:
+            preparation = json.loads(
+                (self.evidence_root / "control-preparation.json").read_text()
+            )
+            if (
+                result.get("control_preparation", {}).get("checksum_sha256")
+                != preparation.get("receipt_checksum_sha256")
+            ):
+                raise CampaignError(
+                    "phase result does not bind the prepared lifecycle control receipt"
+                )
+        self.write_case_record(case, "summary.json", summary)
+        return result
+
+    def capture_coordinator_failure(self, case: str, coordinator: str) -> None:
+        if case in CASE_PROGRESS_FILES:
+            try:
+                self.write_case_record(
+                    case,
+                    "coordinator-progress.json",
+                    self.read_progress(coordinator, case),
+                )
+            except Exception as error:
+                self.write_case_record(
+                    case,
+                    "coordinator-progress-error.json",
+                    {"error": str(error)},
+                )
+        try:
+            self.write_case_record(
+                case,
+                "coordinator-trace.json",
+                self.coordinator_trace(coordinator, case),
+            )
+        except Exception as error:
+            self.write_case_record(
+                case,
+                "coordinator-trace-error.json",
+                {"error": str(error)},
+            )
+
+    def cleanup_execution(self, case: str) -> None:
+        if self.workspace_session_id is not None and self.sandbox_ids:
+            try:
+                response = self.runtime(
+                    self.sandbox_ids[-1],
+                    [
+                        "destroy_workspace_session",
+                        "--workspace-session-id",
+                        self.workspace_session_id,
+                        "--grace-s",
+                        "0",
+                    ],
+                    "destroy_coordinator_workspace_session",
+                    120,
+                )
+                self.cleanup["workspace_session_destroy"] = response
+            except Exception as error:
+                self.cleanup["workspace_session_destroy_error"] = str(error)
+        for sandbox_id in reversed(self.sandbox_ids):
+            try:
+                response = self.manager(
+                    ["destroy_sandbox", "--sandbox-id", sandbox_id],
+                    f"destroy_{sandbox_id}",
+                    300,
+                )
+                self.cleanup["destroy_attempts"].append(
+                    {"sandbox_id": sandbox_id, "response": response}
+                )
+            except Exception as error:
+                self.cleanup["destroy_attempts"].append(
+                    {"sandbox_id": sandbox_id, "error": str(error)}
+                )
+
+        self.cleanup["case_cleanup"].append(
+            {
+                "case": case,
+                "workspace_session_id": self.workspace_session_id,
+                "sandbox_ids": list(self.sandbox_ids),
+            }
+        )
+        self.sandbox_ids = []
+        self.candidate_sandbox_id = None
+        self.coordinator_sandbox_id = None
+        self.workspace_session_id = None
+
+    def cleanup_all(self) -> None:
+        try:
+            self.cleanup["final_manager"] = self.manager(
+                ["list_sandboxes"], "final_manager_inventory", 60
+            )
+        except Exception as error:
+            self.cleanup["final_manager_error"] = str(error)
+        try:
+            self.cleanup["final_observability"] = self.observability(
+                "final_observability_inventory"
+            )
+        except Exception as error:
+            self.cleanup["final_observability_error"] = str(error)
+        if (
+            self.stage_root is not None
+            and self.stage_root.resolve().parent
+            == pathlib.Path(tempfile.gettempdir()).resolve()
+            and self.stage_root.name.startswith(f"eos-{self.run_id}-{self.case}-")
+        ):
+            shutil.rmtree(self.stage_root)
+            self.cleanup["staging_removed"] = not self.stage_root.exists()
+        elif self.stage_root is None:
+            self.cleanup["staging_removed"] = True
+
+    def result_gates(
+        self, results: dict[str, dict[str, Any]]
+    ) -> dict[str, bool | None]:
+        gates: dict[str, bool | None] = {
+            "BG-ACTIVATE-EXACT": None,
+            "BG-ACTIVATE-SAME": None,
+            "BG-FORK": None,
+            "BG-ROLLBACK": None,
+            "BG-PUBLISH-SMALL": None,
+            "AG-SQUASH": None,
+            "AG-STREAM": None,
+        }
+        activation = results.get("activation")
+        if activation is not None:
+            gates.update(
+                {
+                    "BG-ACTIVATE-EXACT": activation["activate_exact_gate"][
+                        "required"
+                    ],
+                    "BG-ACTIVATE-SAME": activation["activate_same_gate"][
+                        "required"
+                    ],
+                }
+            )
+        fork = results.get("fork")
+        if fork is not None:
+            gates["BG-FORK"] = fork["fork_gate"]["required"]
+        rollback = results.get("rollback")
+        if rollback is not None:
+            gates["BG-ROLLBACK"] = rollback["rollback_gate"]["required"]
+        publication = results.get("publication")
+        if publication is not None:
+            gates["BG-PUBLISH-SMALL"] = publication["gate"]["required"]
+        squash = results.get("squash")
+        if squash is not None:
+            gates["AG-SQUASH"] = squash["squash_gate"]["required"]
+        stream = results.get("stream")
+        if stream is not None:
+            gates["AG-STREAM"] = stream["required"]
+        return gates
+
+    def correctness_report(
+        self, results: dict[str, dict[str, Any]], cleanup_pass: bool
+    ) -> dict[str, Any]:
+        if set(results) != set(SCORECARD_CASES):
+            return {
+                "schema_version": 1,
+                "kind": "mpla_booster_correctness_v1",
+                "complete_campaign": False,
+                "checks": {
+                    name: {
+                        "status": "UNKNOWN",
+                        "reason": "the required scorecard cases are incomplete",
+                    }
+                    for name in CORRECTNESS_CHECKS
+                },
+            }
+
+        qualification = results["qualification"]
+        activation = results["activation"]
+        fork = results["fork"]
+        rollback = results["rollback"]
+        publication = results["publication"]
+        stream = results["stream"]
+        recovery = results["recovery"]
+        lifecycle_oracles = all(
+            result.get("initial_oracle", {}).get("exact_match") is True
+            for result in (activation, fork, rollback, results["squash"])
+        )
+        oracle_exact = (
+            qualification.get("exact_content_mode_ownership") is True
+            and qualification.get("initial_helper_receipt_valid") is True
+            and lifecycle_oracles
+            and publication.get("all_oracle_exact") is True
+            and stream.get("oracle_exact_match") is True
+        )
+        no_second_payload_copy = (
+            publication.get("all_zero_immutable_payload_reads") is True
+            and publication.get("all_no_second_payload_allocation") is True
+            and stream.get("zero_immutable_payload_reads") is True
+            and stream.get("no_second_payload_allocation") is True
+        )
+        chain_bounded = publication.get("final_chain_below_ten_gib") is True
+        hv07_sweep = (
+            recovery.get("fresh_sweep", {}).get("passed") is True
+            and recovery.get("fresh_sweep", {}).get("fixture_logical_bytes")
+            == 128 * 1024 * 1024
+            and recovery.get("fresh_sweep", {}).get("summary", {}).get(
+                "complete_for_requested_mode"
+            )
+            is True
+        )
+        baseline_matches = (
+            cleanup_pass
+            and self.baseline is not None
+            and self.baseline["manager"].get("sandboxes")
+            == self.cleanup.get("final_manager", {}).get("sandboxes")
+            and self.baseline["observability"].get("sandboxes")
+            == self.cleanup.get("final_observability", {}).get("sandboxes")
+        )
+        resource_report = self.resources_report(results)
+        hv07_points = recovery.get("fresh_sweep", {}).get("points", [])
+        hv07_point_assertions = [
+            assertion
+            for point in hv07_points
+            if isinstance(point, dict)
+            for assertion in point.get("assertions", [])
+            if isinstance(assertion, dict)
+        ]
+        hv07_exact_owner = any(
+            assertion.get("name") == "same_operation_exact_replay"
+            and assertion.get("passed") is True
+            for assertion in hv07_point_assertions
+        )
+        hv07_old_or_new = any(
+            assertion.get("name") == "old_or_complete_new_visibility"
+            and assertion.get("passed") is True
+            for assertion in hv07_point_assertions
+        )
+        hv07_no_debt = any(
+            assertion.get("name") == "no_failed_attempts_or_unclassified_debt"
+            and assertion.get("passed") is True
+            for assertion in hv07_point_assertions
+        )
+        lifecycle_exact = all(
+            result.get("candidate_checks", {}).get(field) is True
+            for result in (activation, fork, rollback)
+            for field in (
+                "selected_refs_stable",
+                "projections_exact_zero_build",
+                "allocations_fresh",
+                "lower_allocations_stable",
+            )
+        )
+        values: dict[str, tuple[bool, str]] = {
+            "exact_content_mode_ownership_oracle": (
+                oracle_exact,
+                "the three scorecard oracle receipts must all be exact",
+            ),
+            "immutable_layer_immutability": (
+                qualification.get("fork_isolation") is True and lifecycle_exact,
+                "fork isolation plus stable exact immutable projection receipts",
+            ),
+            "restart_durability": (
+                qualification.get("session_restart_durability") is True,
+                "fresh session reactivation preserves exact main and fork content",
+            ),
+            "rollback_correctness": (
+                qualification.get("rollback_correctness") is True
+                and rollback.get("candidate_checks", {}).get(
+                    "selected_refs_stable"
+                )
+                is True,
+                "receipt-backed rollback content, mode, ownership, and selected-ref probe",
+            ),
+            "fork_isolation": (
+                qualification.get("fork_isolation") is True
+                and fork.get("candidate_checks", {}).get("allocations_fresh")
+                is True,
+                "receipt-backed branch isolation and fresh-allocation probe",
+            ),
+            "branch_session_ownership_authorization": (
+                qualification.get("wrong_namespace_rejected") is True
+                and qualification.get("wrong_profile_rejected") is True,
+                "public wrong-namespace and wrong-profile ownership requests fail closed",
+            ),
+            "lease_reconciliation": (
+                qualification.get("initial_helper_receipt_valid") is True
+                and hv07_exact_owner,
+                "exact helper lease binding plus same-operation owner replay",
+            ),
+            "collision_recovery": (
+                hv07_exact_owner and hv07_old_or_new,
+                "HV-07 same-ID replay and old-or-complete-new visibility",
+            ),
+            "no_stale_run_resources": (
+                cleanup_pass and hv07_no_debt,
+                "phase cleanup inventories and HV-07 classified-residue proof",
+            ),
+            "no_second_full_payload_copy": (
+                no_second_payload_copy,
+                "publication and stream immutable-read/allocation receipts",
+            ),
+            "fixture_chain_under_ten_gib": (
+                chain_bounded,
+                "publication chain receipt",
+            ),
+            "memory_inode_bounds": (
+                resource_report["status"] == "PASS",
+                resource_report["failure_reason"]
+                or "all scorecards supplied fixed-envelope sampled resource receipts",
+            ),
+            "storage_helper_capability_boundary": (
+                qualification.get("initial_helper_receipt_valid") is True
+                and qualification.get("ordinary_workload_denied_privilege") is True
+                and qualification.get("wrong_namespace_rejected") is True
+                and qualification.get("wrong_profile_rejected") is True,
+                "exact helper receipt plus public wrong-profile, wrong-namespace, and ordinary-workload probes",
+            ),
+            "final_inventory_matches_baseline": (
+                baseline_matches,
+                "supported manager and observability inventories",
+            ),
+            "hv07_crash_sweep": (
+                hv07_sweep,
+                "fresh physical HV-07 fault-point recovery receipt",
+            ),
+        }
+        return {
+            "schema_version": 1,
+            "kind": "mpla_booster_correctness_v1",
+            "complete_campaign": True,
+            "checks": {
+                name: {
+                    "status": "PASS" if passed else "FAIL",
+                    "reason": reason,
+                }
+                for name, (passed, reason) in values.items()
+            },
+        }
+
+    def result_correctness(
+        self, results: dict[str, dict[str, Any]], cleanup_pass: bool
+    ) -> bool | None:
+        report = self.correctness_report(results, cleanup_pass)
+        checks = report["checks"].values()
+        if any(check["status"] == "UNKNOWN" for check in checks):
+            return None
+        return all(check["status"] == "PASS" for check in checks)
+
+    def security_profile_report(self, results: dict[str, dict[str, Any]]) -> dict[str, Any]:
+        qualification = results.get("qualification", {})
+        initial_mount = qualification.get("initial_mount", {})
+        receipt = initial_mount.get("response", {}) if isinstance(initial_mount, dict) else {}
+        observed_profile = receipt.get("profile_id") if isinstance(receipt, dict) else None
+        exact_profile = (
+            observed_profile in APPROVED_STORAGE_ADMIN_PROFILES
+            and qualification.get("initial_helper_receipt_valid") is True
+        )
+        cleanup = qualification.get("restart_storage_cleanup", [])
+        positive_mount_unmount = (
+            exact_profile
+            and isinstance(cleanup, list)
+            and [
+                item.get("response", {}).get("action")
+                for item in cleanup
+                if isinstance(item, dict)
+            ]
+            == ["quiesce", "strict_unmount", "cleanup"]
+        )
+        ordinary_denial = qualification.get("ordinary_workload_denied_privilege") is True
+        namespace_denial = qualification.get("wrong_namespace_rejected") is True
+        profile_denial = qualification.get("wrong_profile_rejected") is True
+        status = (
+            "PASS"
+            if positive_mount_unmount
+            and ordinary_denial
+            and namespace_denial
+            and profile_denial
+            else "FAIL"
+        )
+        return {
+            "schema_version": 1,
+            "kind": "mpla_booster_security_profile_v1",
+            "required_storage_admin_profiles": list(APPROVED_STORAGE_ADMIN_PROFILES),
+            "observed_storage_admin_profiles": [observed_profile]
+            if isinstance(observed_profile, str)
+            else [],
+            "exact_profile": exact_profile,
+            "positive_mount_unmount_probe": positive_mount_unmount,
+            "public_wrong_profile_selection_denial": profile_denial,
+            "public_wrong_namespace_binding_denial": namespace_denial,
+            "ordinary_workload_cap_sys_admin_denial": ordinary_denial,
+            "ordinary_workload_mount_umount_denial": ordinary_denial,
+            "status": status,
+            "failure_reason": None
+            if status == "PASS"
+            else "qualification receipt lacks one or more exact helper or public denial proofs",
+        }
+
+    def resources_report(self, results: dict[str, dict[str, Any]]) -> dict[str, Any]:
+        cgroups = {
+            case: result.get("cgroup")
+            for case, result in results.items()
+            if isinstance(result.get("cgroup"), dict)
+        }
+        receipts = {
+            case: self.resource_receipt_report(case, results.get(case))
+            for case in SCORECARD_CASES
+        }
+        failures = [
+            f"{case}: {receipt['reason']}"
+            for case, receipt in receipts.items()
+            if receipt["status"] != "PASS"
+        ]
+        return {
+            "schema_version": 1,
+            "kind": "mpla_booster_resources_v1",
+            "cgroup_limits": cgroups,
+            "memory_inode_fd_oom_samples": receipts,
+            "status": "PASS" if not failures else "FAIL",
+            "failure_reason": None if not failures else "; ".join(failures),
+        }
+
+    @staticmethod
+    def resource_receipt_report(
+        case: str, result: dict[str, Any] | None
+    ) -> dict[str, Any]:
+        if not isinstance(result, dict):
+            return {"status": "FAIL", "reason": "case result is absent"}
+        expected_kind = CASE_RESULT_KINDS[case]
+        if result.get("schema_version") != 1 or result.get("kind") != expected_kind:
+            return {
+                "status": "FAIL",
+                "reason": "case result lacks the expected schema identity",
+            }
+        if result.get("resource_bounds") is not True:
+            return {
+                "status": "FAIL",
+                "reason": "case did not assert its resource bounds",
+            }
+        resources = result.get("resources")
+        if not isinstance(resources, dict):
+            return {"status": "FAIL", "reason": "sampled resource receipt is absent"}
+        if (
+            resources.get("memory_high") != MEMORY_HIGH_BYTES
+            or resources.get("memory_max") != MEMORY_MAX_BYTES
+        ):
+            return {
+                "status": "FAIL",
+                "reason": "receipt does not use the fixed 96 MiB/128 MiB envelope",
+            }
+        if (
+            resources.get("oom_before") != resources.get("oom_after")
+            or resources.get("oom_kill_before") != resources.get("oom_kill_after")
+        ):
+            return {"status": "FAIL", "reason": "receipt records an OOM event"}
+        baseline = resources.get("baseline")
+        maxima = resources.get("maxima")
+        final_sample = resources.get("final_sample")
+        if not all(isinstance(sample, dict) for sample in (baseline, maxima, final_sample)):
+            return {
+                "status": "FAIL",
+                "reason": "receipt lacks baseline, maximum, or final samples",
+            }
+        for sample_name, sample in (
+            ("baseline", baseline),
+            ("maxima", maxima),
+            ("final_sample", final_sample),
+        ):
+            for field in RESOURCE_SAMPLE_FIELDS:
+                if not isinstance(sample.get(field), int) or sample[field] < 0:
+                    return {
+                        "status": "FAIL",
+                        "reason": f"{sample_name}.{field} is not a non-negative integer",
+                    }
+        maximum_rss = min(
+            MEMORY_HIGH_BYTES,
+            baseline["process_rss_bytes"] + 32 * 1024 * 1024,
+        )
+        if maxima["process_rss_bytes"] > maximum_rss:
+            return {
+                "status": "FAIL",
+                "reason": "maximum process RSS exceeds the fixed idle-plus-32-MiB bound",
+            }
+        if (
+            maxima["cgroup_memory_current_bytes"] > MEMORY_MAX_BYTES
+            or maxima["cgroup_memory_peak_bytes"] > MEMORY_MAX_BYTES
+        ):
+            return {
+                "status": "FAIL",
+                "reason": "maximum cgroup memory exceeds memory.max",
+            }
+        return {
+            "status": "PASS",
+            "reason": "fixed-envelope cgroup, RSS, FD, inode, and OOM samples are present",
+            "max_open_fds": maxima["open_fds"],
+            "max_run_tree_inodes": maxima["run_tree_inodes"],
+            "max_process_rss_bytes": maxima["process_rss_bytes"],
+            "max_cgroup_memory_peak_bytes": maxima["cgroup_memory_peak_bytes"],
+        }
+
+    def write_phase_declaration(self) -> None:
+        write_new_json(
+            self.evidence_root / "phase-declaration.json",
+            {
+                "schema_version": 1,
+                "kind": "mpla_booster_phase_declaration_v1",
+                "run_id": self.run_id,
+                "phase": self.case,
+                "runner": CASE_RUNNERS[self.case],
+                "suggested_budget_seconds": CASE_SUGGESTED_BUDGET_SECONDS[
+                    self.case
+                ],
+                "selected_multiplier_milli": (
+                    CASE_DEADLINES_SECONDS[self.case]
+                    * 1_000
+                    // CASE_SUGGESTED_BUDGET_SECONDS[self.case]
+                ),
+                "calculated_phase_cap_seconds": CASE_DEADLINES_SECONDS[self.case],
+                "deadline_carryover_seconds": 0,
+                "bounded_work": (
+                    "sealed P0-P7 receipt and hash verification only"
+                    if self.case == "sealing"
+                    else f"one fresh {self.case} scorecard process and cleanup"
+                ),
+                "declared_utc": dt.datetime.now(dt.UTC).isoformat(),
+            },
+        )
+
+    def seal_manifest(self) -> str:
+        manifest_lines = []
+        for path in sorted(self.evidence_root.rglob("*")):
+            if path.is_file() and path.name != "manifest.sha256":
+                relative = path.relative_to(self.evidence_root).as_posix()
+                manifest_lines.append(f"{sha256_file(path)}  {relative}\n")
+        manifest_path = self.evidence_root / "manifest.sha256"
+        write_new_bytes(manifest_path, "".join(manifest_lines).encode())
+        for line in manifest_path.read_text().splitlines():
+            expected, relative = line.split("  ", 1)
+            if sha256_file(self.evidence_root / relative) != expected:
+                raise CampaignError(
+                    f"fresh manifest verification failed for {relative}"
+                )
+        manifest_sha256 = sha256_file(manifest_path)
+        write_new_json(
+            self.evidence_root / "manifest-verification.json",
+            {
+                "schema_version": 1,
+                "kind": "mpla_booster_manifest_verification_v1",
+                "manifest": "manifest.sha256",
+                "manifest_sha256": manifest_sha256,
+                "verified": True,
+                "coverage": "all evidence files created before manifest.sha256; this post-seal verification record is intentionally excluded to avoid self-reference",
+            },
+        )
+        return manifest_sha256
+
+    def phase_pass(
+        self,
+        result: dict[str, Any] | None,
+        cleanup_pass: bool,
+        cap_pass: bool,
+    ) -> tuple[bool, list[str]]:
+        failures = []
+        if not cap_pass:
+            failures.append("phase-local liveness cap exceeded")
+        if not cleanup_pass:
+            failures.append("supported final inventories or staging cleanup failed")
+        if result is None:
+            failures.append("phase result is absent")
+            return False, failures
+        resource = self.resource_receipt_report(self.case, result)
+        if resource["status"] != "PASS":
+            failures.append(resource["reason"])
+        if self.case == "qualification":
+            required = (
+                "initial_helper_receipt_valid",
+                "ordinary_workload_denied_privilege",
+                "wrong_namespace_rejected",
+                "wrong_profile_rejected",
+                "exact_content_mode_ownership",
+                "fork_isolation",
+                "rollback_correctness",
+                "session_restart_durability",
+            )
+            for field in required:
+                if result.get(field) is not True:
+                    failures.append(f"qualification field {field} did not pass")
+            attachment_path = self.evidence_root / "fixture-cache-attachment.json"
+            if not attachment_path.is_file():
+                failures.append("P0-WARM fixture attachment receipt is absent")
+        elif self.case == "recovery":
+            if result.get("fresh_sweep", {}).get("passed") is not True:
+                failures.append("HV-07 fresh crash sweep did not pass")
+        else:
+            gates = self.result_gates({self.case: result})
+            for gate in CASE_GATES[self.case]:
+                if gates.get(gate) is not True:
+                    failures.append(f"{gate} did not pass")
+        return not failures, failures
+
+    def finalize_phase_evidence(
+        self,
+        result: dict[str, Any] | None,
+        cleanup_pass: bool,
+        total_started_ns: int,
+        error: Exception | None,
+    ) -> dict[str, Any]:
+        elapsed_ns = self.phase_elapsed_ns or 0
+        total_elapsed_ns = time.monotonic_ns() - total_started_ns
+        cap_seconds = CASE_DEADLINES_SECONDS[self.case]
+        cap_pass = elapsed_ns <= cap_seconds * 1_000_000_000
+        passed, failures = self.phase_pass(result, cleanup_pass, cap_pass)
+        if error is not None:
+            failures.append(str(error))
+            passed = False
+        gates = self.result_gates(
+            {self.case: result} if isinstance(result, dict) else {}
+        )
+        owned_gates = {
+            gate: gates[gate] for gate in CASE_GATES[self.case] if gate in gates
+        }
+        receipt = {
+            "schema_version": 1,
+            "kind": "mpla_booster_phase_receipt_v1",
+            "run_id": self.run_id,
+            "phase": self.case,
+            "runner": CASE_RUNNERS[self.case],
+            "suggested_budget_seconds": CASE_SUGGESTED_BUDGET_SECONDS[self.case],
+            "selected_multiplier_milli": (
+                cap_seconds
+                * 1_000
+                // CASE_SUGGESTED_BUDGET_SECONDS[self.case]
+            ),
+            "calculated_phase_cap_seconds": cap_seconds,
+            "deadline_carryover_seconds": 0,
+            "clock": "CLOCK_MONOTONIC",
+            "elapsed_wall_ns": elapsed_ns,
+            "total_harness_wall_ns": total_elapsed_ns,
+            "timer_scope": "focused coordinator operation and matched controls only",
+            "cap_pass": cap_pass,
+            "cleanup_pass": cleanup_pass,
+            "status": "PASS" if passed else "FAIL",
+            "failures": failures,
+        }
+        decision = {
+            "schema_version": 1,
+            "kind": "mpla_booster_phase_decision_v1",
+            "run_id": self.run_id,
+            "phase": self.case,
+            "status": receipt["status"],
+            "gates": owned_gates,
+        }
+        self.cleanup["baseline"] = self.baseline
+        write_new_json(self.evidence_root / "phase-receipt.json", receipt)
+        write_new_json(self.evidence_root / "decision.json", decision)
+        write_new_json(self.evidence_root / "cleanup.json", self.cleanup)
+        write_new_json(
+            self.evidence_root / "resources.json",
+            {
+                "schema_version": 1,
+                "kind": "mpla_booster_phase_resources_v1",
+                "phase": self.case,
+                "receipt": self.resource_receipt_report(self.case, result),
+            },
+        )
+        write_new_json(
+            self.evidence_root / "scorecard.json",
+            {
+                "schema_version": 1,
+                "kind": "mpla_booster_phase_scorecard_v1",
+                "run_id": self.run_id,
+                "phase": self.case,
+                "gates": owned_gates,
+                "status": receipt["status"],
+            },
+        )
+        write_new_bytes(
+            self.evidence_root / "report.md",
+            (
+                "# MPLA Booster focused phase\n\n"
+                f"Run: `{self.run_id}`\n\n"
+                f"Phase: `{self.case}`\n\n"
+                f"Status: `{receipt['status']}`\n"
+            ).encode(),
+        )
+        manifest_sha256 = self.seal_manifest()
+        return {
+            "gates": owned_gates,
+            "decision": decision,
+            "manifest_sha256": manifest_sha256,
+            "manifest_verified": True,
+            "passed": passed,
+        }
+
+    @staticmethod
+    def verify_phase_root(case: str, root: pathlib.Path) -> dict[str, Any]:
+        if not root.is_dir():
+            raise CampaignError(f"{case} phase root is absent: {root}")
+        manifest_path = root / "manifest.sha256"
+        verification_path = root / "manifest-verification.json"
+        if not manifest_path.is_file() or not verification_path.is_file():
+            raise CampaignError(f"{case} phase root is not sealed")
+        listed = set()
+        for line in manifest_path.read_text().splitlines():
+            expected, separator, relative = line.partition("  ")
+            if (
+                not separator
+                or not expected
+                or pathlib.PurePosixPath(relative).is_absolute()
+                or ".." in pathlib.PurePosixPath(relative).parts
+                or relative in listed
+            ):
+                raise CampaignError(f"{case} manifest entry is malformed")
+            path = root / relative
+            if not path.is_file() or sha256_file(path) != expected:
+                raise CampaignError(
+                    f"{case} manifest verification failed for {relative}"
+                )
+            listed.add(relative)
+        actual = {
+            path.relative_to(root).as_posix()
+            for path in root.rglob("*")
+            if path.is_file()
+        }
+        expected_actual = listed | {
+            "manifest.sha256",
+            "manifest-verification.json",
+        }
+        if actual != expected_actual:
+            raise CampaignError(f"{case} phase root has unsealed extra files")
+        verification = json.loads(verification_path.read_text())
+        if (
+            verification.get("verified") is not True
+            or verification.get("manifest_sha256") != sha256_file(manifest_path)
+        ):
+            raise CampaignError(f"{case} manifest verification receipt is invalid")
+        decision = json.loads((root / "decision.json").read_text())
+        receipt = json.loads((root / "phase-receipt.json").read_text())
+        declaration = json.loads((root / "phase-declaration.json").read_text())
+        environment = json.loads((root / "environment.json").read_text())
+        if (
+            not isinstance(environment.get("run_id"), str)
+            or not environment["run_id"]
+            or decision.get("run_id") != environment["run_id"]
+            or receipt.get("run_id") != environment["run_id"]
+            or declaration.get("run_id") != environment["run_id"]
+            or
+            decision.get("phase") != case
+            or decision.get("status") != "PASS"
+            or receipt.get("phase") != case
+            or receipt.get("status") != "PASS"
+            or receipt.get("cap_pass") is not True
+            or receipt.get("cleanup_pass") is not True
+            or receipt.get("deadline_carryover_seconds") != 0
+            or receipt.get("runner") != CASE_RUNNERS[case]
+            or declaration.get("phase") != case
+            or declaration.get("runner") != CASE_RUNNERS[case]
+            or declaration.get("deadline_carryover_seconds") != 0
+            or declaration.get("suggested_budget_seconds")
+            != CASE_SUGGESTED_BUDGET_SECONDS[case]
+            or declaration.get("calculated_phase_cap_seconds")
+            != CASE_DEADLINES_SECONDS[case]
+            or environment.get("case") != case
+            or environment.get("build_commit") != BUILD_COMMIT
+        ):
+            raise CampaignError(f"{case} phase eligibility receipt is invalid")
+        raw_paths = [
+            root / "cases" / gate / "raw-result.json"
+            for gate in CASE_GATES[case]
+        ] or [root / "cases" / case / "raw-result.json"]
+        results = [json.loads(path.read_text()) for path in raw_paths]
+        if any(result != results[0] for result in results[1:]):
+            raise CampaignError(f"{case} duplicated gate results disagree")
+        return {
+            "root": str(root.resolve()),
+            "manifest_sha256": sha256_file(manifest_path),
+            "source": json.loads((root / "source.json").read_text()),
+            "environment": environment,
+            "staged_artifacts": (
+                json.loads((root / "staged-artifacts.json").read_text())
+                if (root / "staged-artifacts.json").is_file()
+                else None
+            ),
+            "receipt": receipt,
+            "result": results[0],
+        }
+
+    @staticmethod
+    def receipt_ms_as_ns(
+        receipt: dict[str, Any],
+        field: str,
+        *,
+        allow_zero: bool = False,
+    ) -> int:
+        value = receipt.get(field)
+        if type(value) not in (int, float) or not math.isfinite(value):
+            raise CampaignError(f"{field} is not a finite millisecond value")
+        elapsed_ns = round(value * 1_000_000)
+        if elapsed_ns < 0 or (elapsed_ns == 0 and not allow_zero):
+            raise CampaignError(f"{field} is not a valid elapsed time")
+        return elapsed_ns
+
+    @staticmethod
+    def verify_cold_cache_root(root: pathlib.Path) -> dict[str, Any]:
+        if not root.is_dir():
+            raise CampaignError(f"F0-COLD cache root is absent: {root}")
+        receipt_path = root / COLD_CACHE_RECEIPT_FILE
+        if not receipt_path.is_file() or receipt_path.is_symlink():
+            raise CampaignError(
+                f"F0-COLD construction receipt is absent: {receipt_path}"
+            )
+        try:
+            receipt = json.loads(receipt_path.read_text())
+        except (OSError, json.JSONDecodeError) as error:
+            raise CampaignError(
+                "F0-COLD construction receipt is not valid JSON"
+            ) from error
+        expected_fields = {
+            "schema_version",
+            "phase",
+            "phase_liveness_cap_seconds",
+            "cold_build_acceptance_target_ms",
+            "status",
+            "fixture_profile",
+            "cold_build_service_elapsed_ms",
+            "cold_build_outer_elapsed_ms",
+            "cold_build_orchestration_overhead_ms",
+            "docker_setup_elapsed_ms",
+            "artifact_staging_elapsed_ms",
+            "launcher_elapsed_before_cleanup_ms",
+            "cold_build_under_5s",
+            "payload_bytes_were_copied",
+            "service_result",
+            "staging_root",
+        }
+        if not isinstance(receipt, dict) or set(receipt) != expected_fields:
+            raise CampaignError(
+                "F0-COLD construction receipt has an unexpected schema"
+            )
+        service_result = receipt.get("service_result")
+        expected_service_fields = {
+            "fixture_profile",
+            "manifest_path",
+            "chain_depth",
+            "logical_bytes",
+            "allocation_count",
+            "allocated_bytes",
+            "payload_bytes_read",
+            "payload_bytes_copied",
+            "builder_elapsed_ns",
+        }
+        if (
+            not isinstance(service_result, dict)
+            or set(service_result) != expected_service_fields
+        ):
+            raise CampaignError(
+                "F0-COLD service result has an unexpected schema"
+            )
+        exact_receipt_values = {
+            "schema_version": 1,
+            "phase": "F0-COLD",
+            "cold_build_acceptance_target_ms": 5_000,
+            "status": "ok",
+            "fixture_profile": PREPARED_FIXTURE_PROFILE,
+        }
+        exact_service_values = {
+            "fixture_profile": PREPARED_FIXTURE_PROFILE,
+            "manifest_path": (
+                "/eos/mpla-fixtures/s4-chain-sparse-v1/"
+                "PREPARED-FIXTURE.json"
+            ),
+            "chain_depth": 8,
+            "logical_bytes": PREPARED_FIXTURE_LOGICAL_BYTES,
+            "allocation_count": PREPARED_FIXTURE_ALLOCATION_COUNT,
+            "allocated_bytes": 0,
+            "payload_bytes_read": 0,
+            "payload_bytes_copied": 0,
+        }
+        if any(
+            type(receipt.get(field)) is not type(expected)
+            or receipt[field] != expected
+            for field, expected in exact_receipt_values.items()
+        ) or any(
+            type(service_result.get(field)) is not type(expected)
+            or service_result[field] != expected
+            for field, expected in exact_service_values.items()
+        ):
+            raise CampaignError(
+                "F0-COLD construction receipt does not attest the fixed fixture"
+            )
+        phase_cap_seconds = receipt.get("phase_liveness_cap_seconds")
+        service_elapsed_ns = service_result.get("builder_elapsed_ns")
+        staging_root = receipt.get("staging_root")
+        if (
+            type(phase_cap_seconds) is not int
+            or not 1 <= phase_cap_seconds <= SETUP_OPERATION_DEADLINE_SECONDS
+            or type(service_elapsed_ns) is not int
+            or service_elapsed_ns <= 0
+            or receipt.get("cold_build_under_5s") is not True
+            or receipt.get("payload_bytes_were_copied") is not False
+            or not isinstance(staging_root, str)
+            or not pathlib.PurePath(staging_root).is_absolute()
+        ):
+            raise CampaignError(
+                "F0-COLD construction receipt lacks a successful bounded build"
+            )
+        measured_service_ns = Campaign.receipt_ms_as_ns(
+            receipt, "cold_build_service_elapsed_ms"
+        )
+        outer_elapsed_ns = Campaign.receipt_ms_as_ns(
+            receipt, "cold_build_outer_elapsed_ms"
+        )
+        overhead_ns = Campaign.receipt_ms_as_ns(
+            receipt,
+            "cold_build_orchestration_overhead_ms",
+            allow_zero=True,
+        )
+        docker_setup_ns = Campaign.receipt_ms_as_ns(
+            receipt, "docker_setup_elapsed_ms"
+        )
+        staging_elapsed_ns = Campaign.receipt_ms_as_ns(
+            receipt, "artifact_staging_elapsed_ms"
+        )
+        launcher_elapsed_ns = Campaign.receipt_ms_as_ns(
+            receipt, "launcher_elapsed_before_cleanup_ms"
+        )
+        if (
+            measured_service_ns != service_elapsed_ns
+            or outer_elapsed_ns != measured_service_ns + overhead_ns
+            or outer_elapsed_ns >= 5_000_000_000
+            or outer_elapsed_ns > phase_cap_seconds * 1_000_000_000
+            or launcher_elapsed_ns
+            < staging_elapsed_ns + docker_setup_ns + outer_elapsed_ns
+        ):
+            raise CampaignError(
+                "F0-COLD construction receipt timings are inconsistent"
+            )
+        return {
+            "root": str(root.resolve()),
+            "receipt_path": COLD_CACHE_RECEIPT_FILE,
+            "receipt_sha256": sha256_file(receipt_path),
+            "receipt": receipt,
+        }
+
+    @staticmethod
+    def verify_warm_cache_receipt(
+        qualification: dict[str, Any],
+    ) -> dict[str, Any]:
+        root = pathlib.Path(qualification["root"])
+        receipt_path = root / WARM_CACHE_RECEIPT_FILE
+        if not receipt_path.is_file() or receipt_path.is_symlink():
+            raise CampaignError(
+                "P0-WARM attachment receipt is absent from the qualification root"
+            )
+        try:
+            receipt = json.loads(receipt_path.read_text())
+        except (OSError, json.JSONDecodeError) as error:
+            raise CampaignError(
+                "P0-WARM attachment receipt is not valid JSON"
+            ) from error
+        expected_fields = {
+            "result_path",
+            "fixture_profile",
+            "fixture_logical_bytes",
+            "chain_depth",
+            "prepared_depth_one_candidates",
+            "attachment_operation",
+            "attachment_service_elapsed_ns",
+            "payload_bytes_copied",
+            "cached_allocation_count",
+            "attached_branches",
+            "fixture_preparation_elapsed_ns",
+            "schema_version",
+            "phase",
+            "phase_liveness_cap_seconds",
+            "attachment_service_target_ns",
+            "fixture_preparation_target_ns",
+            "payload_bytes_were_copied",
+            "attachment_run_id",
+            "phase_run_id",
+        }
+        phase_run_id = qualification["environment"]["run_id"]
+        exact_values = {
+            "result_path": "/workspace/scorecard-publication-preparation.json",
+            "fixture_profile": PREPARED_FIXTURE_PROFILE,
+            "fixture_logical_bytes": PREPARED_FIXTURE_LOGICAL_BYTES,
+            "chain_depth": 8,
+            "prepared_depth_one_candidates": 3,
+            "attachment_operation": "attach_mpla_prepared_fixture",
+            "payload_bytes_copied": 0,
+            "cached_allocation_count": PREPARED_FIXTURE_ALLOCATION_COUNT,
+            "attached_branches": PREPARED_FIXTURE_BRANCHES,
+            "schema_version": 1,
+            "phase": "P0-WARM",
+            "phase_liveness_cap_seconds": (
+                PUBLICATION_PREPARATION_DEADLINE_SECONDS
+            ),
+            "attachment_service_target_ns": WARM_ATTACHMENT_SERVICE_TARGET_NS,
+            "fixture_preparation_target_ns": (
+                WARM_FIXTURE_PREPARATION_TARGET_NS
+            ),
+            "attachment_run_id": f"{phase_run_id}-p0-warm",
+            "phase_run_id": phase_run_id,
+        }
+        if (
+            not isinstance(receipt, dict)
+            or set(receipt) != expected_fields
+            or any(
+                type(receipt.get(field)) is not type(expected)
+                or receipt[field] != expected
+                for field, expected in exact_values.items()
+            )
+            or receipt.get("payload_bytes_were_copied") is not False
+        ):
+            raise CampaignError(
+                "P0-WARM attachment receipt does not attest an exact read-only attachment"
+            )
+        attachment_elapsed_ns = receipt.get("attachment_service_elapsed_ns")
+        preparation_elapsed_ns = receipt.get("fixture_preparation_elapsed_ns")
+        if (
+            type(attachment_elapsed_ns) is not int
+            or not 0 < attachment_elapsed_ns < WARM_ATTACHMENT_SERVICE_TARGET_NS
+            or type(preparation_elapsed_ns) is not int
+            or not 0
+            < preparation_elapsed_ns
+            < WARM_FIXTURE_PREPARATION_TARGET_NS
+        ):
+            raise CampaignError(
+                "P0-WARM attachment receipt exceeded its acceptance target"
+            )
+        receipt_digest = sha256_file(receipt_path)
+        manifest_digest = None
+        for line in (root / "manifest.sha256").read_text().splitlines():
+            digest, separator, relative = line.partition("  ")
+            if separator and relative == WARM_CACHE_RECEIPT_FILE:
+                manifest_digest = digest
+                break
+        if manifest_digest != receipt_digest:
+            raise CampaignError(
+                "P0-WARM attachment receipt is not bound by the qualification manifest"
+            )
+        return {
+            "root": qualification["root"],
+            "manifest_sha256": qualification["manifest_sha256"],
+            "receipt_path": WARM_CACHE_RECEIPT_FILE,
+            "receipt_sha256": receipt_digest,
+            "receipt": receipt,
+        }
+
+    def load_phase_results(
+        self,
+    ) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+        if self.cold_cache_root is None:
+            raise CampaignError("P8 requires one --cold-cache-root for F0-COLD")
+        if set(self.phase_roots) != set(SCORECARD_CASES):
+            raise CampaignError("P8 requires exactly one root for every P0-P7 phase")
+        resolved = [
+            self.cold_cache_root.resolve(),
+            *(root.resolve() for root in self.phase_roots.values()),
+        ]
+        if len(set(resolved)) != len(resolved):
+            raise CampaignError("P8 cold-cache and phase roots must be distinct")
+        cold_cache_input = self.verify_cold_cache_root(self.cold_cache_root)
+        verified = {
+            case: self.verify_phase_root(case, self.phase_roots[case])
+            for case in SCORECARD_CASES
+        }
+        warm_cache_input = self.verify_warm_cache_receipt(
+            verified["qualification"]
+        )
+        if any(
+            item["source"].get("commit") != BUILD_COMMIT
+            for item in verified.values()
+        ):
+            raise CampaignError("P0-P7 source commits do not match the P8 build")
+        current_source = json.loads(
+            (self.evidence_root / "source.json").read_text()
+        )
+        mutable_command_report = (
+            "crates/e2e-test/test-reports/TEST-REPORT.md"
+        )
+
+        def stable_source_identity(source: dict[str, Any]) -> dict[str, Any]:
+            files = source.get("worktree_files")
+            stable_files = (
+                {
+                    name: identity
+                    for name, identity in files.items()
+                    if name != mutable_command_report
+                }
+                if isinstance(files, dict)
+                else files
+            )
+            return {
+                "commit": source.get("commit"),
+                "tree": source.get("tree"),
+                "porcelain": source.get("porcelain"),
+                "worktree_files": stable_files,
+            }
+
+        current_identity = stable_source_identity(current_source)
+        if any(
+            stable_source_identity(item["source"]) != current_identity
+            for item in verified.values()
+        ):
+            raise CampaignError(
+                "P0-P7 source fingerprints do not match the P8 source"
+            )
+        created = [
+            verified[case]["environment"].get("created_utc")
+            for case in SCORECARD_CASES
+        ]
+        if (
+            any(not isinstance(value, str) for value in created)
+            or created != sorted(created)
+            or len(set(created)) != len(created)
+        ):
+            raise CampaignError(
+                "P0-P7 roots do not prove unique sequential phase creation"
+            )
+        common_artifact_names = (
+            "mpla-speed-poc-v1",
+            "mpla-poc-oracle",
+            "sandbox-runtime-cli",
+            "sandbox-catalog-export",
+        )
+        artifact_identities: dict[str, set[tuple[int, str]]] = {
+            name: set() for name in common_artifact_names
+        }
+        for item in verified.values():
+            staged = item["staged_artifacts"]
+            if not isinstance(staged, dict):
+                raise CampaignError("P0-P7 staged artifact receipt is absent")
+            artifacts = staged.get("artifacts")
+            if not isinstance(artifacts, dict):
+                raise CampaignError("P0-P7 staged artifact receipt is malformed")
+            for name in common_artifact_names:
+                identity = artifacts.get(name)
+                if not isinstance(identity, dict):
+                    raise CampaignError(
+                        f"P0-P7 staged artifact {name} identity is absent"
+                    )
+                byte_count = identity.get("bytes")
+                digest = identity.get("sha256")
+                if (
+                    type(byte_count) is not int
+                    or byte_count <= 0
+                    or not isinstance(digest, str)
+                    or len(digest) != 64
+                ):
+                    raise CampaignError(
+                        f"P0-P7 staged artifact {name} identity is malformed"
+                    )
+                artifact_identities[name].add((byte_count, digest))
+        if any(len(identities) != 1 for identities in artifact_identities.values()):
+            raise CampaignError(
+                "P0-P7 common staged artifact identities do not agree"
+            )
+        write_new_json(
+            self.evidence_root / "phase-inputs.json",
+            {
+                "F0-COLD": cold_cache_input,
+                "P0-WARM": warm_cache_input,
+                **{
+                case: {
+                    "root": item["root"],
+                    "manifest_sha256": item["manifest_sha256"],
+                    "receipt": item["receipt"],
+                }
+                for case, item in verified.items()
+                },
+            },
+        )
+        return (
+            {case: item["result"] for case, item in verified.items()},
+            verified,
+        )
+
+    def finalize_evidence(
+        self,
+        results: dict[str, dict[str, Any]],
+        cleanup_pass: bool,
+    ) -> dict[str, Any]:
+        gates = self.result_gates(results)
+        correctness_report = self.correctness_report(results, cleanup_pass)
+        correctness = self.result_correctness(results, cleanup_pass)
+        security_profile = self.security_profile_report(results)
+        resources = self.resources_report(results)
+        booster_required = [
+            gates[name]
+            for name in [
+                "BG-ACTIVATE-EXACT",
+                "BG-ACTIVATE-SAME",
+                "BG-FORK",
+                "BG-ROLLBACK",
+                "BG-PUBLISH-SMALL",
+            ]
+        ]
+        preferred = []
+        if "activation" in results:
+            preferred.extend(
+                [
+                    results["activation"]["activate_exact_gate"]["preferred"],
+                    results["activation"]["activate_same_gate"]["preferred"],
+                ]
+            )
+        if "fork" in results:
+            preferred.append(results["fork"]["fork_gate"]["preferred"])
+        if "rollback" in results:
+            preferred.append(results["rollback"]["rollback_gate"]["preferred"])
+        if "publication" in results:
+            preferred.append(results["publication"]["gate"]["preferred"])
+        supported_100x = correctness is True and all(
+            value is True for value in booster_required
+        )
+        supported_500x = supported_100x and len(preferred) == 5 and all(preferred)
+        partial_500x = (
+            supported_100x
+            and len(preferred) == 5
+            and any(preferred)
+            and not supported_500x
+        )
+        decision = {
+            "POC_CORRECTNESS": "PASS" if correctness is True else "FAIL",
+            "POC_100X": "SUPPORTED" if supported_100x else "NOT_SUPPORTED",
+            "POC_500X": (
+                "SUPPORTED"
+                if supported_500x
+                else "PARTIAL" if partial_500x else "NOT_SUPPORTED"
+            ),
+            "AG_SQUASH": (
+                "PASS"
+                if gates["AG-SQUASH"] is True
+                else "FAIL" if gates["AG-SQUASH"] is False else "UNKNOWN"
+            ),
+            "AG_STREAM": (
+                "PASS"
+                if gates["AG-STREAM"] is True
+                else "FAIL" if gates["AG-STREAM"] is False else "UNKNOWN"
+            ),
+        }
+        scorecard = {
+            "schema_version": 1,
+            "kind": "mpla_booster_scorecard_v1",
+            "run_id": self.run_id,
+            "cases": list(SCORECARD_CASES),
+            "gates": gates,
+            "correctness": correctness,
+            "correctness_checks": correctness_report["checks"],
+            "security_status": security_profile["status"],
+            "resource_status": resources["status"],
+            "cleanup": cleanup_pass,
+            "decision": decision,
+            "manifest_verification_record": "manifest-verification.json",
+        }
+        self.cleanup["baseline"] = self.baseline
+        write_new_json(self.evidence_root / "scorecard.json", scorecard)
+        write_new_json(self.evidence_root / "decision.json", decision)
+        write_new_json(self.evidence_root / "correctness.json", correctness_report)
+        write_new_json(self.evidence_root / "security-profile.json", security_profile)
+        write_new_json(self.evidence_root / "resources.json", resources)
+        write_new_json(self.evidence_root / "cleanup.json", self.cleanup)
+        report = (
+            "# MPLA Booster scorecard\n\n"
+            f"Run: `{self.run_id}`\n\n"
+            f"POC_CORRECTNESS_{decision['POC_CORRECTNESS']}\n"
+            f"POC_100X_{decision['POC_100X']}\n"
+            f"POC_500X_{decision['POC_500X']}\n"
+            f"AG_SQUASH_{decision['AG_SQUASH']}\n"
+            f"AG_STREAM_{decision['AG_STREAM']}\n"
+        )
+        write_new_bytes(self.evidence_root / "report.md", report.encode())
+        manifest_sha256 = self.seal_manifest()
+        return {
+            **scorecard,
+            "manifest_sha256": manifest_sha256,
+            "manifest_verified": True,
+        }
+
+    def run(self) -> dict[str, Any]:
+        started_ns = time.monotonic_ns()
+        self.prepare_evidence()
+        self.write_phase_declaration()
+        if self.case == "sealing":
+            self.require_empty_inventory()
+            results, _verified = self.load_phase_results()
+            self.cleanup_all()
+            manager = self.cleanup.get("final_manager")
+            observability = self.cleanup.get("final_observability")
+            cleanup_pass = (
+                isinstance(manager, dict)
+                and manager.get("sandboxes") == []
+                and isinstance(observability, dict)
+                and observability.get("sandboxes") == []
+                and self.cleanup.get("staging_removed") is True
+            )
+            elapsed_ns = time.monotonic_ns() - started_ns
+            write_new_json(
+                self.evidence_root / "phase-receipt.json",
+                {
+                    "schema_version": 1,
+                    "kind": "mpla_booster_phase_receipt_v1",
+                    "run_id": self.run_id,
+                    "phase": "sealing",
+                    "runner": CASE_RUNNERS["sealing"],
+                    "suggested_budget_seconds": CASE_SUGGESTED_BUDGET_SECONDS[
+                        "sealing"
+                    ],
+                    "selected_multiplier_milli": 1_000,
+                    "calculated_phase_cap_seconds": CASE_DEADLINES_SECONDS[
+                        "sealing"
+                    ],
+                    "deadline_carryover_seconds": 0,
+                    "clock": "CLOCK_MONOTONIC",
+                    "elapsed_wall_ns": elapsed_ns,
+                    "cap_pass": elapsed_ns
+                    <= CASE_DEADLINES_SECONDS["sealing"] * 1_000_000_000,
+                    "cleanup_pass": cleanup_pass,
+                    "status": "PASS"
+                    if cleanup_pass
+                    and elapsed_ns
+                    <= CASE_DEADLINES_SECONDS["sealing"] * 1_000_000_000
+                    else "FAIL",
+                },
+            )
+            cap_pass = (
+                elapsed_ns
+                <= CASE_DEADLINES_SECONDS["sealing"] * 1_000_000_000
+            )
+            if not cleanup_pass or not cap_pass:
+                raise CampaignError(
+                    "P8 supported inventory or phase-local liveness proof did not pass"
+                )
+            return self.finalize_evidence(results, cleanup_pass)
+
+        result: dict[str, Any] | None = None
+        error: Exception | None = None
+        try:
+            self.require_empty_inventory()
+            self.stage()
+            try:
+                self.prepare_execution()
+                if self.case in {"qualification", "publication"}:
+                    self.run_publication_preparation()
+                if self.case in {"activation", "fork", "rollback"}:
+                    self.run_lifecycle_control_preparation()
+                self.phase_started_ns = time.monotonic_ns()
+                try:
+                    result = self.run_scorecard_case(self.case)
+                finally:
+                    self.phase_elapsed_ns = (
+                        time.monotonic_ns() - self.phase_started_ns
+                    )
+            finally:
+                self.cleanup_execution(self.case)
+        except Exception as caught:
+            error = caught
+            self.write_case_record(
+                self.case,
+                "error.json",
+                {"error": str(caught), "type": type(caught).__name__},
+            )
+        finally:
+            self.cleanup_all()
+        manager = self.cleanup.get("final_manager")
+        observability = self.cleanup.get("final_observability")
+        cleanup_pass = (
+            isinstance(manager, dict)
+            and manager.get("sandboxes") == []
+            and isinstance(observability, dict)
+            and observability.get("sandboxes") == []
+            and self.cleanup.get("staging_removed") is True
+        )
+        finalized = self.finalize_phase_evidence(
+            result,
+            cleanup_pass,
+            started_ns,
+            error,
+        )
+        if not finalized["passed"]:
+            raise CampaignError(
+                f"{self.case} failed after sealing phase evidence"
+            ) from error
+        return finalized
+
+
+def parse_phase_roots(values: list[str]) -> dict[str, pathlib.Path]:
+    roots = {}
+    for value in values:
+        case, separator, raw_path = value.partition("=")
+        if (
+            not separator
+            or case not in SCORECARD_CASES
+            or not raw_path
+            or case in roots
+        ):
+            raise argparse.ArgumentTypeError(
+                "--phase-root must be a unique CASE=PATH for P0-P7"
+            )
+        roots[case] = pathlib.Path(raw_path)
+    return roots
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--evidence-root", type=pathlib.Path, required=True)
+    parser.add_argument("--case", choices=PHASE_CASES, required=True)
+    parser.add_argument("--phase-root", action="append", default=[])
+    parser.add_argument("--cold-cache-root", type=pathlib.Path)
+    return parser.parse_args()
+
+
+def validate_cli_phase_inputs(
+    case: str,
+    phase_roots: dict[str, pathlib.Path],
+    cold_cache_root: pathlib.Path | None,
+) -> None:
+    if case == "sealing":
+        if set(phase_roots) != set(SCORECARD_CASES):
+            raise CampaignError(
+                "sealing requires exactly one --phase-root CASE=PATH for every P0-P7 phase"
+            )
+        if cold_cache_root is None:
+            raise CampaignError(
+                "sealing requires one --cold-cache-root containing the F0-COLD receipt"
+            )
+        return
+    if phase_roots:
+        raise CampaignError("--phase-root is only valid for the sealing phase")
+    if cold_cache_root is not None:
+        raise CampaignError("--cold-cache-root is only valid for the sealing phase")
+
+
+def main() -> int:
+    args = parse_args()
+    try:
+        phase_roots = parse_phase_roots(args.phase_root)
+        validate_cli_phase_inputs(
+            args.case,
+            phase_roots,
+            args.cold_cache_root,
+        )
+        result = Campaign(
+            args.run_id,
+            args.evidence_root,
+            args.case,
+            phase_roots,
+            args.cold_cache_root,
+        ).run()
+    except Exception as error:
+        print(json.dumps({"status": "failed", "error": str(error)}, sort_keys=True))
+        return 1
+    print(
+        json.dumps(
+            {
+                "status": "passed",
+                "case": args.case,
+                "evidence_root": str(args.evidence_root),
+                "required_gates": result["gates"],
+                "decision": result["decision"],
+                "manifest_sha256": result["manifest_sha256"],
+                "manifest_verified": result["manifest_verified"],
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

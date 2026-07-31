@@ -1,0 +1,64 @@
+{
+  "spans": [
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [],
+              "events": [],
+              "offset_ms": 0.0,
+              "span": {
+                "attrs": {
+                  "exit_code": 124
+                },
+                "dur_ms": 600050.0,
+                "name": "namespace.exec.run_shell",
+                "parent": "d-5",
+                "span": "d-6",
+                "status": "timed_out",
+                "trace": "mpla-booster-20260729T170720Z-publication-coordinator",
+                "ts": 1785345913885
+              }
+            }
+          ],
+          "events": [],
+          "offset_ms": 0.0,
+          "span": {
+            "attrs": {
+              "command_security_profile": "mpla_benchmark_qualification",
+              "finalize_policy": "no_op",
+              "namespace_execution_hash": "adcf053f6716d785152cc8189c902435d04b7c43fa2e51980f221b7afd11e252",
+              "scratch_layout_version": 2,
+              "scratch_route": "workspace_scoped",
+              "session_created": false,
+              "workspace_session_hash": "a8fe66f254ebb3a573248c77a05f2ea55ffc492113a7e797d85d5f3c06e3bf36"
+            },
+            "dur_ms": 28.0,
+            "name": "command.exec",
+            "parent": "d-4",
+            "span": "d-5",
+            "status": "completed",
+            "trace": "mpla-booster-20260729T170720Z-publication-coordinator",
+            "ts": 1785345313863
+          }
+        }
+      ],
+      "events": [],
+      "offset_ms": 0.0,
+      "span": {
+        "attrs": {
+          "op": "exec_command"
+        },
+        "dur_ms": 28.0,
+        "name": "daemon.dispatch",
+        "span": "d-4",
+        "status": "completed",
+        "trace": "mpla-booster-20260729T170720Z-publication-coordinator",
+        "ts": 1785345313863
+      }
+    }
+  ],
+  "trace": "mpla-booster-20260729T170720Z-publication-coordinator",
+  "view": "trace"
+}

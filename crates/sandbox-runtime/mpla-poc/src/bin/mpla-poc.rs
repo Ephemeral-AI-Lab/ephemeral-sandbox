@@ -10,6 +10,8 @@ use sandbox_runtime_mpla_poc::{
 };
 use serde::{Deserialize, Serialize};
 
+mod mpla_poc_scorecard;
+
 #[derive(Debug, Parser)]
 #[command(name = "mpla-poc")]
 struct Cli {
@@ -115,6 +117,11 @@ enum Command {
         test: String,
         #[arg(long)]
         point: String,
+    },
+    /// Validate or select a focused Stage 04.6 Booster scorecard gate.
+    Scorecard {
+        #[command(subcommand)]
+        command: mpla_poc_scorecard::ScorecardCommand,
     },
 }
 
@@ -311,6 +318,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             }
             let point = NamedFaultPoint::parse(&point)?;
             dispatch_campaign("crash", Some(&test), 1, Some(&run_id), Some(point.as_str()))?;
+        }
+        Command::Scorecard { command } => {
+            mpla_poc_scorecard::run(command)?;
         }
     }
     Ok(())

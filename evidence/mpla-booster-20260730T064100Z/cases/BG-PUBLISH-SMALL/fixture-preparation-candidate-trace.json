@@ -1,0 +1,346 @@
+{
+  "request_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+  "trace": {
+    "spans": [
+      {
+        "children": [],
+        "events": [
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 826250,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "operation_lock_acquired",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361257082
+            },
+            "offset_ms": 1.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 2539042,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "publication_parent_selected",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361257084
+            },
+            "offset_ms": 3.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 2568500,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "affected_path_discovery_started",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361257084
+            },
+            "offset_ms": 3.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 3445642793,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "affected_path_discovery_completed",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361260527
+            },
+            "offset_ms": 3446.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 3445718418,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "sealing_started",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361260527
+            },
+            "offset_ms": 3446.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 3448016627,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "sealing_completed",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361260529
+            },
+            "offset_ms": 3448.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 3448046377,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "storage_sequence_started",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361260529
+            },
+            "offset_ms": 3448.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 3478956918,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "stable_inventory_started",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361260560
+            },
+            "offset_ms": 3479.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 3479075835,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "stable_inventory_completed",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361260560
+            },
+            "offset_ms": 3479.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 3479095585,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "affected_snapshot_started",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361260560
+            },
+            "offset_ms": 3479.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 7119821045,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "affected_snapshot_completed",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361264201
+            },
+            "offset_ms": 7120.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 7200385337,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "storage_sequence_completed",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361264282
+            },
+            "offset_ms": 7201.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 7200595212,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "stationary_adoption_started",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361264282
+            },
+            "offset_ms": 7201.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 7200627920,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "session_destroy_started",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361264282
+            },
+            "offset_ms": 7201.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 7200656420,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "semantic_build_started",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361264282
+            },
+            "offset_ms": 7201.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 7210738295,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "session_destroy_completed",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361264292
+            },
+            "offset_ms": 7211.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 7223915878,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "stationary_adoption_completed",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361264305
+            },
+            "offset_ms": 7224.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 7231476795,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "semantic_build_completed",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361264313
+            },
+            "offset_ms": 7232.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 7231617087,
+                "operation_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "phase": "parallel_tasks_completed",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361264313
+            },
+            "offset_ms": 7232.0
+          },
+          {
+            "event": {
+              "attrs": {
+                "elapsed_ns": 7233607045,
+                "phase": "service_returned",
+                "request_id": "mpla-booster-20260730T064100Z-layer-003-publish",
+                "schema_version": 1,
+                "workspace_session_id": "00000718c6e09a354cf8ec"
+              },
+              "name": "mpla_publication.dispatch_checkpoint",
+              "parent": "d-43",
+              "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+              "ts": 1785361264315
+            },
+            "offset_ms": 7234.0
+          }
+        ],
+        "offset_ms": 0.0,
+        "span": {
+          "attrs": {
+            "op": "publish_mpla_workspace_session"
+          },
+          "dur_ms": 7234.0,
+          "name": "daemon.dispatch",
+          "span": "d-43",
+          "status": "error",
+          "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+          "ts": 1785361264315
+        }
+      }
+    ],
+    "trace": "mpla-booster-20260730T064100Z-layer-003-publish",
+    "view": "trace"
+  }
+}

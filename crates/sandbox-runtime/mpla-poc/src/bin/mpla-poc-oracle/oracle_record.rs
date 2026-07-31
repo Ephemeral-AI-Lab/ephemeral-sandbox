@@ -98,6 +98,7 @@ pub struct OracleSummary {
     pub attribution_root_id: String,
     pub record_stream_sha256: String,
     pub record_stream_path: String,
+    pub root_record_debug: String,
     pub entry_count: u64,
     pub record_count: u64,
     pub bytes_read: u64,

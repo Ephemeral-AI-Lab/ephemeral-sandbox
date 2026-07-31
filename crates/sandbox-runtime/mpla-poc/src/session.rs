@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 use crate::fault::{FaultInjector, FaultPoint};
 use crate::overlay_adapter::{mount_permanent_overlay, PermanentOverlayMount};
 use crate::process_tree::{CommandReceipt, ManagedProcessTree};
-use crate::quiesce::{self, ReceiptHitSealInput, ReceiptSealedAllocation, SealedAllocation};
+use crate::quiesce::{
+    self, ReceiptHitSealInput, ReceiptSealedAllocation, SealedAllocation, SealingRecord,
+};
 use crate::recovery::reach_real_operation;
 use crate::{
     durable, lease, unix_time_ms, AllocationHandle, MutableLease, NamedFaultInjector,
@@ -48,6 +50,249 @@ impl PreparedExternalSession {
     pub fn workspace_root(&self) -> &Path {
         &self.workspace_root
     }
+
+    pub fn begin_sealing(
+        &self,
+        allocation: &AllocationHandle,
+        lease: &MutableLease,
+        operation_id: &OperationId,
+        faults: &mut FaultInjector,
+    ) -> PocResult<SealingRecord> {
+        let record = self.validate_binding(allocation, lease)?;
+        faults.hit(FaultPoint::BeforeSealing, false)?;
+        let sealing_path = quiesce::sealing_record_path(&self.session_dir);
+        if sealing_path.exists() {
+            let sealing: SealingRecord = durable::read_json(&sealing_path)?;
+            validate_external_sealing_record(&sealing, operation_id, lease)?;
+            if !matches!(
+                record.phase,
+                SessionPhase::Open
+                    | SessionPhase::Closing
+                    | SessionPhase::Sealing
+                    | SessionPhase::RecoveryRequired
+                    | SessionPhase::PublicationCommitted
+            ) {
+                return Err(PocError::Integrity(format!(
+                    "external session {} cannot resume Sealing from {:?}",
+                    lease.session_id, record.phase
+                )));
+            }
+            return Ok(sealing);
+        }
+        if !matches!(record.phase, SessionPhase::Open | SessionPhase::Closing) {
+            return Err(PocError::Integrity(format!(
+                "external session {} cannot begin Sealing from {:?}",
+                lease.session_id, record.phase
+            )));
+        }
+        // Admission is already closed in memory by the public service. The
+        // durable Sealing record below is the ratified terminal boundary, so
+        // an intermediate durable Closing rewrite adds no recovery state.
+        let mut named_faults = NamedFaultInjector::default().with_physical_context(
+            operation_id.as_str(),
+            [self.session_dir.join("SESSION.json"), sealing_path.clone()],
+        );
+        let sealing = match quiesce::persist_sealing(
+            &self.session_dir,
+            operation_id,
+            lease,
+            &allocation.upper_dir,
+            &mut named_faults,
+        ) {
+            Ok(sealing) => sealing,
+            Err(error) if sealing_path.exists() => {
+                return Err(PocError::RecoveryRequired(format!(
+                    "Sealing record became visible but durability returned an error: {error}"
+                )));
+            }
+            Err(error) => return Err(error),
+        };
+        faults.hit(FaultPoint::AfterSealingDurable, true)?;
+        Ok(sealing)
+    }
+
+    /// Return whether the session has crossed its durable publication boundary.
+    ///
+    /// `SEALING.json` is the ratified boundary for an external session.  The
+    /// original `SESSION.json` phase may therefore remain `Open`; callers that
+    /// could otherwise delete an unpublished allocation must consult this
+    /// record and fail closed if its scope is malformed.
+    pub fn has_ratified_sealing(
+        &self,
+        allocation: &AllocationHandle,
+        lease: &MutableLease,
+    ) -> PocResult<bool> {
+        self.validate_binding(allocation, lease)?;
+        let sealing_path = quiesce::sealing_record_path(&self.session_dir);
+        if !sealing_path.exists() {
+            return Ok(false);
+        }
+        let sealing: SealingRecord = durable::read_json(&sealing_path)?;
+        validate_external_sealing_scope(&sealing, lease)?;
+        Ok(true)
+    }
+
+    pub fn mark_publication_committed(
+        &self,
+        allocation: &AllocationHandle,
+        lease: &MutableLease,
+    ) -> PocResult<()> {
+        let record = self.validate_binding(allocation, lease)?;
+        if record.phase == SessionPhase::PublicationCommitted {
+            return Ok(());
+        }
+        if !matches!(
+            record.phase,
+            SessionPhase::Open
+                | SessionPhase::Closing
+                | SessionPhase::Sealing
+                | SessionPhase::RecoveryRequired
+        ) {
+            return Err(PocError::Integrity(format!(
+                "external session {} cannot commit publication from {:?}",
+                lease.session_id, record.phase
+            )));
+        }
+        if !self.has_ratified_sealing(allocation, lease)? {
+            return Err(PocError::Integrity(
+                "external session cannot commit publication before durable Sealing".to_owned(),
+            ));
+        }
+        persist_session_record(
+            &self.session_dir,
+            lease,
+            SessionPhase::PublicationCommitted,
+            &self.workspace_root,
+        )
+    }
+
+    pub fn mark_recovery_required(
+        &self,
+        allocation: &AllocationHandle,
+        lease: &MutableLease,
+    ) -> PocResult<()> {
+        let record = self.validate_binding(allocation, lease)?;
+        if record.phase == SessionPhase::RecoveryRequired {
+            return Ok(());
+        }
+        if !matches!(
+            record.phase,
+            SessionPhase::Open | SessionPhase::Closing | SessionPhase::Sealing
+        ) {
+            return Err(PocError::Integrity(
+                "pre-Sealing external session cannot be marked terminal recovery".to_owned(),
+            ));
+        }
+        if !self.has_ratified_sealing(allocation, lease)? {
+            return Err(PocError::Integrity(
+                "pre-Sealing external session cannot be marked terminal recovery".to_owned(),
+            ));
+        }
+        persist_session_record(
+            &self.session_dir,
+            lease,
+            SessionPhase::RecoveryRequired,
+            &self.workspace_root,
+        )
+    }
+
+    pub(crate) fn validate_stationary_binding(
+        &self,
+        allocation: &AllocationHandle,
+        lease: &MutableLease,
+        operation_id: &OperationId,
+    ) -> PocResult<SessionRecord> {
+        let record = self.validate_binding(allocation, lease)?;
+        if !matches!(
+            record.phase,
+            SessionPhase::Open
+                | SessionPhase::Closing
+                | SessionPhase::Sealing
+                | SessionPhase::RecoveryRequired
+                | SessionPhase::PublicationCommitted
+        ) {
+            return Err(PocError::Integrity(format!(
+                "external session {} is not terminally sealed: {:?}",
+                lease.session_id, record.phase
+            )));
+        }
+        let sealing: SealingRecord =
+            durable::read_json(&quiesce::sealing_record_path(&self.session_dir))?;
+        validate_external_sealing_record(&sealing, operation_id, lease)?;
+        Ok(record)
+    }
+
+    fn validate_binding(
+        &self,
+        allocation: &AllocationHandle,
+        lease: &MutableLease,
+    ) -> PocResult<SessionRecord> {
+        if allocation.descriptor.allocation_id != lease.allocation_id {
+            return Err(PocError::Integrity(
+                "external session lease allocation does not match allocation handle".to_owned(),
+            ));
+        }
+        let expected_session_dir = self
+            .session_dir
+            .parent()
+            .and_then(Path::parent)
+            .map(|control_root| {
+                control_root
+                    .join("sessions")
+                    .join(lease.session_id.as_str())
+            })
+            .ok_or_else(|| {
+                PocError::Integrity("external session directory has no control root".to_owned())
+            })?;
+        if self.session_dir != expected_session_dir
+            || self.workspace_root != self.session_dir.join("mount")
+        {
+            return Err(PocError::Integrity(
+                "external session paths do not match the lease identity".to_owned(),
+            ));
+        }
+        let record: SessionRecord = durable::read_json(&self.session_dir.join("SESSION.json"))?;
+        if record.schema_version != SCHEMA_VERSION
+            || record.session_id != lease.session_id
+            || record.allocation_id != lease.allocation_id
+            || record.lease_epoch != lease.lease_epoch
+            || record.owner_epoch != lease.owner_epoch
+            || record.workspace_root != self.workspace_root
+        {
+            return Err(PocError::Integrity(
+                "durable external session record differs from its allocation and lease".to_owned(),
+            ));
+        }
+        Ok(record)
+    }
+}
+
+fn validate_external_sealing_record(
+    sealing: &SealingRecord,
+    operation_id: &OperationId,
+    lease: &MutableLease,
+) -> PocResult<()> {
+    validate_external_sealing_scope(sealing, lease)?;
+    if sealing.operation_id != *operation_id {
+        return Err(PocError::RecoveryRequired(
+            "durable external Sealing operation does not match the requested operation".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_external_sealing_scope(sealing: &SealingRecord, lease: &MutableLease) -> PocResult<()> {
+    if sealing.schema_version != SCHEMA_VERSION
+        || sealing.session_id != lease.session_id
+        || sealing.allocation_id != lease.allocation_id
+        || sealing.lease_epoch != lease.lease_epoch
+        || sealing.owner_epoch != lease.owner_epoch
+    {
+        return Err(PocError::RecoveryRequired(
+            "durable external Sealing scope does not match the requested lease tuple".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 /// Create the durable control-plane state for a lease-backed MPLA session
@@ -89,6 +334,12 @@ pub fn prepare_external_session(
     let workspace_root = session_dir.join("mount");
     std::fs::create_dir_all(&workspace_root)
         .map_err(|error| PocError::io("create session mount directory", &workspace_root, error))?;
+    durable::fsync_dir(
+        session_dir
+            .parent()
+            .ok_or_else(|| PocError::Integrity("session directory has no parent".to_owned()))?,
+    )?;
+    durable::fsync_dir(control_root)?;
     persist_session_record(&session_dir, lease, SessionPhase::Open, &workspace_root)?;
     Ok(PreparedExternalSession {
         session_dir,

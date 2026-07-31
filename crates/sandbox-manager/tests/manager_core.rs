@@ -689,6 +689,30 @@ fn create_list_inspect_destroy_sandbox_with_fake_runtime() {
 }
 
 #[test]
+fn create_sandbox_uses_gateway_configured_shared_base_target() {
+    let (mut services, runtime, _installer, _client) = services();
+    services.shared_base_target = PathBuf::from("/eos/mpla-fixtures/s4-chain-v1/layer-stack/base");
+    let workspace = TestWorkspace::new("custom-shared-base-target");
+
+    let created = dispatch(
+        &services,
+        "create_sandbox",
+        json!({"image": "ubuntu:24.04", "workspace_root": workspace.path_string()}),
+    );
+    assert_eq!(created["id"], "container-1");
+    let created_calls = runtime.created.lock().expect("created lock");
+    let shared_base = created_calls[0]
+        .2
+        .as_ref()
+        .expect("manager create_sandbox always passes shared base");
+    assert_eq!(
+        shared_base.target,
+        PathBuf::from("/eos/mpla-fixtures/s4-chain-v1/layer-stack/base")
+    );
+    assert!(shared_base.readonly);
+}
+
+#[test]
 fn create_sandbox_rolls_back_runtime_and_store_when_install_fails() {
     let installer = Arc::new(FakeInstaller::failing_install());
     let (services, runtime, store) = services_with_installer(installer);

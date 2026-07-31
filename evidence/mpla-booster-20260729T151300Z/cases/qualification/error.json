@@ -1,0 +1,4 @@
+{
+  "error": "qualification coordinator failed: status='error'; exit_code=2; command_total_time_seconds=1.066976042; output='MPLA_SCORECARD_ERROR {\"error\":\"ordinary workload capability probe did not exit successfully: {\\\\\"command_total_time_seconds\\\\\":0.035444875,\\\\\"end_offset\\\\\":1,\\\\\"exit_code\\\\\":127,\\\\\"original_token_count\\\\\":12,\\\\\"output\\\\\":\\\\\"/bin/bash: line 1: python3: command not found\\\\\",\\\\\"start_offset\\\\\":0,\\\\\"status\\\\\":\\\\\"error\\\\\",\\\\\"total_lines\\\\\":1,\\\\\"wall_time_seconds\\\\\":0.042605125,\\\\\"workspace_session_id\\\\\":\\\\\"00000618c6cbb4b3cb6346\\\\\"}\"}'",
+  "type": "CampaignError"
+}

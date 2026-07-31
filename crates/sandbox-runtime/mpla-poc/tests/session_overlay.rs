@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use sandbox_runtime_mpla_poc::inventory::{
-    capture_inventory, capture_physical_witness, capture_stable_pair,
+    capture_inventory, capture_physical_witness, capture_stable_metadata_pair, capture_stable_pair,
 };
 use sandbox_runtime_mpla_poc::quiesce::validate_receipt_hit_input;
 use sandbox_runtime_mpla_poc::semantic::record::{
@@ -76,10 +76,34 @@ fn double_inventory_is_stable_and_detects_later_mutation() {
     let (before, after) = capture_stable_pair(&allocation).expect("stable inventory");
     assert_eq!(before, after);
     assert_eq!(before.physical.file_count, 1);
+    assert_eq!(before.physical.logical_bytes, 5);
 
     fs::write(allocation.upper_dir.join("nested/file"), b"second").expect("mutate fixture");
     let changed = capture_inventory(&allocation).expect("capture changed inventory");
     assert_ne!(before.inventory_sha256, changed.inventory_sha256);
+}
+
+#[test]
+fn metadata_stability_inventory_omits_regular_file_content_digests() {
+    let root = TestDirectory::new("metadata-inventory");
+    let allocation = allocation_handle(&root.0);
+    fs::create_dir_all(allocation.upper_dir.join("nested")).expect("create nested directory");
+    fs::write(allocation.upper_dir.join("nested/file"), b"fixture").expect("write fixture");
+
+    let (before, after) =
+        capture_stable_metadata_pair(&allocation).expect("stable metadata inventory");
+    let full = capture_inventory(&allocation).expect("capture full inventory");
+
+    assert_eq!(before, after);
+    assert!(before
+        .entries
+        .iter()
+        .all(|entry| entry.content_sha256.is_none()));
+    assert!(full
+        .entries
+        .iter()
+        .any(|entry| entry.content_sha256.is_some()));
+    assert_ne!(before.inventory_sha256, full.inventory_sha256);
 }
 
 #[test]

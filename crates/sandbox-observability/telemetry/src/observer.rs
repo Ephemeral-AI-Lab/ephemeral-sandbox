@@ -140,7 +140,7 @@ impl Observer {
             name: Cow::Borrowed(name),
             attrs: value_to_attrs(attrs.into()),
         };
-        let _ = self.core.sink.append(&Record::Event(event));
+        let _ = self.core.sink.append_best_effort(&Record::Event(event));
     }
 
     /// Emit one resource/metric sample. Samples carry no trace/parent.
@@ -306,7 +306,7 @@ impl Drop for SpanGuard {
             status: self.status.get(),
             attrs: self.attrs.borrow().clone(),
         };
-        let _ = self.core.sink.append(&Record::Span(span));
+        let _ = self.core.sink.append_best_effort(&Record::Span(span));
     }
 }
 
@@ -423,7 +423,7 @@ fn write_open_span(obs: &Observer, open: OpenSpan, status: SpanStatus, attrs: At
         status,
         attrs,
     };
-    let _ = obs.core.sink.append(&Record::Span(span));
+    let _ = obs.core.sink.append_best_effort(&Record::Span(span));
 }
 
 /// The engine-facing terminal edge: an async engine notifies this at completion,

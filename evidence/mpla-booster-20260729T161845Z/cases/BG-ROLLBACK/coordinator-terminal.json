@@ -1,0 +1,13 @@
+{
+  "command_session_id": "namespace_execution_1",
+  "command_total_time_seconds": 332.675714694,
+  "end_offset": 1,
+  "exit_code": 0,
+  "original_token_count": 109,
+  "output": "MPLA_SCORECARD_RESULT {\"activate_exact_preferred\":false,\"activate_exact_required\":true,\"activate_same_preferred\":false,\"activate_same_required\":true,\"fork_preferred\":false,\"fork_required\":true,\"result_bytes\":6278052,\"result_path\":\"/workspace/scorecard-lifecycle-result.json\",\"result_sha256\":\"4f8c5dfc9b0209f04665800cdb52eddf53aff86d774b7a65e3def9e95f41c5af\",\"rollback_preferred\":false,\"rollback_required\":false,\"squash_required\":false}",
+  "start_offset": 0,
+  "status": "ok",
+  "total_lines": 1,
+  "wall_time_seconds": 338.749691696,
+  "workspace_session_id": "00000118c6cf50e14abebd"
+}

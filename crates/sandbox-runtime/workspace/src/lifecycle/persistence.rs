@@ -50,9 +50,10 @@ impl WorkspaceManager {
 }
 
 fn persisted_handle_json(handle: &MountedWorkspace) -> Value {
+    let lease_id = (!handle.external_overlay_authority).then_some(&handle.snapshot.lease_id.0);
     json!({
         "workspace_handle_id": handle.workspace_id.0,
-        "lease_id": handle.snapshot.lease_id.0,
+        "lease_id": lease_id,
         "parked_lease_id": handle.parked_lease_id,
         "candidate_admission": &handle.candidate_admission,
         "manifest_version": handle.snapshot.manifest_version,

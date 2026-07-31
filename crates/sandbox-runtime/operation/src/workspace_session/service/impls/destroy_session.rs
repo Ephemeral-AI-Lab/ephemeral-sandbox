@@ -16,6 +16,7 @@ use super::super::model::{
     FinalizationState, HolderExitDisposition, MplaStoragePhase, MplaWorkspaceBinding,
     WorkspaceSessionHandler,
 };
+use super::super::mpla_policy::should_destroy_unpublished_allocation;
 
 /// The state a destroy needs, snapshotted under a brief `sessions` lock so the
 /// lock is never held across the workspace teardown I/O (§2.3 hard rule).
@@ -487,15 +488,32 @@ impl WorkspaceSessionService {
         }
 
         if let Some(binding) = &mpla_binding {
-            sandbox_runtime_mpla_poc::allocation::destroy_workspace_allocation(
-                &binding.payload_root.join("allocations"),
-                &binding.allocation.descriptor.allocation_id,
-                &binding.lease.deleter,
-            )
-            .map_err(|error| WorkspaceSessionError::MplaLifecycle {
-                workspace_session_id: workspace_session_id.clone(),
-                reason: format!("delete cleaned MPLA allocation: {error}"),
-            })?;
+            let ratified_sealing = binding
+                .prepared
+                .has_ratified_sealing(&binding.allocation, &binding.lease)
+                .map_err(|error| WorkspaceSessionError::MplaLifecycle {
+                    workspace_session_id: workspace_session_id.clone(),
+                    reason: format!("validate cleaned MPLA Sealing boundary: {error}"),
+                })?;
+            let session_record: sandbox_runtime_mpla_poc::SessionRecord =
+                sandbox_runtime_mpla_poc::durable::read_json(
+                    &binding.prepared.session_dir().join("SESSION.json"),
+                )
+                .map_err(|error| WorkspaceSessionError::MplaLifecycle {
+                    workspace_session_id: workspace_session_id.clone(),
+                    reason: format!("read cleaned MPLA session ownership state: {error}"),
+                })?;
+            if should_destroy_unpublished_allocation(session_record.phase, ratified_sealing) {
+                sandbox_runtime_mpla_poc::allocation::destroy_workspace_allocation(
+                    &binding.payload_root.join("allocations"),
+                    &binding.allocation.descriptor.allocation_id,
+                    &binding.lease.deleter,
+                )
+                .map_err(|error| WorkspaceSessionError::MplaLifecycle {
+                    workspace_session_id: workspace_session_id.clone(),
+                    reason: format!("delete cleaned unpublished MPLA allocation: {error}"),
+                })?;
+            }
         }
 
         let result = workspace_result.expect("no failures requires workspace teardown success");

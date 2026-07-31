@@ -1,0 +1,13 @@
+{
+  "command_session_id": "namespace_execution_1",
+  "command_total_time_seconds": 0.043703167,
+  "end_offset": 6,
+  "exit_code": 2,
+  "original_token_count": 69,
+  "output": "error: the following required arguments were not provided:\n  --case <CASE>\n\nUsage: mpla-speed-poc-v1 prepare-publication-fixture --run-id <RUN_ID> --case <CASE> --candidate-sandbox-id <CANDIDATE_SANDBOX_ID> --build-commit <BUILD_COMMIT>\n\nFor more information, try '--help'.",
+  "start_offset": 0,
+  "status": "error",
+  "total_lines": 6,
+  "wall_time_seconds": 1.053818167,
+  "workspace_session_id": "00000118c6d386447abc5c"
+}

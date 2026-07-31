@@ -37,8 +37,8 @@ fn public_catalogs_are_route_complete() {
         );
     }
 
-    assert_eq!(operation_count, 28);
-    assert_eq!(routes::public_routes().count(), 30);
+    assert_eq!(operation_count, 34);
+    assert_eq!(routes::public_routes().count(), 36);
 }
 
 #[test]
@@ -181,6 +181,48 @@ fn public_route_manifest_is_exact_and_policy_consistent() {
             ),
             (
                 "create_mpla_workspace_session",
+                OperationScopePolicy::SandboxRequired,
+                OperationScopeKind::Sandbox,
+                OperationExecutionOwner::Runtime,
+                OperationVisibility::Public
+            ),
+            (
+                "attach_mpla_prepared_fixture",
+                OperationScopePolicy::SandboxRequired,
+                OperationScopeKind::Sandbox,
+                OperationExecutionOwner::Runtime,
+                OperationVisibility::Public
+            ),
+            (
+                "activate_workspace_session",
+                OperationScopePolicy::SandboxRequired,
+                OperationScopeKind::Sandbox,
+                OperationExecutionOwner::Runtime,
+                OperationVisibility::Public
+            ),
+            (
+                "fork_workspace_session",
+                OperationScopePolicy::SandboxRequired,
+                OperationScopeKind::Sandbox,
+                OperationExecutionOwner::Runtime,
+                OperationVisibility::Public
+            ),
+            (
+                "rollback_workspace_session",
+                OperationScopePolicy::SandboxRequired,
+                OperationScopeKind::Sandbox,
+                OperationExecutionOwner::Runtime,
+                OperationVisibility::Public
+            ),
+            (
+                "publish_mpla_workspace_session",
+                OperationScopePolicy::SandboxRequired,
+                OperationScopeKind::Sandbox,
+                OperationExecutionOwner::Runtime,
+                OperationVisibility::Public
+            ),
+            (
+                "squash_mpla_branch",
                 OperationScopePolicy::SandboxRequired,
                 OperationScopeKind::Sandbox,
                 OperationExecutionOwner::Runtime,

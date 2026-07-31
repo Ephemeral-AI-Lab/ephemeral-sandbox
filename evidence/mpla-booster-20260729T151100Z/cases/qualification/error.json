@@ -1,0 +1,4 @@
+{
+  "error": "qualification coordinator failed: status='error'; exit_code=2; command_total_time_seconds=0.051476459; output='MPLA_SCORECARD_ERROR {\"error\":\"CAP_SYS_ADMIN bit 21 is not effective, permitted and bounded: CapEff=00000000880024ff CapPrm=00000000880024ff CapBnd=00000000880024ff\"}'",
+  "type": "CampaignError"
+}

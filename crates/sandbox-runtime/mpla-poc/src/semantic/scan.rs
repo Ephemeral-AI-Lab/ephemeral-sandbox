@@ -39,6 +39,8 @@ pub struct ScanStats {
 pub struct SelectedPathScan {
     pub records: Vec<SemanticRecord>,
     pub bytes_read: u64,
+    pub peak_open_data_fds: usize,
+    pub peak_data_workers: u16,
 }
 
 pub fn scan_selected_paths(
@@ -68,7 +70,7 @@ fn scan_selected_paths_in(
     scan_dir: &Path,
 ) -> PocResult<SelectedPathScan> {
     let mut records = BoundedSpool::new(scan_dir.join("records"), 1024 * 1024)?;
-    let mut hardlinks = BoundedSpool::new(scan_dir.join("hardlinks"), 1024 * 1024)?;
+    let hardlinks = BoundedSpool::new(scan_dir.join("hardlinks"), 1024 * 1024)?;
     let mut stats = ScanStats {
         peak_open_data_fds: 3,
         peak_data_workers: 1,
@@ -79,7 +81,7 @@ fn scan_selected_paths_in(
         let physical = root.join(relative_path);
         let metadata = std::fs::symlink_metadata(&physical)
             .map_err(|error| PocError::io("lstat selected semantic path", &physical, error))?;
-        if metadata.file_type().is_dir() {
+        if metadata.file_type().is_dir() && !relative.is_empty() {
             return Err(PocError::Integrity(format!(
                 "selected semantic path is a directory: {}",
                 relative_path.display()
@@ -91,15 +93,13 @@ fn scan_selected_paths_in(
                 relative_path.display()
             )));
         }
-        let node = scan_node(
-            &physical,
-            &relative,
-            &metadata,
-            &mut records,
-            &mut hardlinks,
-        )?;
+        let node = scan_selected_node(&physical, &relative, &metadata, &mut records)?;
         stats.bytes_read = stats.bytes_read.saturating_add(node.bytes_read);
         stats.entry_count = stats.entry_count.saturating_add(1);
+        stats.peak_data_workers = stats.peak_data_workers.max(node.data_workers);
+        stats.peak_open_data_fds = stats
+            .peak_open_data_fds
+            .max(2_usize.saturating_add(usize::from(node.data_workers)));
     }
     let hardlinks = hardlinks.finish()?;
     if hardlinks.stats().records_out != 0 {
@@ -119,6 +119,8 @@ fn scan_selected_paths_in(
     Ok(SelectedPathScan {
         records: decoded,
         bytes_read: stats.bytes_read,
+        peak_open_data_fds: stats.peak_open_data_fds,
+        peak_data_workers: stats.peak_data_workers,
     })
 }
 
@@ -151,7 +153,7 @@ fn relative_path_bytes(path: &Path) -> PocResult<Vec<u8>> {
         ));
     }
     let bytes = path.as_os_str().as_bytes().to_vec();
-    validate_path(&bytes, false)?;
+    validate_path(&bytes, bytes.is_empty())?;
     Ok(bytes)
 }
 
@@ -221,6 +223,101 @@ pub fn scan_tree(
     Ok(stats)
 }
 
+/// Scan a complete tree without creating worker threads.
+///
+/// The holder-namespace semantic snapshot runs inside the narrowly confined
+/// storage-admin helper, whose post-bootstrap seccomp policy intentionally
+/// denies process creation.  Full-tree regular-file scanning is already
+/// sequential; this variant keeps that authority boundary intact while
+/// preserving the exact record stream produced by `scan_tree`.
+pub fn scan_tree_serial(
+    root: &Path,
+    records: &mut BoundedSpool,
+    hardlinks: &mut BoundedSpool,
+) -> PocResult<ScanStats> {
+    let queue_path = hardlinks.root().join("directory.queue");
+    let mut queue = DirectoryQueue::create(queue_path)?;
+    queue.push(&[])?;
+    let mut stats = ScanStats {
+        peak_open_data_fds: 3,
+        peak_data_workers: 1,
+        ..ScanStats::default()
+    };
+    while let Some(relative) = queue.pop()? {
+        let physical = physical_path(root, &relative);
+        let metadata = std::fs::symlink_metadata(&physical)
+            .map_err(|error| PocError::io("lstat semantic directory", &physical, error))?;
+        if !metadata.file_type().is_dir() {
+            return Err(PocError::Integrity(
+                "semantic directory queue contains a non-directory".to_owned(),
+            ));
+        }
+        let directory = scan_node(&physical, &relative, &metadata, records, hardlinks)?;
+        stats.entry_count = stats.entry_count.saturating_add(1);
+        let entries = std::fs::read_dir(&physical)
+            .map_err(|error| PocError::io("read semantic directory", &physical, error))?;
+        for entry in entries {
+            let entry = entry
+                .map_err(|error| PocError::io("iterate semantic directory", &physical, error))?;
+            let name = entry.file_name().into_vec();
+            if name.is_empty() || name.contains(&b'/') || name.contains(&0) {
+                return Err(PocError::Integrity(
+                    "filesystem returned an invalid directory entry name".to_owned(),
+                ));
+            }
+            if name == OPAQUE_MARKER {
+                if !directory.opaque {
+                    records.push_record(SemanticRecord::OpaqueDirectory {
+                        path: relative.clone(),
+                    })?;
+                }
+                continue;
+            }
+            if let Some(target) = name.strip_prefix(WHITEOUT_PREFIX) {
+                if target.is_empty() {
+                    return Err(PocError::Integrity(
+                        "overlay whiteout marker has an empty target".to_owned(),
+                    ));
+                }
+                records.push_record(SemanticRecord::Whiteout {
+                    path: join_normalized(&relative, target)?,
+                })?;
+                stats.entry_count = stats.entry_count.saturating_add(1);
+                continue;
+            }
+            let child = join_normalized(&relative, &name)?;
+            let child_path = physical_path(root, &child);
+            let child_type = entry
+                .file_type()
+                .map_err(|error| PocError::io("classify semantic entry", &child_path, error))?;
+            if child_type.is_dir() {
+                queue.push(&child)?;
+                continue;
+            }
+            let metadata = std::fs::symlink_metadata(&child_path)
+                .map_err(|error| PocError::io("lstat semantic entry", &child_path, error))?;
+            if metadata.file_type().is_dir() {
+                return Err(PocError::Integrity(
+                    "semantic entry changed from non-directory to directory during scan".to_owned(),
+                ));
+            }
+            let node = if is_kernel_whiteout(&metadata)? {
+                records.push_record(SemanticRecord::Whiteout { path: child })?;
+                NodeScan::default()
+            } else {
+                scan_node(&child_path, &child, &metadata, records, hardlinks)?
+            };
+            stats.entry_count = stats.entry_count.saturating_add(1);
+            stats.bytes_read = stats.bytes_read.saturating_add(node.bytes_read);
+            stats.peak_data_workers = stats.peak_data_workers.max(node.data_workers);
+            stats.peak_open_data_fds = stats
+                .peak_open_data_fds
+                .max(2_usize.saturating_add(usize::from(node.data_workers)));
+        }
+    }
+    Ok(stats)
+}
+
 struct ScanTask {
     physical: PathBuf,
     relative: Vec<u8>,
@@ -230,6 +327,7 @@ struct ScanTask {
 struct NodeScan {
     bytes_read: u64,
     opaque: bool,
+    data_workers: u16,
 }
 
 struct LockedSpool<'lock, 'spool> {
@@ -418,6 +516,66 @@ fn scan_node(
     records: &mut impl SpoolSink,
     hardlinks: &mut impl SpoolSink,
 ) -> PocResult<NodeScan> {
+    let header = scan_node_header(physical, relative, metadata, records)?;
+    if header.kind == NodeKind::Regular {
+        let scanned = chunk::scan_regular(physical, relative, header.logical_size, records)?;
+        if metadata.nlink() > 1 {
+            append_hardlink_claim(
+                hardlinks,
+                metadata.dev(),
+                metadata.ino(),
+                relative,
+                scanned.content_sha256,
+            )?;
+        }
+        return Ok(NodeScan {
+            bytes_read: scanned.bytes_read,
+            opaque: header.opaque,
+            data_workers: scanned.data_workers,
+        });
+    }
+    Ok(NodeScan {
+        bytes_read: 0,
+        opaque: header.opaque,
+        data_workers: 0,
+    })
+}
+
+fn scan_selected_node(
+    physical: &Path,
+    relative: &[u8],
+    metadata: &std::fs::Metadata,
+    records: &mut impl SpoolSink,
+) -> PocResult<NodeScan> {
+    let header = scan_node_header(physical, relative, metadata, records)?;
+    if header.kind != NodeKind::Regular {
+        return Ok(NodeScan {
+            bytes_read: 0,
+            opaque: header.opaque,
+            data_workers: 0,
+        });
+    }
+    let scanned =
+        chunk::scan_regular_selected_parallel(physical, relative, header.logical_size, records)?;
+    Ok(NodeScan {
+        bytes_read: scanned.bytes_read,
+        opaque: header.opaque,
+        data_workers: scanned.data_workers,
+    })
+}
+
+struct NodeHeader {
+    kind: NodeKind,
+    logical_size: u64,
+    opaque: bool,
+}
+
+fn scan_node_header(
+    physical: &Path,
+    relative: &[u8],
+    metadata: &std::fs::Metadata,
+    records: &mut impl SpoolSink,
+) -> PocResult<NodeHeader> {
     let kind = node_kind(metadata)?;
     let symlink_target = if kind == NodeKind::Symlink {
         std::fs::read_link(physical)
@@ -455,32 +613,15 @@ fn scan_node(
         device_major,
         device_minor,
     }))?;
-
     let opaque = scan_xattrs(physical, relative, records)?;
     if kind == NodeKind::Directory && opaque {
         records.push_record(SemanticRecord::OpaqueDirectory {
             path: relative.to_vec(),
         })?;
     }
-
-    if kind == NodeKind::Regular {
-        let scanned = chunk::scan_regular(physical, relative, logical_size, records)?;
-        if metadata.nlink() > 1 {
-            append_hardlink_claim(
-                hardlinks,
-                metadata.dev(),
-                metadata.ino(),
-                relative,
-                scanned.content_sha256,
-            )?;
-        }
-        return Ok(NodeScan {
-            bytes_read: scanned.bytes_read,
-            opaque,
-        });
-    }
-    Ok(NodeScan {
-        bytes_read: 0,
+    Ok(NodeHeader {
+        kind,
+        logical_size,
         opaque,
     })
 }

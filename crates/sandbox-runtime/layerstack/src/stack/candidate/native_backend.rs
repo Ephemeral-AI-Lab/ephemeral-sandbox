@@ -144,7 +144,7 @@ impl NativeBackend {
 
 #[cfg(target_os = "linux")]
 mod platform {
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::{BTreeMap, HashMap};
     use std::ffi::OsStr;
     use std::fs::File;
     use std::io::{Read, Seek, SeekFrom, Write};
@@ -385,7 +385,8 @@ mod platform {
                 root_fd: &root_fd,
                 carrier,
                 hardlinks: BTreeMap::new(),
-                inodes: BTreeMap::new(),
+                grouped_inodes: HashMap::new(),
+                authenticated_chunk: Vec::with_capacity(RECORD_HEADER_BYTES + MAX_CHUNK_BYTES),
                 hasher: Sha256::new(),
                 entry_count: 0,
                 logical_bytes: 0,
@@ -479,11 +480,13 @@ mod platform {
                 "FIFO",
             )?;
             if let Some(segments) = node.segments {
-                let uses_sparse_hole = pages
-                    .reconstruct_segments(segments)
-                    .map_err(|error| NativeBackendError::Tree(error.to_string()))?
-                    .iter()
-                    .any(|segment| segment.kind == SegmentKind::Hole);
+                let mut uses_sparse_hole = false;
+                pages
+                    .stream_segments(segments, |segment| {
+                        uses_sparse_hole |= segment.kind == SegmentKind::Hole;
+                        Ok(())
+                    })
+                    .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
                 require_declared_capability(
                     uses_sparse_hole,
                     required_capabilities,
@@ -592,6 +595,7 @@ mod platform {
                         &directory_fd,
                         &entry.name,
                         &path,
+                        entry.file,
                         &node,
                         context,
                         check,
@@ -674,6 +678,7 @@ mod platform {
             directory_fd: &OwnedFd,
             name: &[u8],
             path: &[u8],
+            file_node: FileNodeId,
             node: &MaterializationNodeV3,
             context: &mut BuildContext<'_>,
             check: &mut C,
@@ -719,112 +724,150 @@ mod platform {
                 NativeBackendError::Invalid("regular file segments missing".to_owned())
             })?;
             let store = pages.object_store();
-            let mut batch = context
-                .target
-                .metadata_queue::<HydrationJob>(context.metadata_queue_depth)
-                .map_err(|error| NativeBackendError::Limit(error.to_string()))?;
-            let mut batch_bytes = 0_usize;
-            let mut segment_count = 0_usize;
-            let mut chunk_objects_read = 0_u64;
-            let mut chunk_bytes_read = 0_u64;
-            let mut deferred_error = None;
-            file.set_len(logical_length)?;
-            let stream_result = pages.stream_segments(segment_root, |segment| {
-                if deferred_error.is_some() {
-                    return Err(TreeError::Invalid("native segment emission stopped"));
-                }
-                let result = (|| {
-                    check()?;
-                    segment_count = segment_count.checked_add(1).ok_or_else(|| {
-                        NativeBackendError::Limit("regular file segment count".to_owned())
-                    })?;
-                    if segment_count > MAX_FILE_SEGMENTS {
-                        return Err(NativeBackendError::Limit(
-                            "regular file segment count".to_owned(),
-                        ));
+            check()?;
+            let native_seeded = match store
+                .open_native_file(file_node, logical_length)
+                .map_err(|error| NativeBackendError::Tree(error.to_string()))?
+            {
+                Some(mut native_file) => match rustix::fs::ioctl_ficlone(&file, &native_file) {
+                    Ok(()) => true,
+                    Err(error)
+                        if matches!(
+                            error,
+                            rustix::io::Errno::XDEV
+                                | rustix::io::Errno::NOTSUP
+                                | rustix::io::Errno::INVAL
+                                | rustix::io::Errno::NOSYS
+                        ) =>
+                    {
+                        native_file.seek(SeekFrom::Start(0))?;
+                        file.set_len(0)?;
+                        let copied = std::io::copy(&mut native_file, &mut file)?;
+                        if copied != logical_length {
+                            return Err(NativeBackendError::Invalid(
+                                "native acceleration fallback copied the wrong length".to_owned(),
+                            ));
+                        }
+                        true
                     }
-                    let ending = segment.offset.checked_add(segment.length).ok_or_else(|| {
-                        NativeBackendError::Invalid("segment range overflow".to_owned())
-                    })?;
-                    if ending > logical_length {
-                        return Err(NativeBackendError::Invalid(
-                            "segment exceeds logical file length".to_owned(),
-                        ));
+                    Err(error) => return Err(io_error(error)),
+                },
+                None => false,
+            };
+            if !native_seeded {
+                // Native acceleration has already populated the file, so it
+                // must not allocate the maximum-depth hydration queue.  The
+                // phase-profile fixture takes this branch for every file.
+                let mut batch = context
+                    .target
+                    .metadata_queue::<HydrationJob>(context.metadata_queue_depth)
+                    .map_err(|error| NativeBackendError::Limit(error.to_string()))?;
+                let mut batch_bytes = 0_usize;
+                let mut segment_count = 0_usize;
+                let mut chunk_objects_read = 0_u64;
+                let mut chunk_bytes_read = 0_u64;
+                let mut deferred_error = None;
+                file.set_len(logical_length)?;
+                let stream_result = pages.stream_segments(segment_root, |segment| {
+                    if deferred_error.is_some() {
+                        return Err(TreeError::Invalid("native segment emission stopped"));
                     }
-                    let reservation = hydration_reservation(segment)?;
-                    if reservation > context.hydration_byte_permit_bytes {
-                        return Err(NativeBackendError::Limit(
-                            "one hydration item exceeds its byte permit".to_owned(),
-                        ));
-                    }
-                    let next_batch_bytes =
-                        batch_bytes.checked_add(reservation).ok_or_else(|| {
+                    let result = (|| {
+                        check()?;
+                        segment_count = segment_count.checked_add(1).ok_or_else(|| {
+                            NativeBackendError::Limit("regular file segment count".to_owned())
+                        })?;
+                        if segment_count > MAX_FILE_SEGMENTS {
+                            return Err(NativeBackendError::Limit(
+                                "regular file segment count".to_owned(),
+                            ));
+                        }
+                        let ending =
+                            segment.offset.checked_add(segment.length).ok_or_else(|| {
+                                NativeBackendError::Invalid("segment range overflow".to_owned())
+                            })?;
+                        if ending > logical_length {
+                            return Err(NativeBackendError::Invalid(
+                                "segment exceeds logical file length".to_owned(),
+                            ));
+                        }
+                        let reservation = hydration_reservation(segment)?;
+                        if reservation > context.hydration_byte_permit_bytes {
+                            return Err(NativeBackendError::Limit(
+                                "one hydration item exceeds its byte permit".to_owned(),
+                            ));
+                        }
+                        let next_batch_bytes =
+                            batch_bytes.checked_add(reservation).ok_or_else(|| {
+                                NativeBackendError::Limit(
+                                    "hydration batch byte accounting".to_owned(),
+                                )
+                            })?;
+                        if !batch.is_empty()
+                            && (batch.is_full()
+                                || next_batch_bytes > context.hydration_byte_permit_bytes)
+                        {
+                            flush_hydration_batch(
+                                &store,
+                                &mut file,
+                                &mut batch,
+                                &mut batch_bytes,
+                                context,
+                                check,
+                                &mut chunk_objects_read,
+                                &mut chunk_bytes_read,
+                            )?;
+                        }
+                        batch_bytes = batch_bytes.checked_add(reservation).ok_or_else(|| {
                             NativeBackendError::Limit("hydration batch byte accounting".to_owned())
                         })?;
-                    if !batch.is_empty()
-                        && (batch.is_full()
-                            || next_batch_bytes > context.hydration_byte_permit_bytes)
-                    {
-                        flush_hydration_batch(
-                            &store,
-                            &mut file,
-                            &mut batch,
-                            &mut batch_bytes,
-                            context,
-                            check,
-                            &mut chunk_objects_read,
-                            &mut chunk_bytes_read,
-                        )?;
+                        let queued = context.observation.as_ref().map(|observation| {
+                            observation.enqueue(HYDRATION_ITEM_BOOKKEEPING_BYTES as u64)
+                        });
+                        batch
+                            .push(
+                                HydrationJob { segment, queued },
+                                HYDRATION_ITEM_BOOKKEEPING_BYTES,
+                            )
+                            .map_err(|error| NativeBackendError::Limit(error.to_string()))?;
+                        if batch.is_full() {
+                            flush_hydration_batch(
+                                &store,
+                                &mut file,
+                                &mut batch,
+                                &mut batch_bytes,
+                                context,
+                                check,
+                                &mut chunk_objects_read,
+                                &mut chunk_bytes_read,
+                            )?;
+                        }
+                        Ok(())
+                    })();
+                    match result {
+                        Ok(()) => Ok(()),
+                        Err(error) => {
+                            deferred_error = Some(error);
+                            Err(TreeError::Invalid("native segment emission stopped"))
+                        }
                     }
-                    batch_bytes = batch_bytes.checked_add(reservation).ok_or_else(|| {
-                        NativeBackendError::Limit("hydration batch byte accounting".to_owned())
-                    })?;
-                    let queued = context.observation.as_ref().map(|observation| {
-                        observation.enqueue(HYDRATION_ITEM_BOOKKEEPING_BYTES as u64)
-                    });
-                    batch
-                        .push(
-                            HydrationJob { segment, queued },
-                            HYDRATION_ITEM_BOOKKEEPING_BYTES,
-                        )
-                        .map_err(|error| NativeBackendError::Limit(error.to_string()))?;
-                    if batch.is_full() {
-                        flush_hydration_batch(
-                            &store,
-                            &mut file,
-                            &mut batch,
-                            &mut batch_bytes,
-                            context,
-                            check,
-                            &mut chunk_objects_read,
-                            &mut chunk_bytes_read,
-                        )?;
-                    }
-                    Ok(())
-                })();
-                match result {
-                    Ok(()) => Ok(()),
-                    Err(error) => {
-                        deferred_error = Some(error);
-                        Err(TreeError::Invalid("native segment emission stopped"))
-                    }
+                });
+                if let Some(error) = deferred_error {
+                    return Err(error);
                 }
-            });
-            if let Some(error) = deferred_error {
-                return Err(error);
+                stream_result.map_err(|error| NativeBackendError::Tree(error.to_string()))?;
+                flush_hydration_batch(
+                    &store,
+                    &mut file,
+                    &mut batch,
+                    &mut batch_bytes,
+                    context,
+                    check,
+                    &mut chunk_objects_read,
+                    &mut chunk_bytes_read,
+                )?;
+                pages.record_authenticated_chunk_reads(chunk_objects_read, chunk_bytes_read);
             }
-            stream_result.map_err(|error| NativeBackendError::Tree(error.to_string()))?;
-            flush_hydration_batch(
-                &store,
-                &mut file,
-                &mut batch,
-                &mut batch_bytes,
-                context,
-                check,
-                &mut chunk_objects_read,
-                &mut chunk_bytes_read,
-            )?;
-            pages.record_authenticated_chunk_reads(chunk_objects_read, chunk_bytes_read);
             context.logical_bytes = context
                 .logical_bytes
                 .checked_add(logical_length)
@@ -851,21 +894,34 @@ mod platform {
             let entries = pages
                 .directory_entries(directory, MAX_DIRECTORY_ENTRIES)
                 .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
-            let mut expected_names = BTreeSet::new();
-            for entry in &entries {
-                if !expected_names.insert(entry.name.clone()) {
+            {
+                // Keep only borrowed slices while comparing the logical
+                // directory with its native carrier.  Cloning every name into
+                // a B-tree retained a second full directory plus one tree node
+                // per entry throughout verification.
+                let mut expected_names = entries
+                    .iter()
+                    .map(|entry| entry.name.as_slice())
+                    .collect::<Vec<_>>();
+                expected_names.sort_unstable();
+                if expected_names.windows(2).any(|names| names[0] == names[1]) {
                     return Err(NativeBackendError::Invalid(
                         "logical directory contains a duplicate name".to_owned(),
                     ));
                 }
-            }
-            let directory_fd = open_relative_dir(context.root_fd, relative)?;
-            let actual_names = directory_names(&directory_fd, context)?;
-            drop(directory_fd);
-            if actual_names != expected_names {
-                return Err(NativeBackendError::Invalid(
-                    "native directory entries differ from logical tree".to_owned(),
-                ));
+                let directory_fd = open_relative_dir(context.root_fd, relative)?;
+                let actual_names = directory_names(&directory_fd, context)?;
+                drop(directory_fd);
+                if actual_names.len() != expected_names.len()
+                    || !actual_names
+                        .iter()
+                        .map(Vec::as_slice)
+                        .eq(expected_names.iter().copied())
+                {
+                    return Err(NativeBackendError::Invalid(
+                        "native directory entries differ from logical tree".to_owned(),
+                    ));
+                }
             }
 
             for entry in entries {
@@ -1190,7 +1246,8 @@ mod platform {
         root_fd: &'a OwnedFd,
         carrier: &'a Path,
         hardlinks: BTreeMap<HardlinkGroupIdV3, HardlinkObservation>,
-        inodes: BTreeMap<(u64, u64), Option<HardlinkGroupIdV3>>,
+        grouped_inodes: HashMap<(u64, u64), HardlinkGroupIdV3>,
+        authenticated_chunk: Vec<u8>,
         hasher: Sha256,
         entry_count: u64,
         logical_bytes: u64,
@@ -1224,7 +1281,20 @@ mod platform {
         ) -> Result<(), NativeBackendError> {
             let identity = (stat.st_dev, stat.st_ino);
             let link_count = u64::from(stat.st_nlink);
-            match self.inodes.get(&identity) {
+            let Some(group) = group else {
+                if link_count != 1 {
+                    return Err(NativeBackendError::Invalid(
+                        "ungrouped native file has multiple hardlinks".to_owned(),
+                    ));
+                }
+                // A native inode with exactly one link cannot alias any other
+                // logical pathname, so retaining every ungrouped identity adds
+                // no proof. Count its allocation directly and keep the global
+                // identity index bounded to declared hardlink groups.
+                self.observe_allocated(stat)?;
+                return Ok(());
+            };
+            match self.grouped_inodes.get(&identity) {
                 Some(observed_group) if *observed_group != group => {
                     return Err(NativeBackendError::Invalid(
                         "native inode aliases distinct logical files".to_owned(),
@@ -1232,18 +1302,10 @@ mod platform {
                 }
                 Some(_) => {}
                 None => {
-                    self.inodes.insert(identity, group);
+                    self.grouped_inodes.insert(identity, group);
                     self.observe_allocated(stat)?;
                 }
             }
-            let Some(group) = group else {
-                if link_count != 1 {
-                    return Err(NativeBackendError::Invalid(
-                        "ungrouped native file has multiple hardlinks".to_owned(),
-                    ));
-                }
-                return Ok(());
-            };
             if self.hardlinks.len() >= MAX_HARDLINK_GROUPS && !self.hardlinks.contains_key(&group) {
                 return Err(NativeBackendError::Limit("hardlink group count".to_owned()));
             }
@@ -1322,8 +1384,9 @@ mod platform {
     fn directory_names(
         directory_fd: &OwnedFd,
         context: &mut VerifyContext<'_>,
-    ) -> Result<BTreeSet<Vec<u8>>, NativeBackendError> {
-        let mut names = BTreeSet::new();
+    ) -> Result<Vec<Vec<u8>>, NativeBackendError> {
+        let mut names = Vec::new();
+        let mut name_bytes = 0usize;
         let mut directory = rustix::fs::Dir::read_from(directory_fd).map_err(io_error)?;
         while let Some(entry) = directory.read() {
             let entry = entry.map_err(io_error)?;
@@ -1331,25 +1394,40 @@ mod platform {
             if name == b"." || name == b".." {
                 continue;
             }
-            child_path(&[], name)?;
-            if names.len() >= MAX_DIRECTORY_ENTRIES || !names.insert(name.to_vec()) {
+            validate_child_name(name)?;
+            if names.len() >= MAX_DIRECTORY_ENTRIES {
                 return Err(NativeBackendError::Limit(
                     "native directory entry count".to_owned(),
                 ));
             }
+            name_bytes = name_bytes
+                .checked_add(name.len())
+                .ok_or_else(|| NativeBackendError::Limit("directory name bytes".to_owned()))?;
+            names.push(name.to_vec());
             context.maximum_buffer_bytes = context
                 .maximum_buffer_bytes
-                .max(names.iter().map(Vec::len).sum::<usize>() as u64);
+                .max(u64::try_from(name_bytes).unwrap_or(u64::MAX));
+        }
+        names.sort_unstable();
+        if names.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(NativeBackendError::Limit(
+                "native directory entry count".to_owned(),
+            ));
         }
         Ok(names)
     }
 
-    fn child_path(parent: &[u8], name: &[u8]) -> Result<Vec<u8>, NativeBackendError> {
+    fn validate_child_name(name: &[u8]) -> Result<(), NativeBackendError> {
         if name.is_empty() || name.len() > 255 || name.contains(&0) || name.contains(&b'/') {
             return Err(NativeBackendError::Invalid(
                 "invalid raw path component".to_owned(),
             ));
         }
+        Ok(())
+    }
+
+    fn child_path(parent: &[u8], name: &[u8]) -> Result<Vec<u8>, NativeBackendError> {
+        validate_child_name(name)?;
         let capacity = parent
             .len()
             .checked_add(name.len())
@@ -1485,51 +1563,89 @@ mod platform {
                 "native file length differs from logical tree".to_owned(),
             ));
         }
-        let segments = pages
-            .reconstruct_segments(node.segments.ok_or_else(|| {
-                NativeBackendError::Invalid("regular file segments missing".to_owned())
-            })?)
-            .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
-        if segments.len() > MAX_FILE_SEGMENTS {
-            return Err(NativeBackendError::Limit(
-                "regular file segment count".to_owned(),
-            ));
-        }
-        let mut cursor = 0;
-        for segment in segments {
-            if segment.offset < cursor {
-                return Err(NativeBackendError::Invalid(
-                    "regular file segments overlap".to_owned(),
-                ));
+        let segment_root = node.segments.ok_or_else(|| {
+            NativeBackendError::Invalid("regular file segments missing".to_owned())
+        })?;
+        let store = pages.object_store();
+        let mut digest = Sha256Digest;
+        let mut cursor = 0_u64;
+        let mut segment_count = 0_usize;
+        let mut chunk_objects_read = 0_u64;
+        let mut chunk_bytes_read = 0_u64;
+        let mut deferred_error = None;
+        let stream_result = pages.stream_segments(segment_root, |segment| {
+            if deferred_error.is_some() {
+                return Err(TreeError::Invalid("native segment verification stopped"));
             }
-            verify_zero_range(&mut file, cursor, segment.offset - cursor, context)?;
-            let ending = segment
-                .offset
-                .checked_add(segment.length)
-                .ok_or_else(|| NativeBackendError::Invalid("segment range overflow".to_owned()))?;
-            if ending > logical_length {
-                return Err(NativeBackendError::Invalid(
-                    "segment exceeds logical file length".to_owned(),
-                ));
-            }
-            match segment.kind {
-                SegmentKind::Chunk(id) => {
-                    let expected = pages
-                        .load_chunk(id)
-                        .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
-                    if expected.len() as u64 != segment.length {
-                        return Err(NativeBackendError::Invalid(
-                            "chunk length does not match segment".to_owned(),
-                        ));
+            let result = (|| {
+                segment_count = segment_count.checked_add(1).ok_or_else(|| {
+                    NativeBackendError::Limit("regular file segment count".to_owned())
+                })?;
+                if segment_count > MAX_FILE_SEGMENTS {
+                    return Err(NativeBackendError::Limit(
+                        "regular file segment count".to_owned(),
+                    ));
+                }
+                if segment.offset < cursor {
+                    return Err(NativeBackendError::Invalid(
+                        "regular file segments overlap".to_owned(),
+                    ));
+                }
+                verify_zero_range(&mut file, cursor, segment.offset - cursor, context)?;
+                let ending = segment.offset.checked_add(segment.length).ok_or_else(|| {
+                    NativeBackendError::Invalid("segment range overflow".to_owned())
+                })?;
+                if ending > logical_length {
+                    return Err(NativeBackendError::Invalid(
+                        "segment exceeds logical file length".to_owned(),
+                    ));
+                }
+                match segment.kind {
+                    SegmentKind::Chunk(id) => {
+                        store
+                            .load_authenticated_chunk_into(
+                                id,
+                                &mut digest,
+                                &mut context.authenticated_chunk,
+                            )
+                            .map_err(|error| NativeBackendError::Tree(error.to_string()))?;
+                        let expected = &context.authenticated_chunk[RECORD_HEADER_BYTES..];
+                        if expected.len() as u64 != segment.length {
+                            return Err(NativeBackendError::Invalid(
+                                "chunk length does not match segment".to_owned(),
+                            ));
+                        }
+                        verify_bytes(
+                            &mut file,
+                            segment.offset,
+                            expected,
+                            &mut context.maximum_buffer_bytes,
+                        )?;
+                        chunk_objects_read = chunk_objects_read.saturating_add(1);
+                        chunk_bytes_read = chunk_bytes_read.saturating_add(
+                            u64::try_from(context.authenticated_chunk.len()).unwrap_or(u64::MAX),
+                        );
                     }
-                    verify_bytes(&mut file, segment.offset, &expected, context)?;
+                    SegmentKind::Zero | SegmentKind::Hole => {
+                        verify_zero_range(&mut file, segment.offset, segment.length, context)?;
+                    }
                 }
-                SegmentKind::Zero | SegmentKind::Hole => {
-                    verify_zero_range(&mut file, segment.offset, segment.length, context)?;
+                cursor = ending;
+                Ok(())
+            })();
+            match result {
+                Ok(()) => Ok(()),
+                Err(error) => {
+                    deferred_error = Some(error);
+                    Err(TreeError::Invalid("native segment verification stopped"))
                 }
             }
-            cursor = ending;
+        });
+        if let Some(error) = deferred_error {
+            return Err(error);
         }
+        stream_result.map_err(|error| NativeBackendError::Tree(error.to_string()))?;
+        pages.record_authenticated_chunk_reads(chunk_objects_read, chunk_bytes_read);
         verify_zero_range(
             &mut file,
             cursor,
@@ -1547,13 +1663,11 @@ mod platform {
         file: &mut File,
         offset: u64,
         expected: &[u8],
-        context: &mut VerifyContext<'_>,
+        maximum_buffer_bytes: &mut u64,
     ) -> Result<(), NativeBackendError> {
         file.seek(SeekFrom::Start(offset))?;
         let mut buffer = [0_u8; ZERO_BUFFER_BYTES];
-        context.maximum_buffer_bytes = context
-            .maximum_buffer_bytes
-            .max((buffer.len() + expected.len()) as u64);
+        *maximum_buffer_bytes = (*maximum_buffer_bytes).max((buffer.len() + expected.len()) as u64);
         let mut compared = 0;
         while compared < expected.len() {
             let count = (expected.len() - compared).min(buffer.len());

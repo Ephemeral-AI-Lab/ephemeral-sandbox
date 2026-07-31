@@ -40,6 +40,7 @@ pub struct BoundedSpool {
     root: PathBuf,
     registry: PathBuf,
     memory_limit: usize,
+    durable: bool,
     buffered_bytes: usize,
     entries: Vec<Entry>,
     next_run: u64,
@@ -48,6 +49,14 @@ pub struct BoundedSpool {
 
 impl BoundedSpool {
     pub fn new(root: PathBuf, memory_limit: usize) -> PocResult<Self> {
+        Self::open(root, memory_limit, true)
+    }
+
+    pub(super) fn new_ephemeral(root: PathBuf, memory_limit: usize) -> PocResult<Self> {
+        Self::open(root, memory_limit, false)
+    }
+
+    fn open(root: PathBuf, memory_limit: usize, durable: bool) -> PocResult<Self> {
         if memory_limit == 0 || memory_limit > SEMANTIC_SPOOL_RUN_BYTES {
             return Err(PocError::Integrity(
                 "semantic spool memory limit is outside fixed bounds".to_owned(),
@@ -56,13 +65,18 @@ impl BoundedSpool {
         std::fs::create_dir(&root)
             .map_err(|error| PocError::io("create semantic spool", &root, error))?;
         let registry = root.join("runs.current");
-        File::create(&registry)
-            .and_then(|file| file.sync_all())
+        let registry_file = File::create(&registry)
             .map_err(|error| PocError::io("create semantic spool registry", &registry, error))?;
+        if durable {
+            registry_file
+                .sync_all()
+                .map_err(|error| PocError::io("fsync semantic spool registry", &registry, error))?;
+        }
         Ok(Self {
             root,
             registry,
             memory_limit,
+            durable,
             buffered_bytes: 0,
             entries: Vec::new(),
             next_run: 0,
@@ -111,8 +125,8 @@ impl BoundedSpool {
         }
         if self.stats.initial_runs == 0 {
             let path = self.allocate_run_path("empty");
-            write_run(&path, std::iter::empty())?;
-            append_registry(&self.registry, &path)?;
+            write_run(&path, std::iter::empty(), self.durable)?;
+            append_registry(&self.registry, &path, self.durable)?;
             self.stats.initial_runs = 1;
             self.stats.peak_open_files = self.stats.peak_open_files.max(1);
         }
@@ -188,9 +202,11 @@ impl BoundedSpool {
             destination.flush().map_err(|error| {
                 PocError::io("flush semantic merge registry", &next_registry, error)
             })?;
-            destination.get_ref().sync_all().map_err(|error| {
-                PocError::io("fsync semantic merge registry", &next_registry, error)
-            })?;
+            if self.durable {
+                destination.get_ref().sync_all().map_err(|error| {
+                    PocError::io("fsync semantic merge registry", &next_registry, error)
+                })?;
+            }
             if registry != self.registry {
                 std::fs::remove_file(&registry).map_err(|error| {
                     PocError::io("remove old semantic run registry", &registry, error)
@@ -219,8 +235,9 @@ impl BoundedSpool {
             self.entries
                 .drain(..)
                 .map(|entry| (entry.key, entry.payload)),
+            self.durable,
         )?;
-        append_registry(&self.registry, &path)?;
+        append_registry(&self.registry, &path, self.durable)?;
         self.stats.initial_runs = self.stats.initial_runs.saturating_add(1);
         self.stats.bytes_written = self
             .stats
@@ -286,6 +303,7 @@ struct WriteResult {
 fn write_run(
     path: &Path,
     entries: impl IntoIterator<Item = (Vec<u8>, Vec<u8>)>,
+    durable: bool,
 ) -> PocResult<WriteResult> {
     let file = OpenOptions::new()
         .write(true)
@@ -317,10 +335,12 @@ fn write_run(
     writer
         .flush()
         .map_err(|error| PocError::io("flush semantic spool run", path, error))?;
-    writer
-        .get_ref()
-        .sync_all()
-        .map_err(|error| PocError::io("fsync semantic spool run", path, error))?;
+    if durable {
+        writer
+            .get_ref()
+            .sync_all()
+            .map_err(|error| PocError::io("fsync semantic spool run", path, error))?;
+    }
     Ok(WriteResult {
         records,
         bytes_written,
@@ -499,7 +519,7 @@ fn reject_duplicate_entries(entries: &[Entry]) -> PocResult<()> {
     Ok(())
 }
 
-fn append_registry(registry: &Path, run: &Path) -> PocResult<()> {
+fn append_registry(registry: &Path, run: &Path, durable: bool) -> PocResult<()> {
     let name = run
         .file_name()
         .and_then(|value| value.to_str())
@@ -510,8 +530,12 @@ fn append_registry(registry: &Path, run: &Path) -> PocResult<()> {
         .open(registry)
         .map_err(|error| PocError::io("open semantic run registry", registry, error))?;
     writeln!(file, "{name}")
-        .and_then(|()| file.sync_all())
-        .map_err(|error| PocError::io("append semantic run registry", registry, error))
+        .map_err(|error| PocError::io("append semantic run registry", registry, error))?;
+    if durable {
+        file.sync_all()
+            .map_err(|error| PocError::io("fsync semantic run registry", registry, error))?;
+    }
+    Ok(())
 }
 
 fn validate_registry_name(name: &str) -> PocResult<()> {

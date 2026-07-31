@@ -1,0 +1,36 @@
+{
+  "cgroup_limits": {
+    "publication": {
+      "membership_proven": true,
+      "memory_high": 3221225472,
+      "memory_max": 3221225472,
+      "path": "/sys/fs/cgroup/docker/aba771fd119e153bd6428bf3153717db7cef91fe567525650a691bbeedb7f25f/_workloads/workspace-00000118c6e36c1db1354c"
+    }
+  },
+  "failure_reason": "qualification: case result is absent; lifecycle: case result is absent; publication: case did not assert its resource bounds; stream: case result is absent; recovery: case result is absent",
+  "kind": "mpla_booster_resources_v1",
+  "memory_inode_fd_oom_samples": {
+    "lifecycle": {
+      "reason": "case result is absent",
+      "status": "FAIL"
+    },
+    "publication": {
+      "reason": "case did not assert its resource bounds",
+      "status": "FAIL"
+    },
+    "qualification": {
+      "reason": "case result is absent",
+      "status": "FAIL"
+    },
+    "recovery": {
+      "reason": "case result is absent",
+      "status": "FAIL"
+    },
+    "stream": {
+      "reason": "case result is absent",
+      "status": "FAIL"
+    }
+  },
+  "schema_version": 1,
+  "status": "FAIL"
+}

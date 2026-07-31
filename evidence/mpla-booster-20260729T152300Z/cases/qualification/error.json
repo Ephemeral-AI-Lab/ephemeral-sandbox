@@ -1,0 +1,4 @@
+{
+  "error": "qualification coordinator failed: status='error'; exit_code=2; command_total_time_seconds=0.086900042; output='MPLA_SCORECARD_ERROR {\"error\":\"mpla_storage_admin failed with Some(1): stdout= stderr={\\\\\"error\\\\\":{\\\\\"kind\\\\\":\\\\\"operation_failed\\\\\",\\\\\"message\\\\\":\\\\\"MPLA storage lifecycle rejected for WorkspaceSessionId(\\\\\\\\\\\\\"00000118c6c9e95d4a5234\\\\\\\\\\\\\"): storage-admin returned an unsuccessful receipt: overlay failure: overlay mount syscall failed at fsconfig create: Permission denied (os error 13); measured_input_access=lower_dir[0]:read+search=allowed,read+write+search=denied(Read-only file system (os error 30));upper_dir:read+search=allowed,read+write+search=allowed;work_dir:read+search=allowed,read+write+search=allowed;workspace_root:read+search=allowed,read+write+search=allowed\\\\\",\\\\\"details\\\\\":{}}}\\\\n\"}'",
+  "type": "CampaignError"
+}

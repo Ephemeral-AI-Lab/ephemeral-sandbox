@@ -1,0 +1,4 @@
+{
+  "error": "qualification coordinator failed: status='error'; exit_code=2; command_total_time_seconds=0.327354375; output='MPLA_SCORECARD_ERROR {\"error\":\"qualification fork sentinel omitted mode/ownership evidence\"}'",
+  "type": "CampaignError"
+}

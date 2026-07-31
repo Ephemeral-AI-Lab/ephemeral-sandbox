@@ -19,8 +19,8 @@ use super::materialization_publication::{
     MaterializationPublisher,
 };
 use super::native_backend::{
-    NativeBackend, NativeBackendError, NativeReconstructionResources, MAX_HYDRATION_STREAM_BYTES,
-    MIN_HYDRATION_STREAM_BYTES,
+    NativeBackend, NativeBackendError, NativeBuildResult, NativeReconstructionResources,
+    MAX_HYDRATION_STREAM_BYTES, MIN_HYDRATION_STREAM_BYTES,
 };
 use super::object_store::LooseObjectStore;
 use super::squash::CandidateSquashProducer;
@@ -31,6 +31,15 @@ use crate::supervisor::{
     shared_supervisor_for_root, MaterializationAdmission, MaterializationOwner, StorageSupervisor,
     SupervisorError, MAX_METADATA_QUEUE_ITEMS,
 };
+
+pub(crate) fn same_native_carrier_identity(
+    build: &NativeBuildResult,
+    verified: &NativeBuildResult,
+) -> bool {
+    build.native_tree_sha256 == verified.native_tree_sha256
+        && build.entry_count == verified.entry_count
+        && build.logical_bytes == verified.logical_bytes
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum MaterializationDisposition {
@@ -739,15 +748,20 @@ impl MaterializationCoordinator {
                             return Err(error.into());
                         }
                     };
-                    if build.native_tree_sha256 != verified.native_tree_sha256
-                        || build.entry_count != verified.entry_count
-                        || build.logical_bytes != verified.logical_bytes
-                        || build.allocated_bytes != verified.allocated_bytes
-                    {
-                        let error = NativeBackendError::Invalid(
-                            "reconstructed carrier summary differs from verified carrier"
-                                .to_owned(),
-                        );
+                    if !same_native_carrier_identity(&build, &verified) {
+                        let error = NativeBackendError::Invalid(format!(
+                            "reconstructed carrier summary differs from verified carrier: \
+                             build={{tree:{},entries:{},logical_bytes:{},allocated_bytes:{}}}; \
+                             verified={{tree:{},entries:{},logical_bytes:{},allocated_bytes:{}}}",
+                            build.native_tree_sha256,
+                            build.entry_count,
+                            build.logical_bytes,
+                            build.allocated_bytes,
+                            verified.native_tree_sha256,
+                            verified.entry_count,
+                            verified.logical_bytes,
+                            verified.allocated_bytes,
+                        ));
                         operation.transition(
                             MaterializationPhase::Terminal,
                             None,
@@ -762,7 +776,7 @@ impl MaterializationCoordinator {
                         maximum_buffer_bytes: build
                             .maximum_buffer_bytes
                             .max(verified.maximum_buffer_bytes),
-                        ..build
+                        ..verified
                     }
                 }
             };
@@ -1011,7 +1025,6 @@ impl MaterializationCoordinator {
             || verified.native_tree_sha256 != manifest.native_tree_sha256
             || verified.entry_count != manifest.entry_count
             || verified.logical_bytes != manifest.logical_bytes
-            || verified.allocated_bytes != manifest.allocated_bytes
         {
             return Err(MaterializationError::Native(
                 "selected native carrier verification differs from manifest".to_owned(),
@@ -1155,5 +1168,33 @@ fn supervisor_error(error: SupervisorError) -> MaterializationError {
         SupervisorError::Cancelled => MaterializationError::Cancelled,
         SupervisorError::Deadline => MaterializationError::Deadline,
         error => MaterializationError::Coordination(error.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{same_native_carrier_identity, NativeBuildResult};
+
+    #[test]
+    fn native_carrier_identity_allows_allocation_telemetry_to_change() {
+        let built = NativeBuildResult {
+            native_tree_sha256: "a".repeat(64),
+            entry_count: 7,
+            logical_bytes: 131_072,
+            allocated_bytes: 135_168,
+            maximum_buffer_bytes: 16_384,
+        };
+        let allocation_changed = NativeBuildResult {
+            allocated_bytes: 126_976,
+            maximum_buffer_bytes: 32_768,
+            ..built.clone()
+        };
+        assert!(same_native_carrier_identity(&built, &allocation_changed));
+
+        let identity_changed = NativeBuildResult {
+            logical_bytes: 131_073,
+            ..allocation_changed
+        };
+        assert!(!same_native_carrier_identity(&built, &identity_changed));
     }
 }

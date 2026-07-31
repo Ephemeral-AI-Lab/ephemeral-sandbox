@@ -61,6 +61,7 @@ pub(crate) fn run(args: std::env::Args) -> Result<()> {
         limits: sandbox_protocol::ProtocolLimits {
             max_request_bytes: daemon_config.server.max_request_bytes,
             request_read_timeout_s: daemon_config.server.request_read_timeout_s,
+            response_write_timeout_s: daemon_config.server.response_write_timeout_s,
         },
         max_concurrent_connections: daemon_config.server.max_concurrent_connections,
         worker_threads: daemon_config.server.worker_threads,
@@ -254,14 +255,20 @@ fn selected_workload_cgroup_limits(
         return None;
     }
     let outer_memory_max = docker.memory_bytes.unwrap_or(profile.memory_max_bytes);
-    let memory_high = profile.memory_high_bytes.min(outer_memory_max);
+    let memory_high = profile
+        .resolved_workload_memory_high_bytes()
+        .min(outer_memory_max);
     Some(sandbox_runtime::WorkloadCgroupLimits {
         nano_cpus: u64::try_from(docker.nano_cpus.unwrap_or(profile.nano_cpus))
             .expect("validated resource profile nano_cpus is positive"),
         memory_high_bytes: u64::try_from(memory_high)
             .expect("validated resource profile memory high is positive"),
-        memory_max_bytes: u64::try_from(profile.workload_memory_max_bytes().min(outer_memory_max))
-            .expect("validated resource profile workload memory max is positive"),
+        memory_max_bytes: u64::try_from(
+            profile
+                .resolved_workload_memory_max_bytes()
+                .min(outer_memory_max),
+        )
+        .expect("validated resource profile workload memory max is positive"),
         pids_max: u64::try_from(profile.workload_pids_max())
             .expect("validated resource profile workload pids max is positive"),
     })

@@ -1,0 +1,106 @@
+{
+  "baseline": {
+    "manager": {
+      "sandboxes": []
+    },
+    "observability": {
+      "sandboxes": []
+    }
+  },
+  "case_cleanup": [
+    {
+      "case": "lifecycle",
+      "sandbox_ids": [
+        "eos-049bdb4b-b8fc-4316-80c2-a1851fbe3511",
+        "eos-4ac95a19-e1e3-4d22-b49a-6fb90a630c6e"
+      ],
+      "workspace_session_id": "00000118c6cd8a85d81756"
+    }
+  ],
+  "destroy_attempts": [
+    {
+      "response": {
+        "activity_revision": 3,
+        "daemon": {
+          "host": "127.0.0.1",
+          "port": 55006
+        },
+        "daemon_http": {
+          "host": "127.0.0.1",
+          "port": 55007
+        },
+        "id": "eos-4ac95a19-e1e3-4d22-b49a-6fb90a630c6e",
+        "resource_profile": {
+          "control_plane_pids_reserve": 64,
+          "daemon_runtime_profile": "build-heavy",
+          "memory_high_bytes": 3221225472,
+          "memory_max_bytes": 4294967296,
+          "name": "build-heavy",
+          "nano_cpus": 4000000000,
+          "pids_max": 1024,
+          "separate_workload_cgroup": true,
+          "workload_memory_high_bytes": 3221225472,
+          "workload_memory_max_bytes": 3221225472,
+          "workload_pids_max": 960
+        },
+        "shared_base": {
+          "readonly": true,
+          "root_hash": "f9d16dbb9246fa74adbfded6e22c302b816935a09063819679aca65150d746e2",
+          "source": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/f9d16dbb9246fa74adbfded6e22c302b816935a09063819679aca65150d746e2/base",
+          "target": "/eos/layer-stack/base"
+        },
+        "state": "stopped",
+        "workspace_root": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-mpla-booster-20260729T154845Z-lifecycle-oly0he8q"
+      },
+      "sandbox_id": "eos-4ac95a19-e1e3-4d22-b49a-6fb90a630c6e"
+    },
+    {
+      "response": {
+        "activity_revision": 3,
+        "daemon": {
+          "host": "127.0.0.1",
+          "port": 55004
+        },
+        "daemon_http": {
+          "host": "127.0.0.1",
+          "port": 55005
+        },
+        "id": "eos-049bdb4b-b8fc-4316-80c2-a1851fbe3511",
+        "resource_profile": {
+          "control_plane_pids_reserve": 64,
+          "daemon_runtime_profile": "build-heavy",
+          "memory_high_bytes": 3221225472,
+          "memory_max_bytes": 4294967296,
+          "name": "build-heavy",
+          "nano_cpus": 4000000000,
+          "pids_max": 1024,
+          "separate_workload_cgroup": true,
+          "workload_memory_high_bytes": 3221225472,
+          "workload_memory_max_bytes": 3221225472,
+          "workload_pids_max": 960
+        },
+        "shared_base": {
+          "readonly": true,
+          "root_hash": "f9d16dbb9246fa74adbfded6e22c302b816935a09063819679aca65150d746e2",
+          "source": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-shared-workspace-base-cache/f9d16dbb9246fa74adbfded6e22c302b816935a09063819679aca65150d746e2/base",
+          "target": "/eos/layer-stack/base"
+        },
+        "state": "stopped",
+        "workspace_root": "/var/folders/s4/xpkmz7wn6yq97w1ls_4f_dfc0000gn/T/eos-mpla-booster-20260729T154845Z-lifecycle-oly0he8q"
+      },
+      "sandbox_id": "eos-049bdb4b-b8fc-4316-80c2-a1851fbe3511"
+    }
+  ],
+  "final_manager": {
+    "sandboxes": []
+  },
+  "final_observability": {
+    "sandboxes": []
+  },
+  "staging_removed": true,
+  "workspace_session_destroy": {
+    "destroyed": true,
+    "evicted_upperdir_bytes": 3890091,
+    "workspace_session_id": "00000118c6cd8a85d81756"
+  }
+}

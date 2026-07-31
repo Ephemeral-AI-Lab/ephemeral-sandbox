@@ -57,6 +57,8 @@ pub struct PhysicalSnapshot {
     pub allocation_path: PathBuf,
     pub device: u64,
     pub representative_inodes: Vec<InodeWitness>,
+    /// Sum of regular-file logical sizes. Directory metadata is intentionally
+    /// excluded so this metric agrees with semantic fixture byte accounting.
     pub logical_bytes: u64,
     pub allocated_bytes: u64,
     pub inode_count: u64,

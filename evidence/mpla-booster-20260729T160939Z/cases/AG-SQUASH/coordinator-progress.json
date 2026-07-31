@@ -1,0 +1,14 @@
+{
+  "file_read": {
+    "bytes_read": 1643,
+    "content": "{\"details\":{\"build_commit\":\"11f793ad96754e612ca6615835c11d78cf443a83\",\"candidate_sandbox_id\":\"eos-86bdcfa3-0e7d-46b3-9c46-3a9440f9f6a1\",\"run_id\":\"mpla-booster-20260729T160939Z\"},\"kind\":\"mpla_booster_lifecycle_progress_v1\",\"schema_version\":1,\"stage\":\"started\"}\n{\"details\":{\"fixture_entries\":4295,\"fixture_logical_bytes\":912350100},\"kind\":\"mpla_booster_lifecycle_progress_v1\",\"schema_version\":1,\"stage\":\"catalog_and_fixture_bound\"}\n{\"details\":{\"sample\":0},\"kind\":\"mpla_booster_lifecycle_progress_v1\",\"schema_version\":1,\"stage\":\"control_pair_completed\"}\n{\"details\":{\"sample\":1},\"kind\":\"mpla_booster_lifecycle_progress_v1\",\"schema_version\":1,\"stage\":\"control_pair_completed\"}\n{\"details\":{\"sample\":2},\"kind\":\"mpla_booster_lifecycle_progress_v1\",\"schema_version\":1,\"stage\":\"control_pair_completed\"}\n{\"details\":{\"sample_count\":3},\"kind\":\"mpla_booster_lifecycle_progress_v1\",\"schema_version\":1,\"stage\":\"controls_completed\"}\n{\"details\":{\"workspace_session_id\":\"00000118c6cefcc6f13c45\"},\"kind\":\"mpla_booster_lifecycle_progress_v1\",\"schema_version\":1,\"stage\":\"workspace_session_created\"}\n{\"details\":{\"operation_id\":\"mpla-booster-20260729T160939Z-mount-r0\"},\"kind\":\"mpla_booster_lifecycle_progress_v1\",\"schema_version\":1,\"stage\":\"initial_mount_completed\"}\n{\"details\":{},\"kind\":\"mpla_booster_lifecycle_progress_v1\",\"schema_version\":1,\"stage\":\"initial_copy_completed\"}\n{\"details\":{\"request_id\":\"mpla-booster-20260729T160939Z-publish-r0\"},\"kind\":\"mpla_booster_lifecycle_progress_v1\",\"schema_version\":1,\"stage\":\"initial_publication_started\"}\n{\"details\":{},\"kind\":\"mpla_booster_lifecycle_progress_v1\",\"schema_version\":1,\"stage\":\"initial_publication_completed\"}",
+    "next_offset": null,
+    "num_lines": 11,
+    "path": "scorecard-lifecycle-progress.jsonl",
+    "start_line": 1,
+    "total_bytes": 1644,
+    "total_lines": 11,
+    "truncated": false
+  },
+  "path": "/workspace/scorecard-lifecycle-progress.jsonl"
+}

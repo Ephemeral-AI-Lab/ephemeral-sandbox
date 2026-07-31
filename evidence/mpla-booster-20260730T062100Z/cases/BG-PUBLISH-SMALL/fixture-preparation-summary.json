@@ -1,0 +1,8 @@
+{
+  "chain_depth": 8,
+  "fixture_preparation_elapsed_ns": 185784270085,
+  "prepared_depth_one_candidates": 3,
+  "result_bytes": 444204,
+  "result_path": "/workspace/scorecard-publication-preparation.json",
+  "result_sha256": "ca10c55ed82611601b1a80f967f8cdda1a5b7682b679d34879f104bc5ca42c1c"
+}

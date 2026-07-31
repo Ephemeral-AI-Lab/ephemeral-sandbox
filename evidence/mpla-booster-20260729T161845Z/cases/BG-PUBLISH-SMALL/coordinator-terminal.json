@@ -1,0 +1,13 @@
+{
+  "command_session_id": "namespace_execution_1",
+  "command_total_time_seconds": 23.950802136,
+  "end_offset": 1,
+  "exit_code": 2,
+  "original_token_count": 47,
+  "output": "MPLA_SCORECARD_ERROR {\"error\":\"LayerStack failure: layer-stack storage error: hidden candidate publication failed: invalid v3 page input: adjacent sparse descriptors must be coalesced\"}",
+  "start_offset": 0,
+  "status": "error",
+  "total_lines": 1,
+  "wall_time_seconds": 29.261344222,
+  "workspace_session_id": "00000118c6cfafc9dcc862"
+}

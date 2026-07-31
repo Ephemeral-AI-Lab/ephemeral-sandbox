@@ -1,0 +1,4 @@
+{
+  "error": "coordinator_poll_0006 exited 1: {\"error\":{\"kind\":\"connection_error\",\"message\":\"gateway connection failed: Connection refused (os error 61)\",\"details\":{}}}\n",
+  "type": "CampaignError"
+}

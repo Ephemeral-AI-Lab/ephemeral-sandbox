@@ -18,6 +18,7 @@ fn server_defaults() -> DaemonServerConfig {
         max_concurrent_connections: 64,
         max_request_bytes: 16 * 1024 * 1024,
         request_read_timeout_s: 30.0,
+        response_write_timeout_s: 30.0,
         legacy_worker_threads_alias_used: false,
     }
 }
@@ -46,6 +47,25 @@ fn daemon_runtime_applies_the_selected_workload_profile() {
     assert_eq!(limits.memory_high_bytes, 384 * 1024 * 1024);
     assert_eq!(limits.memory_max_bytes, 384 * 1024 * 1024);
     assert_eq!(limits.pids_max, 224);
+}
+
+#[test]
+fn daemon_runtime_applies_the_mpla_workload_memory_envelope() {
+    let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../config/mpla-poc-m3.yml");
+    let loaded = load_runtime_config(&config_path).expect("MPLA config loads");
+    let runtime = build_runtime_config(
+        &loaded,
+        PathBuf::from("/workspace"),
+        Some(PathBuf::from("/sys/fs/cgroup/eos")),
+        None,
+    );
+    let limits = runtime
+        .workload_cgroup_limits
+        .expect("build-heavy profile enables workload separation");
+
+    assert_eq!(limits.memory_high_bytes, 96 * 1024 * 1024);
+    assert_eq!(limits.memory_max_bytes, 128 * 1024 * 1024);
 }
 
 #[test]

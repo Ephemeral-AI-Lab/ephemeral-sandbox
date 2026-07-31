@@ -87,6 +87,15 @@ pub fn compare_and_adopt(
     stable: &StableAllocationReceipt,
     request: &OwnerTransitionRequest,
 ) -> PocResult<AdoptionReceipt> {
+    compare_and_adopt_after_intent(allocation_root, stable, request, || Ok(()))
+}
+
+pub(crate) fn compare_and_adopt_after_intent(
+    allocation_root: &Path,
+    stable: &StableAllocationReceipt,
+    request: &OwnerTransitionRequest,
+    after_durable_intent: impl FnOnce() -> PocResult<()>,
+) -> PocResult<AdoptionReceipt> {
     validate_transition_inputs(allocation_root, stable, request)?;
     validate_path_component(request.operation_id.as_str(), "operation ID")?;
     let _lock = FileLock::exclusive(&owner_lock_path(allocation_root))?;
@@ -145,7 +154,14 @@ pub fn compare_and_adopt(
                     current.owner_epoch
                 )));
             }
-            adopt_workspace_owner(allocation_root, stable, request, current, &mut named_faults)
+            adopt_workspace_owner(
+                allocation_root,
+                stable,
+                request,
+                current,
+                &mut named_faults,
+                after_durable_intent,
+            )
         }
         OwnerSubject::RecoveryRequired {
             operation_id,
@@ -265,6 +281,7 @@ fn adopt_workspace_owner(
     request: &OwnerTransitionRequest,
     prior_owner: OwnerGeneration,
     faults: &mut NamedFaultInjector,
+    after_durable_intent: impl FnOnce() -> PocResult<()>,
 ) -> PocResult<AdoptionReceipt> {
     let journal = read_journal(&journal_path(allocation_root))?;
     match journal.records.iter().find(|record| {
@@ -312,6 +329,7 @@ fn adopt_workspace_owner(
             )?;
         }
     }
+    after_durable_intent()?;
 
     reach_real_operation(
         faults,
@@ -633,7 +651,7 @@ fn replace_selector_named(
         .map_err(|error| PocError::io("create owner selector temporary", &temporary, error))?;
     file.write_all(&bytes)
         .map_err(|error| PocError::io("write owner selector temporary", &temporary, error))?;
-    file.sync_all()
+    crate::durable::sync_all(&file)
         .map_err(|error| PocError::io("fsync owner selector temporary", &temporary, error))?;
     drop(file);
     std::fs::rename(&temporary, &path)
@@ -738,7 +756,7 @@ fn append_record(
         .map_err(|source| PocError::io("open owner journal for append", &path, source))?;
     file.write_all(&frame)
         .map_err(|source| PocError::io("append owner journal record", &path, source))?;
-    file.sync_data()
+    crate::durable::sync_data(&file)
         .map_err(|source| PocError::io("fdatasync owner journal", &path, source))?;
     Ok(record)
 }

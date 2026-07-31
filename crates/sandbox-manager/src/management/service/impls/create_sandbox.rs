@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-use sandbox_runtime_layerstack::{build_shared_workspace_base, SHARED_BASE_DIR};
+use sandbox_runtime_layerstack::build_shared_workspace_base;
 
 use crate::operations::ManagerServices;
 use crate::{
@@ -11,7 +11,6 @@ use crate::{
 
 const DEFAULT_SHARED_BASE_CACHE_DIR: &str = "eos-shared-workspace-base-cache";
 const SHARED_BASE_CACHE_ENV: &str = "EOS_SHARED_BASE_CACHE";
-const CONTAINER_LAYER_STACK_ROOT: &str = "/eos/layer-stack";
 
 pub(crate) struct CreateSandboxInput {
     pub(crate) image: String,
@@ -29,7 +28,7 @@ pub(crate) fn create_sandbox(
         workspace_root,
         count,
     } = input;
-    let shared_base = shared_base_mount(&workspace_root, progress)?;
+    let shared_base = shared_base_mount(&workspace_root, &services.shared_base_target, progress)?;
     let mut records = Vec::with_capacity(count);
     for index in 0..count {
         progress.emit(format!(
@@ -148,6 +147,7 @@ fn create_one(
 
 fn shared_base_mount(
     workspace_root: &Path,
+    target: &Path,
     progress: &ProgressSink,
 ) -> Result<SharedBaseMount, ManagerError> {
     let cache_root = shared_base_cache_root(workspace_root);
@@ -170,7 +170,7 @@ fn shared_base_mount(
     ));
     Ok(SharedBaseMount {
         source: shared.base_mount_source,
-        target: PathBuf::from(format!("{CONTAINER_LAYER_STACK_ROOT}/{SHARED_BASE_DIR}")),
+        target: target.to_path_buf(),
         root_hash: shared.root_hash,
         readonly: true,
     })

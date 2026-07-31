@@ -1,0 +1,12 @@
+{
+  "candidate_max_ns": 262580959,
+  "candidate_median_ns": 183712334,
+  "control_median_ns": 11579463589,
+  "median_ratio_denominator": 123921458,
+  "median_ratio_numerator": 11579463589,
+  "publish_preferred": false,
+  "publish_required": false,
+  "result_bytes": 1063543,
+  "result_path": "/workspace/scorecard-publication-result.json",
+  "result_sha256": "566aaf3ccbb37c5fda83ee35ccf60f0ca4108fe057d412b200d5e708dbc6b426"
+}

@@ -1,5 +1,15 @@
 #![cfg(unix)]
 
+mod mpla_activation_scorecard;
+mod mpla_fork_scorecard;
+mod mpla_hv07_scorecard;
+mod mpla_publication_scorecard;
+mod mpla_qualification_scorecard;
+mod mpla_rollback_scorecard;
+mod mpla_speed_scorecard;
+mod mpla_squash_scorecard;
+mod mpla_stream_scorecard;
+
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs::{self, File, OpenOptions};
@@ -14,6 +24,7 @@ use std::time::{Duration, Instant};
 
 use clap::{Args as ClapArgs, Parser, Subcommand};
 use sandbox_runtime_mpla_poc::allocation::create_allocation;
+use sandbox_runtime_mpla_poc::config::{MEMORY_HIGH_BYTES, MEMORY_MAX_BYTES};
 use sandbox_runtime_mpla_poc::lease::issue_workspace_lease;
 use sandbox_runtime_mpla_poc::locator::{
     ForwardLocatorEntry, LocatorDelta, LocatorExtent, LocatorStore, PayloadRootId,
@@ -33,7 +44,7 @@ use sandbox_runtime_mpla_poc::{
     AttributionInput, CatalogBinding, ControlBoundary, ControlCacheMatch, ControlChangeSet,
     ControlCollectionLimits, CurrentI2ClosingRequest, FaultInjector, LocatorRefCandidate,
     NamedFaultInjector, OperationId, PairedRefValue, PublicationId, ReceiptHitSealInput,
-    RefSequence, RunId, SemanticBuildRequest, SessionId, SCHEMA_VERSION,
+    RefSequence, RunId, SemanticBuildRequest, SessionId, PREPARED_FIXTURE_PROFILE, SCHEMA_VERSION,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -75,6 +86,11 @@ enum Mode {
         probe_root: PathBuf,
     },
     Measure(MeasureArgs),
+    ScorecardCase(ScorecardCaseArgs),
+    PrepareLifecycleControl(LifecycleControlPreparationArgs),
+    PreparePublicationFixture(PublicationPreparationArgs),
+    BuildPublicationFixtureCache(PublicationFixtureCacheBuildArgs),
+    InspectPreparedFixtureCache,
 }
 
 #[derive(Debug, ClapArgs)]
@@ -95,6 +111,50 @@ struct MeasureArgs {
     samples_ledger: PathBuf,
 }
 
+#[derive(Debug, ClapArgs)]
+struct ScorecardCaseArgs {
+    #[arg(long)]
+    run_id: String,
+    #[arg(long)]
+    case: String,
+    #[arg(long)]
+    candidate_sandbox_id: String,
+    #[arg(long)]
+    build_commit: String,
+}
+
+#[derive(Debug, ClapArgs)]
+struct LifecycleControlPreparationArgs {
+    #[arg(long)]
+    run_id: String,
+    #[arg(long)]
+    phase: String,
+    #[arg(long)]
+    candidate_sandbox_id: String,
+    #[arg(long)]
+    build_commit: String,
+}
+
+#[derive(Debug, ClapArgs)]
+struct PublicationPreparationArgs {
+    #[arg(long)]
+    run_id: String,
+    #[arg(long)]
+    candidate_sandbox_id: String,
+    #[arg(long)]
+    build_commit: String,
+    #[arg(long, value_parser = [PREPARED_FIXTURE_PROFILE])]
+    fixture_profile: String,
+}
+
+#[derive(Debug, ClapArgs)]
+struct PublicationFixtureCacheBuildArgs {
+    #[arg(long)]
+    candidate_sandbox_id: String,
+    #[arg(long)]
+    build_commit: String,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct OracleSummary {
     root_id: String,
@@ -110,7 +170,7 @@ struct OracleSummary {
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
-struct ResourceSample {
+pub(crate) struct ResourceSample {
     process_rss_bytes: u64,
     process_io_rchar_bytes: u64,
     process_io_wchar_bytes: u64,
@@ -125,7 +185,7 @@ struct ResourceSample {
 }
 
 #[derive(Clone, Debug, Serialize)]
-struct ResourceObservation {
+pub(crate) struct ResourceObservation {
     baseline: ResourceSample,
     maxima: ResourceSample,
     final_sample: ResourceSample,
@@ -137,13 +197,25 @@ struct ResourceObservation {
     oom_kill_after: u64,
 }
 
-struct ResourceMonitor {
+pub(crate) struct ResourceMonitor {
     stop: Arc<AtomicBool>,
     task: Option<JoinHandle<BenchResult<ResourceObservation>>>,
 }
 
 impl ResourceMonitor {
-    fn start(cgroup_dir: &Path, run_root: &Path) -> BenchResult<Self> {
+    pub(crate) fn start(cgroup_dir: &Path, run_root: &Path) -> BenchResult<Self> {
+        Self::start_with_interval(cgroup_dir, run_root, Duration::from_millis(20))
+    }
+
+    pub(crate) fn start_heavy(cgroup_dir: &Path, run_root: &Path) -> BenchResult<Self> {
+        Self::start_with_interval(cgroup_dir, run_root, Duration::from_millis(50))
+    }
+
+    fn start_with_interval(
+        cgroup_dir: &Path,
+        run_root: &Path,
+        sample_interval: Duration,
+    ) -> BenchResult<Self> {
         let baseline = sample_resources(cgroup_dir, run_root)?;
         let events = read_key_values(&cgroup_dir.join("memory.events"))?;
         let memory_high = read_limit(&cgroup_dir.join("memory.high"))?;
@@ -156,7 +228,7 @@ impl ResourceMonitor {
             let mut maxima = baseline.clone();
             while !thread_stop.load(Ordering::Acquire) {
                 merge_maxima(&mut maxima, &sample_resources(&cgroup_dir, &run_root)?);
-                std::thread::sleep(Duration::from_millis(2));
+                std::thread::sleep(sample_interval);
             }
             let final_sample = sample_resources(&cgroup_dir, &run_root)?;
             merge_maxima(&mut maxima, &final_sample);
@@ -179,7 +251,7 @@ impl ResourceMonitor {
         })
     }
 
-    fn finish(mut self) -> BenchResult<ResourceObservation> {
+    pub(crate) fn finish(mut self) -> BenchResult<ResourceObservation> {
         self.stop.store(true, Ordering::Release);
         self.task
             .take()
@@ -242,6 +314,149 @@ fn main() -> ExitCode {
     match Cli::parse().command {
         Mode::AuthorityProbe { probe_root } => run_authority_probe_command(&probe_root),
         Mode::Measure(args) => run_measurement_command(&args),
+        Mode::ScorecardCase(args) => run_scorecard_case_command(&args),
+        Mode::PrepareLifecycleControl(args) => run_prepare_lifecycle_control_command(&args),
+        Mode::PreparePublicationFixture(args) => run_prepare_publication_fixture_command(&args),
+        Mode::BuildPublicationFixtureCache(args) => {
+            run_build_publication_fixture_cache_command(&args)
+        }
+        Mode::InspectPreparedFixtureCache => run_inspect_prepared_fixture_cache_command(),
+    }
+}
+
+fn run_prepare_lifecycle_control_command(args: &LifecycleControlPreparationArgs) -> ExitCode {
+    match mpla_speed_scorecard::prepare_lifecycle_control(
+        &args.run_id,
+        &args.phase,
+        &args.candidate_sandbox_id,
+        &args.build_commit,
+    ) {
+        Ok(result) => {
+            println!("MPLA_SCORECARD_RESULT {}", compact_json(&result));
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            println!(
+                "MPLA_SCORECARD_ERROR {}",
+                compact_json(&json!({"error": error.to_string()}))
+            );
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn run_inspect_prepared_fixture_cache_command() -> ExitCode {
+    match mpla_publication_scorecard::inspect_prepared_fixture_cache() {
+        Ok(result) => {
+            println!("MPLA_SCORECARD_RESULT {}", compact_json(&result));
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            println!(
+                "MPLA_SCORECARD_ERROR {}",
+                compact_json(&json!({"error": error.to_string()}))
+            );
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn run_build_publication_fixture_cache_command(
+    args: &PublicationFixtureCacheBuildArgs,
+) -> ExitCode {
+    match mpla_publication_scorecard::build_prepared_fixture_cache(
+        &args.candidate_sandbox_id,
+        &args.build_commit,
+    ) {
+        Ok(result) => {
+            println!("MPLA_SCORECARD_RESULT {}", compact_json(&result));
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            println!(
+                "MPLA_SCORECARD_ERROR {}",
+                compact_json(&json!({"error": error.to_string()}))
+            );
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn run_prepare_publication_fixture_command(args: &PublicationPreparationArgs) -> ExitCode {
+    match mpla_publication_scorecard::prepare_fixture(
+        &args.run_id,
+        &args.candidate_sandbox_id,
+        &args.build_commit,
+        &args.fixture_profile,
+    ) {
+        Ok(result) => {
+            println!("MPLA_SCORECARD_RESULT {}", compact_json(&result));
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            println!(
+                "MPLA_SCORECARD_ERROR {}",
+                compact_json(&json!({"error": error.to_string()}))
+            );
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn run_scorecard_case_command(args: &ScorecardCaseArgs) -> ExitCode {
+    let result = match args.case.as_str() {
+        "activation" => mpla_activation_scorecard::run(
+            &args.run_id,
+            &args.candidate_sandbox_id,
+            &args.build_commit,
+        ),
+        "fork" => {
+            mpla_fork_scorecard::run(&args.run_id, &args.candidate_sandbox_id, &args.build_commit)
+        }
+        "rollback" => mpla_rollback_scorecard::run(
+            &args.run_id,
+            &args.candidate_sandbox_id,
+            &args.build_commit,
+        ),
+        "publication" => mpla_publication_scorecard::run(
+            &args.run_id,
+            &args.candidate_sandbox_id,
+            &args.build_commit,
+        ),
+        "stream" => {
+            mpla_stream_scorecard::run(&args.run_id, &args.candidate_sandbox_id, &args.build_commit)
+        }
+        "squash" => {
+            mpla_squash_scorecard::run(&args.run_id, &args.candidate_sandbox_id, &args.build_commit)
+        }
+        "recovery" => {
+            mpla_hv07_scorecard::run(&args.run_id, &args.candidate_sandbox_id, &args.build_commit)
+        }
+        "qualification" => mpla_qualification_scorecard::run(
+            &args.run_id,
+            &args.candidate_sandbox_id,
+            &args.build_commit,
+        ),
+        _ => {
+            println!(
+                "MPLA_SCORECARD_ERROR {}",
+                compact_json(&json!({"error": "unsupported scorecard case", "case": args.case}))
+            );
+            return ExitCode::from(2);
+        }
+    };
+    match result {
+        Ok(result) => {
+            println!("MPLA_SCORECARD_RESULT {}", compact_json(&result));
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            println!(
+                "MPLA_SCORECARD_ERROR {}",
+                compact_json(&json!({"error": error.to_string()}))
+            );
+            ExitCode::from(2)
+        }
     }
 }
 
@@ -1402,7 +1617,7 @@ fn required_counter(values: &BTreeMap<String, u64>, key: &str, source: &str) -> 
         .ok_or_else(|| format!("{source} lacks required counter {key}").into())
 }
 
-fn validate_resource_observation(observation: &ResourceObservation) -> BenchResult {
+pub(crate) fn validate_resource_observation(observation: &ResourceObservation) -> BenchResult {
     let memory_max = observation
         .memory_max
         .ok_or("benchmark cgroup must have a finite memory.max")?;
@@ -1415,10 +1630,22 @@ fn validate_resource_observation(observation: &ResourceObservation) -> BenchResu
         )
         .into());
     }
+    if memory_high != MEMORY_HIGH_BYTES || memory_max != MEMORY_MAX_BYTES {
+        return Err(format!(
+            "benchmark cgroup must use the fixed Stage 04.6 envelope {MEMORY_HIGH_BYTES}/{MEMORY_MAX_BYTES}; observed {memory_high}/{memory_max}"
+        )
+        .into());
+    }
+    let maximum_rss = observation
+        .baseline
+        .process_rss_bytes
+        .saturating_add(32 * MIB)
+        .min(MEMORY_HIGH_BYTES);
     if observation.oom_after != observation.oom_before
         || observation.oom_kill_after != observation.oom_kill_before
         || observation.maxima.cgroup_memory_current_bytes > memory_max
         || observation.maxima.cgroup_memory_peak_bytes > memory_max
+        || observation.maxima.process_rss_bytes > maximum_rss
     {
         return Err(format!("cgroup memory/OOM envelope violated: {observation:?}").into());
     }
@@ -1752,7 +1979,7 @@ struct MountInfoEntry {
     super_options: Vec<String>,
 }
 
-fn persistent_backing(run_root: &Path) -> BenchResult<Value> {
+pub fn persistent_backing(run_root: &Path) -> BenchResult<Value> {
     let canonical = fs::canonicalize(run_root)?;
     let entries = read_mountinfo()?;
     let entry = entries
@@ -1833,7 +2060,7 @@ fn unescape_mountinfo(value: &str) -> String {
     String::from_utf8_lossy(&decoded).into_owned()
 }
 
-fn current_cgroup_v2_dir() -> BenchResult<PathBuf> {
+pub(crate) fn current_cgroup_v2_dir() -> BenchResult<PathBuf> {
     let cgroup_path = fs::read_to_string("/proc/self/cgroup")?
         .lines()
         .find_map(|line| line.strip_prefix("0::"))
@@ -1879,7 +2106,7 @@ fn current_cgroup_v2_dir() -> BenchResult<PathBuf> {
     Ok(directory)
 }
 
-fn cgroup_contains_self(cgroup_dir: &Path) -> BenchResult<bool> {
+pub(crate) fn cgroup_contains_self(cgroup_dir: &Path) -> BenchResult<bool> {
     let pid = std::process::id().to_string();
     for file in ["cgroup.procs", "cgroup.threads"] {
         let path = cgroup_dir.join(file);

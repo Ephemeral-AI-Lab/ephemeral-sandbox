@@ -1,0 +1,21 @@
+{
+  "cgroup_limits": {
+    "lifecycle": {
+      "membership_proven": true,
+      "memory_high": 3221225472,
+      "memory_max": 3221225472,
+      "path": "/sys/fs/cgroup/docker/7e3afb41224a2afa661a71379fbbb089629b89bacce3d999366a8fd8631ccb04/_workloads/workspace-00000118c6d046034db70f"
+    },
+    "qualification": {
+      "membership_proven": true,
+      "memory_high": 3221225472,
+      "memory_max": 3221225472,
+      "path": "/sys/fs/cgroup/docker/6feb731847baf19ee247a125dc22cbeb8c3d41703be978d2b8a6d156c069639e/_workloads/workspace-00000118c6d041b7a89a05"
+    }
+  },
+  "failure_reason": "case records lack the required sampled memory, inode, FD, worker, and OOM evidence",
+  "kind": "mpla_booster_resources_v1",
+  "memory_inode_fd_oom_samples": "NOT_PROVED",
+  "schema_version": 1,
+  "status": "FAIL"
+}

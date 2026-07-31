@@ -7,10 +7,11 @@ use sandbox_observability_telemetry::Observer;
 use sandbox_operation_contract::{OperationRequest, OperationScope};
 use sandbox_runtime::command::ExecCommandInput;
 use sandbox_runtime::workspace_session::{
-    FinalizePolicy, WorkspaceSessionError, WorkspaceSessionService,
+    FinalizePolicy, MplaLifecycleRoots, WorkspaceSessionError, WorkspaceSessionService,
 };
 use sandbox_runtime::{
-    CommandOperationService, LayerStackService, SandboxRuntimeOperations, WorkloadCgroupLimits,
+    CommandOperationService, LayerStackService, SandboxRuntimeOperations,
+    StorageAdminCapabilityProfile, WorkloadCgroupLimits,
 };
 use sandbox_runtime_namespace_process::runner::protocol::RunResult;
 use sandbox_runtime_workspace::{
@@ -1342,6 +1343,58 @@ fn workspace_session_create_operation_rejects_invalid_profiles(
         assert_eq!(response["error"]["kind"], "invalid_request");
         assert!(fake.create_requests().is_empty());
     }
+    Ok(())
+}
+
+#[test]
+fn publish_mpla_workspace_session_fails_closed_for_missing_session(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fake = Arc::new(FakeWorkspaceService::new());
+    let layerstack = layerstack_service()?;
+    let mpla_root = temp_root();
+    let workspace = Arc::new(
+        WorkspaceSessionService::new(
+            support::fake_workspace_runtime(Arc::clone(&fake)),
+            Arc::clone(&layerstack),
+            Observer::disabled(),
+        )
+        .with_mpla_lifecycle_roots(MplaLifecycleRoots {
+            payload_root: mpla_root.join("payload"),
+            control_root: mpla_root.join("control"),
+            storage_admin_profile: StorageAdminCapabilityProfile::Production,
+        }),
+    );
+    let command = Arc::new(CommandOperationService::new(
+        Arc::clone(&workspace),
+        sandbox_runtime::command::CommandConfig::default(),
+        Observer::disabled(),
+    ));
+    let operations =
+        SandboxRuntimeOperations::new(command, workspace, layerstack, support::test_file_service());
+
+    let response = sandbox_runtime::dispatch_operation(
+        &operations,
+        &runtime_request(
+            "publish_mpla_workspace_session",
+            json!({
+                "workspace_session_id": "workspace-mpla-1",
+                "branch": "main",
+            }),
+        ),
+    )
+    .into_json_value();
+
+    assert_eq!(response["error"]["kind"], "operation_failed");
+    assert!(response["error"]["message"]
+        .as_str()
+        .expect("operation failure has a message")
+        .contains("workspace session not found"));
+    assert_eq!(
+        response["error"]["details"]["workspace_session_id"],
+        "workspace-mpla-1"
+    );
+    assert!(fake.create_requests().is_empty());
+    assert!(fake.destroy_calls().is_empty());
     Ok(())
 }
 

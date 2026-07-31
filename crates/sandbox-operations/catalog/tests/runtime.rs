@@ -43,6 +43,12 @@ fn runtime_catalog_is_the_exact_public_runtime_surface() {
             "file_blame",
             "create_workspace_session",
             "create_mpla_workspace_session",
+            "attach_mpla_prepared_fixture",
+            "activate_workspace_session",
+            "fork_workspace_session",
+            "rollback_workspace_session",
+            "publish_mpla_workspace_session",
+            "squash_mpla_branch",
             "publish_workspace_session",
             "destroy_workspace_session",
             "mpla_storage_admin",
@@ -94,6 +100,111 @@ fn runtime_catalog_is_the_exact_public_runtime_surface() {
             .collect::<Vec<_>>(),
         [("run_id", ArgKind::String, true)]
     );
+
+    let prepared_fixture = catalog
+        .operations
+        .iter()
+        .find(|operation| operation.name == "attach_mpla_prepared_fixture")
+        .expect("attach_mpla_prepared_fixture operation");
+    assert_eq!(
+        prepared_fixture
+            .args
+            .iter()
+            .map(|argument| (argument.name, argument.kind, argument.required))
+            .collect::<Vec<_>>(),
+        [
+            ("run_id", ArgKind::String, true),
+            ("fixture_profile", ArgKind::String, true),
+        ]
+    );
+
+    let activate = catalog
+        .operations
+        .iter()
+        .find(|operation| operation.name == "activate_workspace_session")
+        .expect("activate_workspace_session operation");
+    assert_eq!(
+        activate
+            .args
+            .iter()
+            .map(|argument| (argument.name, argument.kind, argument.required))
+            .collect::<Vec<_>>(),
+        [
+            ("run_id", ArgKind::String, true),
+            ("branch", ArgKind::String, true),
+        ]
+    );
+
+    let fork = catalog
+        .operations
+        .iter()
+        .find(|operation| operation.name == "fork_workspace_session")
+        .expect("fork_workspace_session operation");
+    assert_eq!(
+        fork.args
+            .iter()
+            .map(|argument| (argument.name, argument.kind, argument.required))
+            .collect::<Vec<_>>(),
+        [
+            ("run_id", ArgKind::String, true),
+            ("source_branch", ArgKind::String, true),
+            ("branch", ArgKind::String, true),
+        ]
+    );
+
+    let rollback = catalog
+        .operations
+        .iter()
+        .find(|operation| operation.name == "rollback_workspace_session")
+        .expect("rollback_workspace_session operation");
+    assert_eq!(
+        rollback
+            .args
+            .iter()
+            .map(|argument| (argument.name, argument.kind, argument.required))
+            .collect::<Vec<_>>(),
+        [
+            ("run_id", ArgKind::String, true),
+            ("branch", ArgKind::String, true),
+            ("target_branch", ArgKind::String, true),
+        ]
+    );
+
+    let mpla_publish = catalog
+        .operations
+        .iter()
+        .find(|operation| operation.name == "publish_mpla_workspace_session")
+        .expect("publish_mpla_workspace_session operation");
+    assert_eq!(
+        mpla_publish
+            .args
+            .iter()
+            .map(|argument| (argument.name, argument.kind, argument.required))
+            .collect::<Vec<_>>(),
+        [
+            ("workspace_session_id", ArgKind::String, true),
+            ("branch", ArgKind::String, true),
+        ]
+    );
+
+    let squash = catalog
+        .operations
+        .iter()
+        .find(|operation| operation.name == "squash_mpla_branch")
+        .expect("squash_mpla_branch operation");
+    assert_eq!(
+        squash
+            .args
+            .iter()
+            .map(|argument| (argument.name, argument.kind, argument.required))
+            .collect::<Vec<_>>(),
+        [
+            ("run_id", ArgKind::String, true),
+            ("branch", ArgKind::String, true),
+        ]
+    );
+    assert!(squash.description.contains("must not"));
+    assert!(squash.description.contains("physically flatten"));
 
     let publish = catalog
         .operations

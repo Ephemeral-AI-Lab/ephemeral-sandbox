@@ -36,6 +36,7 @@ clap = { workspace = true, optional = true }
 sandbox-operation-catalog.workspace = true
 sandbox-operation-client.workspace = true
 sandbox-operation-contract.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 

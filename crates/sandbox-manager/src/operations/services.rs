@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
@@ -39,6 +40,10 @@ pub struct ManagerServices {
     pub export_caps: ExportApplyCaps,
     pub snapshot_limits: ObservabilitySnapshotLimits,
     pub workspace_roots: WorkspaceRootPolicy,
+    /// In-container destination for the immutable shared workspace base.
+    /// Docker gateways set this from the daemon runtime's layer-stack root;
+    /// the default preserves the standard `/eos/layer-stack` layout.
+    pub shared_base_target: PathBuf,
     pub(crate) resource_ring: Arc<ResourceRingStore>,
     resource_sampler: Mutex<Option<ResourceSamplerWorker>>,
 }
@@ -60,6 +65,7 @@ impl ManagerServices {
             export_caps: ExportApplyCaps::default(),
             snapshot_limits: ObservabilitySnapshotLimits::default(),
             workspace_roots: WorkspaceRootPolicy::default(),
+            shared_base_target: PathBuf::from("/eos/layer-stack/base"),
             resource_ring,
             resource_sampler: Mutex::new(None),
         }

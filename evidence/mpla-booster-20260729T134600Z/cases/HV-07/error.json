@@ -1,0 +1,4 @@
+{
+  "error": "recovery coordinator failed: status='error'; exit_code=2; command_total_time_seconds=29.175017347; output='MPLA_SCORECARD_ERROR {\"error\":\"HV-07 campaign exited Some(101): stdout=\\\\nrunning 1 test\\\\ntest hv_07_fresh_crash_sweep ... FAILED\\\\n\\\\nfailures:\\\\n\\\\nfailures:\\\\n    hv_07_fresh_crash_sweep\\\\n\\\\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 29.14s\\\\n\\\\n stderr=\\\\nthread \\'hv_07_fresh_crash_sweep\\' (4) panicked at crates/sandbox-runtime/mpla-poc/tests/hv07_campaign.rs:10:35:\\\\ncomplete the physical HV-07 crash sweep: \\\\\"HV-07 fresh crash sweep failed\\\\\"\\\\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\\\\n result=/eos/workspace/mpla-poc/scorecard/mpla-booster-20260729T134600Z-hv07/evidence/cases/HV-07/fresh-sweep-result.json\"}'",
+  "type": "CampaignError"
+}

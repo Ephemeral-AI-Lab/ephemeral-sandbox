@@ -24,6 +24,13 @@ pub(crate) enum SupervisorError {
     Cancelled,
     Deadline,
     ResourceExhausted(&'static str),
+    MaterializationStorePeak {
+        requested_bytes: u64,
+        aggregate_bytes: u64,
+        available_bytes: u64,
+        capacity_bytes: u64,
+        workspace_limit_bytes: u64,
+    },
     Io(String),
     Poisoned(&'static str),
     ShuttingDown,
@@ -37,6 +44,19 @@ impl fmt::Display for SupervisorError {
             Self::ResourceExhausted(resource) => {
                 write!(formatter, "storage resource exhausted: {resource}")
             }
+            Self::MaterializationStorePeak {
+                requested_bytes,
+                aggregate_bytes,
+                available_bytes,
+                capacity_bytes,
+                workspace_limit_bytes,
+            } => write!(
+                formatter,
+                "storage resource exhausted: predicted materialization store peak \
+                 (requested_bytes={requested_bytes}, aggregate_bytes={aggregate_bytes}, \
+                 available_bytes={available_bytes}, capacity_bytes={capacity_bytes}, \
+                 workspace_limit_bytes={workspace_limit_bytes})"
+            ),
             Self::Io(message) => write!(formatter, "storage admission I/O: {message}"),
             Self::Poisoned(resource) => {
                 write!(formatter, "storage supervisor poisoned: {resource}")
@@ -96,18 +116,17 @@ impl StorageSupervisor {
                 "materialization workspace capacity",
             ));
         }
-        let worker_pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(MAX_MATERIALIZATION_TARGETS)
-            .thread_name(|index| format!("layerstack-storage-{index}"))
-            .build()
-            .map_err(|error| SupervisorError::Io(error.to_string()))?;
         Ok(Self {
             storage_root: storage_root.to_path_buf(),
             workspace_byte_limit,
             allocation_unit: filesystem.allocation_unit,
             state: Mutex::new(SupervisorState::default()),
             changed: Condvar::new(),
-            worker_pool: Mutex::new(Some(Arc::new(worker_pool))),
+            // Warm admission and native-seeded materialization never submit a
+            // hydration job. Keep their fast path thread-free; the bounded
+            // worker pool is created only when reconstruction actually needs
+            // it.
+            worker_pool: Mutex::new(None),
         })
     }
 
@@ -360,7 +379,8 @@ impl MaterializationTarget {
                 ))?;
             if aggregate <= self.supervisor.workspace_byte_limit {
                 drop(state);
-                let available = filesystem_space(&self.supervisor.storage_root)?.available_bytes;
+                let filesystem = filesystem_space(&self.supervisor.storage_root)?;
+                let available = filesystem.available_bytes;
                 state = self
                     .supervisor
                     .state
@@ -377,9 +397,13 @@ impl MaterializationTarget {
                     ))?;
                 if aggregate <= self.supervisor.workspace_byte_limit {
                     if aggregate > available {
-                        return Err(SupervisorError::ResourceExhausted(
-                            "predicted materialization store peak",
-                        ));
+                        return Err(SupervisorError::MaterializationStorePeak {
+                            requested_bytes: workspace_bytes,
+                            aggregate_bytes: aggregate,
+                            available_bytes: available,
+                            capacity_bytes: filesystem.capacity_bytes,
+                            workspace_limit_bytes: self.supervisor.workspace_byte_limit,
+                        });
                     }
                     state.workspace_bytes_in_use = aggregate;
                     self.workspace_bytes = workspace_bytes;
@@ -417,14 +441,27 @@ impl MaterializationTarget {
         if state.shutting_down {
             return Err(SupervisorError::ShuttingDown);
         }
-        drop(state);
-        let worker_pool = self
+        let mut worker_pool_guard = self
             .supervisor
             .worker_pool
             .lock()
-            .map_err(|_| SupervisorError::Poisoned("storage worker pool"))?
-            .clone()
-            .ok_or(SupervisorError::ShuttingDown)?;
+            .map_err(|_| SupervisorError::Poisoned("storage worker pool"))?;
+        let worker_pool = match worker_pool_guard.as_ref() {
+            Some(worker_pool) => Arc::clone(worker_pool),
+            None => {
+                let created = Arc::new(
+                    rayon::ThreadPoolBuilder::new()
+                        .num_threads(MAX_MATERIALIZATION_TARGETS)
+                        .thread_name(|index| format!("layerstack-storage-{index}"))
+                        .build()
+                        .map_err(|error| SupervisorError::Io(error.to_string()))?,
+                );
+                *worker_pool_guard = Some(Arc::clone(&created));
+                created
+            }
+        };
+        drop(worker_pool_guard);
+        drop(state);
         Ok(worker_pool.install(work))
     }
 }
@@ -672,4 +709,88 @@ fn filesystem_space(storage_root: &Path) -> Result<FilesystemSpace, SupervisorEr
         capacity_bytes,
         available_bytes,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn worker_pool_is_lazy_and_still_honors_shutdown() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock precedes Unix epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "layerstack-supervisor-lazy-pool-{}-{nonce}",
+            std::process::id()
+        ));
+        std::fs::create_dir(&root).expect("create test storage root");
+
+        let supervisor =
+            Arc::new(StorageSupervisor::new(&root).expect("create storage supervisor"));
+        assert!(
+            supervisor
+                .worker_pool
+                .lock()
+                .expect("lock worker pool")
+                .is_none(),
+            "construction must not create worker threads"
+        );
+
+        #[cfg(target_os = "linux")]
+        {
+            let cancellation = AtomicBool::new(false);
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let owner = match supervisor
+                .admit_materialization("test-key".to_owned(), deadline, &cancellation)
+                .expect("admit materialization")
+            {
+                MaterializationAdmission::Owner(owner) => owner,
+                MaterializationAdmission::Waiter(_) => panic!("first admission became a waiter"),
+            };
+            let target = owner
+                .acquire_target(1024, deadline, &cancellation)
+                .expect("acquire materialization target");
+            assert!(
+                supervisor
+                    .worker_pool
+                    .lock()
+                    .expect("lock worker pool")
+                    .is_none(),
+                "admission without hydration must remain thread-free"
+            );
+
+            assert_eq!(
+                target
+                    .run_on_workers(|| 42_u8)
+                    .expect("run hydration worker"),
+                42
+            );
+            assert!(
+                supervisor
+                    .worker_pool
+                    .lock()
+                    .expect("lock worker pool")
+                    .is_some(),
+                "the first real worker job must initialize the pool"
+            );
+
+            drop(target);
+            drop(owner);
+            supervisor
+                .shutdown(Instant::now() + Duration::from_secs(5), &cancellation)
+                .expect("shutdown storage supervisor");
+            assert!(
+                supervisor
+                    .worker_pool
+                    .lock()
+                    .expect("lock worker pool")
+                    .is_none(),
+                "shutdown must release an initialized pool"
+            );
+        }
+        std::fs::remove_dir(&root).expect("remove test storage root");
+    }
 }

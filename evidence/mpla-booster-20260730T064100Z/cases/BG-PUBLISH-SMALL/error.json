@@ -1,0 +1,4 @@
+{
+  "error": "publication preparation failed: status='error'; exit_code=2; command_total_time_seconds=62.585215321; output='MPLA_SCORECARD_ERROR {\"error\":\"publish_mpla_workspace_session failed with Some(1): stdout= stderr={\\\\\"error\\\\\":{\\\\\"kind\\\\\":\\\\\"operation_failed\\\\\",\\\\\"message\\\\\":\\\\\"MPLA storage lifecycle rejected for WorkspaceSessionId(\\\\\\\\\\\\\"00000718c6e09a354cf8ec\\\\\\\\\\\\\"): build MPLA publication semantic root: integrity failure: semantic pack index cache exceeds its fixed bound\\\\\",\\\\\"details\\\\\":{}}}\\\\n\"}'",
+  "type": "CampaignError"
+}

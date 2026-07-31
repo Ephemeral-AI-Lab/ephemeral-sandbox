@@ -1,0 +1,13 @@
+{
+  "command_session_id": "namespace_execution_1",
+  "command_total_time_seconds": 0.829456125,
+  "end_offset": 1,
+  "exit_code": 2,
+  "original_token_count": 87,
+  "output": "MPLA_SCORECARD_ERROR {\"error\":\"wrong mount-namespace request did not expose the expected public rejection: stdout= stderr={\\\"error\\\":{\\\"kind\\\":\\\"operation_failed\\\",\\\"message\\\":\\\"MPLA storage lifecycle rejected for WorkspaceSessionId(\\\\\\\"00000518c6cb790dfaab6a\\\\\\\"): storage action Mount is not allowed from MPLA phase mounted\\\",\\\"details\\\":{}}}\\n\"}",
+  "start_offset": 0,
+  "status": "error",
+  "total_lines": 1,
+  "wall_time_seconds": 1.078741084,
+  "workspace_session_id": "00000118c6cb78dda152fd"
+}

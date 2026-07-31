@@ -1,0 +1,90 @@
+{
+  "cases": [
+    "recovery"
+  ],
+  "cleanup": true,
+  "correctness": null,
+  "correctness_checks": {
+    "branch_session_ownership_authorization": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "collision_recovery": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "exact_content_mode_ownership_oracle": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "final_inventory_matches_baseline": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "fixture_chain_under_ten_gib": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "fork_isolation": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "hv07_crash_sweep": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "immutable_layer_immutability": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "lease_reconciliation": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "memory_inode_bounds": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "no_second_full_payload_copy": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "no_stale_run_resources": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "restart_durability": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "rollback_correctness": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    },
+    "storage_helper_capability_boundary": {
+      "reason": "the required scorecard cases are incomplete",
+      "status": "UNKNOWN"
+    }
+  },
+  "decision": {
+    "AG_SQUASH": "UNKNOWN",
+    "AG_STREAM": "UNKNOWN",
+    "POC_100X": "NOT_SUPPORTED",
+    "POC_500X": "NOT_SUPPORTED",
+    "POC_CORRECTNESS": "FAIL"
+  },
+  "gates": {
+    "AG-SQUASH": null,
+    "AG-STREAM": null,
+    "BG-ACTIVATE-EXACT": null,
+    "BG-ACTIVATE-SAME": null,
+    "BG-FORK": null,
+    "BG-PUBLISH-SMALL": null,
+    "BG-ROLLBACK": null
+  },
+  "kind": "mpla_booster_scorecard_v1",
+  "resource_status": "FAIL",
+  "run_id": "mpla-booster-20260729T140300Z",
+  "schema_version": 1,
+  "security_status": "FAIL"
+}

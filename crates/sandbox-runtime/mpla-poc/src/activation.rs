@@ -353,7 +353,8 @@ fn directory_is_empty(path: &Path) -> PocResult<bool> {
     }
 }
 
-fn inherit_projection_root_metadata(source: &Path, target: &Path) -> PocResult<()> {
+/// Copies the selected projection root's semantic metadata onto a fresh upper.
+pub fn inherit_projection_root_metadata(source: &Path, target: &Path) -> PocResult<()> {
     let source_metadata = std::fs::symlink_metadata(source)
         .map_err(|error| PocError::io("stat selected projection root", source, error))?;
     if !source_metadata.is_dir() {
@@ -404,6 +405,6 @@ fn inherit_projection_root_metadata(source: &Path, target: &Path) -> PocResult<(
         )
     })?;
     File::open(target)
-        .and_then(|directory| directory.sync_all())
+        .and_then(|directory| crate::durable::sync_all(&directory))
         .map_err(|error| PocError::io("sync inherited activation root", target, error))
 }

@@ -2,11 +2,13 @@
 
 mod support;
 
+use std::io::Cursor;
 use std::time::Duration;
 
-use sandbox_cli::runtime::run_cli_with_writers;
+use sandbox_cli::runtime::{run_cli_with_streams, run_cli_with_writers};
 use serde_json::json;
 use support::{fake_gateway, help_operation_names, parse_json_line};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 
 async fn run(args: &[&str]) -> (u8, String, String) {
@@ -39,6 +41,12 @@ async fn help_lists_exact_runtime_catalog() {
             "file_blame",
             "create_workspace_session",
             "create_mpla_workspace_session",
+            "attach_mpla_prepared_fixture",
+            "activate_workspace_session",
+            "fork_workspace_session",
+            "rollback_workspace_session",
+            "publish_mpla_workspace_session",
+            "squash_mpla_branch",
             "publish_workspace_session",
             "destroy_workspace_session",
             "mpla_storage_admin",
@@ -101,6 +109,57 @@ async fn operation_help_uses_runtime_program_name() {
     ));
     assert!(stdout.contains("--workspace-session-id string required"));
     assert!(stdout.contains("--grace-s float optional"));
+
+    let (code, stdout, stderr) =
+        run(&["sandbox-runtime-cli", "help", "rollback_workspace_session"]).await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert!(stdout.contains(
+        "Usage\n  sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID \
+rollback_workspace_session --run-id RUN_ID --branch BRANCH --target-branch TARGET"
+    ));
+    assert!(stdout.contains("--run-id string required"));
+    assert!(stdout.contains("--branch string required"));
+    assert!(stdout.contains("--target-branch string required"));
+
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "help",
+        "attach_mpla_prepared_fixture",
+    ])
+    .await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert!(stdout.contains(
+        "Usage\n  sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID attach_mpla_prepared_fixture --run-id RUN_ID --fixture-profile PROFILE"
+    ));
+    assert!(stdout.contains("--run-id string required"));
+    assert!(stdout.contains("--fixture-profile string required"));
+
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "help",
+        "publish_mpla_workspace_session",
+    ])
+    .await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert!(stdout.contains(
+        "Usage\n  sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID \
+publish_mpla_workspace_session --workspace-session-id ID --branch BRANCH"
+    ));
+    assert!(stdout.contains("--workspace-session-id string required"));
+    assert!(stdout.contains("--branch string required"));
+
+    let (code, stdout, stderr) = run(&["sandbox-runtime-cli", "help", "squash_mpla_branch"]).await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert!(stdout.contains(
+        "Usage\n  sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID \
+squash_mpla_branch --run-id RUN_ID --branch BRANCH"
+    ));
+    assert!(stdout.contains("--run-id string required"));
+    assert!(stdout.contains("--branch string required"));
 }
 
 #[tokio::test]
@@ -475,6 +534,242 @@ async fn publish_workspace_session_forwards_exact_sandbox_scoped_arguments() {
 }
 
 #[tokio::test]
+async fn mpla_lifecycle_operations_forward_only_sandbox_scoped_identifiers() {
+    let response = json!({
+        "run_id": "scorecard-run",
+        "fixture_profile": "s4-chain-v1",
+        "service_elapsed_ns": 123
+    });
+    let (addr, received) = fake_gateway(response.clone()).await;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--gateway-socket",
+        &addr,
+        "--sandbox-id",
+        "eos-x",
+        "--request-id",
+        "attach-1",
+        "attach_mpla_prepared_fixture",
+        "--run-id",
+        "scorecard-run",
+        "--fixture-profile",
+        "s4-chain-v1",
+    ])
+    .await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), response);
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(request["op"], "attach_mpla_prepared_fixture");
+    assert_eq!(request["request_id"], "attach-1");
+    assert_eq!(
+        request["scope"],
+        json!({"kind": "sandbox", "sandbox_id": "eos-x"})
+    );
+    assert_eq!(
+        request["args"],
+        json!({"run_id": "scorecard-run", "fixture_profile": "s4-chain-v1"})
+    );
+
+    let response = json!({
+        "workspace_session_id": "ws-activate",
+        "run_id": "scorecard-run",
+        "branch": "main",
+        "service_elapsed_ns": 1234
+    });
+    let (addr, received) = fake_gateway(response.clone()).await;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--gateway-socket",
+        &addr,
+        "--sandbox-id",
+        "eos-x",
+        "--request-id",
+        "activate-1",
+        "activate_workspace_session",
+        "--run-id",
+        "scorecard-run",
+        "--branch",
+        "main",
+    ])
+    .await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), response);
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(request["op"], "activate_workspace_session");
+    assert_eq!(request["request_id"], "activate-1");
+    assert_eq!(
+        request["scope"],
+        json!({"kind": "sandbox", "sandbox_id": "eos-x"})
+    );
+    assert_eq!(
+        request["args"],
+        json!({"run_id": "scorecard-run", "branch": "main"})
+    );
+
+    let response = json!({
+        "run_id": "scorecard-run",
+        "source_branch": "main",
+        "branch": "agent-1",
+        "service_elapsed_ns": 456
+    });
+    let (addr, received) = fake_gateway(response.clone()).await;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--gateway-socket",
+        &addr,
+        "--sandbox-id",
+        "eos-x",
+        "--request-id",
+        "fork-1",
+        "fork_workspace_session",
+        "--run-id",
+        "scorecard-run",
+        "--source-branch",
+        "main",
+        "--branch",
+        "agent-1",
+    ])
+    .await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), response);
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(request["op"], "fork_workspace_session");
+    assert_eq!(request["request_id"], "fork-1");
+    assert_eq!(
+        request["scope"],
+        json!({"kind": "sandbox", "sandbox_id": "eos-x"})
+    );
+    assert_eq!(
+        request["args"],
+        json!({
+            "run_id": "scorecard-run",
+            "source_branch": "main",
+            "branch": "agent-1"
+        })
+    );
+
+    let response = json!({
+        "workspace_session_id": "ws-rollback",
+        "run_id": "scorecard-run",
+        "branch": "main",
+        "target_branch": "checkpoint-1",
+        "service_elapsed_ns": 789
+    });
+    let (addr, received) = fake_gateway(response.clone()).await;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--gateway-socket",
+        &addr,
+        "--sandbox-id",
+        "eos-x",
+        "--request-id",
+        "rollback-1",
+        "rollback_workspace_session",
+        "--run-id",
+        "scorecard-run",
+        "--branch",
+        "main",
+        "--target-branch",
+        "checkpoint-1",
+    ])
+    .await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), response);
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(request["op"], "rollback_workspace_session");
+    assert_eq!(request["request_id"], "rollback-1");
+    assert_eq!(
+        request["scope"],
+        json!({"kind": "sandbox", "sandbox_id": "eos-x"})
+    );
+    assert_eq!(
+        request["args"],
+        json!({
+            "run_id": "scorecard-run",
+            "branch": "main",
+            "target_branch": "checkpoint-1"
+        })
+    );
+
+    let response = json!({
+        "workspace_session_id": "ws-publish",
+        "run_id": "scorecard-run",
+        "branch": "main",
+        "service_elapsed_ns": 987
+    });
+    let (addr, received) = fake_gateway(response.clone()).await;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--gateway-socket",
+        &addr,
+        "--sandbox-id",
+        "eos-x",
+        "--request-id",
+        "publish-1",
+        "publish_mpla_workspace_session",
+        "--workspace-session-id",
+        "ws-publish",
+        "--branch",
+        "main",
+    ])
+    .await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), response);
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(request["op"], "publish_mpla_workspace_session");
+    assert_eq!(request["request_id"], "publish-1");
+    assert_eq!(
+        request["scope"],
+        json!({"kind": "sandbox", "sandbox_id": "eos-x"})
+    );
+    assert_eq!(
+        request["args"],
+        json!({"workspace_session_id": "ws-publish", "branch": "main"})
+    );
+
+    let response = json!({
+        "run_id": "scorecard-run",
+        "branch": "main",
+        "service_elapsed_ns": 321
+    });
+    let (addr, received) = fake_gateway(response.clone()).await;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--gateway-socket",
+        &addr,
+        "--sandbox-id",
+        "eos-x",
+        "--request-id",
+        "squash-1",
+        "squash_mpla_branch",
+        "--run-id",
+        "scorecard-run",
+        "--branch",
+        "main",
+    ])
+    .await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), response);
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(request["op"], "squash_mpla_branch");
+    assert_eq!(request["request_id"], "squash-1");
+    assert_eq!(
+        request["scope"],
+        json!({"kind": "sandbox", "sandbox_id": "eos-x"})
+    );
+    assert_eq!(
+        request["args"],
+        json!({"run_id": "scorecard-run", "branch": "main"})
+    );
+}
+
+#[tokio::test]
 async fn mpla_storage_admin_forwards_the_exact_request_json() {
     let response = json!({"status": "accepted"});
     let (addr, received) = fake_gateway(response.clone()).await;
@@ -530,4 +825,185 @@ async fn gateway_operation_failure_is_one_unchanged_stderr_json_line() {
     assert!(stdout.is_empty());
     assert_eq!(parse_json_line(&stderr), response);
     received.await.expect("fake gateway task");
+}
+
+#[tokio::test]
+async fn batch_jsonl_reuses_one_sandbox_pinned_cli_and_preserves_response_streams() {
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind batch fake gateway");
+    let addr = listener
+        .local_addr()
+        .expect("batch gateway address")
+        .to_string();
+    let received = tokio::spawn(async move {
+        let responses = [
+            json!({"run_id": "batch-run", "branch": "agent-1"}),
+            json!({
+                "error": {
+                    "kind": "conflict",
+                    "message": "duplicate branch",
+                    "details": {}
+                }
+            }),
+        ];
+        let mut requests = Vec::<serde_json::Value>::new();
+        for response in responses {
+            let (stream, _) = listener.accept().await.expect("accept batch request");
+            let (read, mut write) = stream.into_split();
+            let mut line = String::new();
+            BufReader::new(read)
+                .read_line(&mut line)
+                .await
+                .expect("read batch request");
+            requests.push(serde_json::from_str(&line).expect("batch request JSON"));
+            let mut response_line = serde_json::to_vec(&response).expect("batch response JSON");
+            response_line.push(b'\n');
+            write
+                .write_all(&response_line)
+                .await
+                .expect("write batch response");
+        }
+        requests
+    });
+    let input = [
+        json!({
+            "schema_version": 1,
+            "request_id": "fork-1",
+            "operation": "fork_workspace_session",
+            "operation_argv": [
+                "--run-id", "batch-run",
+                "--source-branch", "main",
+                "--branch", "agent-1"
+            ]
+        }),
+        json!({
+            "schema_version": 1,
+            "request_id": "invalid request id",
+            "operation": "fork_workspace_session",
+            "operation_argv": []
+        }),
+        json!({
+            "schema_version": 1,
+            "request_id": "fork-2",
+            "operation": "fork_workspace_session",
+            "operation_argv": [
+                "--run-id", "batch-run",
+                "--source-branch", "main",
+                "--branch", "agent-1"
+            ]
+        }),
+    ]
+    .into_iter()
+    .map(|request| serde_json::to_string(&request).expect("serialize batch request"))
+    .collect::<Vec<_>>()
+    .join("\n")
+        + "\n";
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    let code = run_cli_with_streams(
+        [
+            "sandbox-runtime-cli",
+            "--gateway-socket",
+            &addr,
+            "--gateway-auth-token",
+            "batch-token",
+            "--sandbox-id",
+            "eos-batch",
+            "--batch-jsonl",
+        ],
+        Cursor::new(input),
+        &mut stdout,
+        &mut stderr,
+    )
+    .await;
+
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    let output = String::from_utf8(stdout).expect("batch stdout UTF-8");
+    let lines = output
+        .lines()
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).expect("batch output JSON"))
+        .collect::<Vec<_>>();
+    assert_eq!(lines.len(), 4);
+    assert_eq!(
+        lines[0],
+        json!({"kind": "sandbox_runtime_cli_batch_ready_v1"})
+    );
+    assert_eq!(lines[1]["kind"], "sandbox_runtime_cli_batch_response_v1");
+    assert_eq!(lines[1]["exit_code"], 0);
+    assert_eq!(lines[1]["stderr"], "");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(
+            lines[1]["stdout"].as_str().expect("success stdout")
+        )
+        .expect("success response JSON"),
+        json!({"run_id": "batch-run", "branch": "agent-1"})
+    );
+    assert_eq!(lines[2]["exit_code"], 2);
+    assert_eq!(lines[2]["stdout"], "");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(
+            lines[2]["stderr"].as_str().expect("validation stderr")
+        )
+        .expect("validation error JSON")["error"]["message"],
+        "--request-id must be 1-128 ASCII letters, digits, period, underscore, colon, or dash"
+    );
+    assert_eq!(lines[3]["exit_code"], 1);
+    assert_eq!(lines[3]["stdout"], "");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(
+            lines[3]["stderr"].as_str().expect("operation stderr")
+        )
+        .expect("operation error JSON")["error"]["kind"],
+        "conflict"
+    );
+
+    let requests = received.await.expect("batch gateway task");
+    assert_eq!(requests.len(), 2);
+    for request in &requests {
+        assert_eq!(
+            request["scope"],
+            json!({"kind": "sandbox", "sandbox_id": "eos-batch"})
+        );
+    }
+    assert_eq!(requests[0]["request_id"], "fork-1");
+    assert_eq!(requests[1]["request_id"], "fork-2");
+}
+
+#[tokio::test]
+async fn batch_jsonl_rejects_ambiguous_cli_scope_before_gateway_io() {
+    for args in [
+        vec![
+            "sandbox-runtime-cli",
+            "--sandbox-id",
+            "eos-x",
+            "--batch-jsonl",
+            "exec_command",
+        ],
+        vec![
+            "sandbox-runtime-cli",
+            "--sandbox-id",
+            "eos-x",
+            "--batch-jsonl",
+            "--request-id",
+            "outside-batch",
+        ],
+    ] {
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        let code = run_cli_with_streams(
+            args,
+            Cursor::new(Vec::<u8>::new()),
+            &mut stdout,
+            &mut stderr,
+        )
+        .await;
+        assert_eq!(code, 2);
+        assert!(stdout.is_empty());
+        assert_eq!(
+            parse_json_line(&String::from_utf8(stderr).expect("batch stderr"))["error"]["message"],
+            "--batch-jsonl cannot be combined with --request-id or an operation"
+        );
+    }
 }

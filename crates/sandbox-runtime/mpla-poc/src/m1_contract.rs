@@ -43,6 +43,7 @@ pub struct SemanticPhaseSpan {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CanonicalDurabilityReceipt {
     pub root_manifest: PathBuf,
+    pub semantic_attribution: AttributionInput,
     pub immutable_object_count: u64,
     pub immutable_object_bytes: u64,
     pub object_set_sha256: String,

@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -106,10 +107,15 @@ struct LocatorGenerationCandidate {
     reverse: Vec<ReverseLocatorEntry>,
 }
 
+type GenerationCache = Arc<Mutex<BTreeMap<LocatorGeneration, SelectedLocatorGeneration>>>;
+
 #[derive(Clone, Debug)]
 pub struct LocatorStore {
     root: PathBuf,
+    generation_cache: GenerationCache,
 }
+
+static GENERATION_CACHES: OnceLock<Mutex<BTreeMap<PathBuf, GenerationCache>>> = OnceLock::new();
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 struct ForwardFile {
@@ -155,17 +161,39 @@ struct LocatorSelector {
 
 impl LocatorStore {
     pub fn open(root: impl Into<PathBuf>) -> PocResult<Self> {
-        let store = Self { root: root.into() };
-        std::fs::create_dir_all(store.generations_dir()).map_err(|source| {
-            PocError::io(
-                "create locator generations directory",
-                store.generations_dir(),
-                source,
-            )
-        })?;
-        create_lock_file(&store.lock_path())?;
-        fsync_dir(&store.root)?;
-        Ok(store)
+        let mut root = root.into();
+        let generations_dir = root.join("generations");
+        let lock_path = root.join("LOCK");
+        let layout_ready = generations_dir.is_dir() && lock_path.is_file();
+        if !layout_ready {
+            std::fs::create_dir_all(&generations_dir).map_err(|source| {
+                PocError::io(
+                    "create locator generations directory",
+                    &generations_dir,
+                    source,
+                )
+            })?;
+            create_lock_file(&lock_path)?;
+            fsync_dir(&root)?;
+        }
+        if !root.is_absolute() {
+            root = std::fs::canonicalize(&root)
+                .map_err(|source| PocError::io("canonicalize locator root", &root, source))?;
+        }
+        let generation_cache = {
+            let mut caches = GENERATION_CACHES
+                .get_or_init(|| Mutex::new(BTreeMap::new()))
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            caches
+                .entry(root.clone())
+                .or_insert_with(|| Arc::new(Mutex::new(BTreeMap::new())))
+                .clone()
+        };
+        Ok(Self {
+            root,
+            generation_cache,
+        })
     }
 
     pub fn root(&self) -> &Path {
@@ -397,7 +425,6 @@ impl LocatorStore {
         };
         manifest.manifest_sha256 = digest_json(&manifest)?;
         write_immutable_json(&generation_dir.join("MANIFEST.json"), &manifest)?;
-        fsync_dir(&generation_dir)?;
         reach_real_operation(
             faults,
             NamedFaultPoint::LocatorAfterManifestFsync,
@@ -490,19 +517,33 @@ impl LocatorStore {
         &self,
         generation: LocatorGeneration,
     ) -> PocResult<SelectedLocatorGeneration> {
+        if let Some(selected) = self
+            .generation_cache
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&generation)
+            .cloned()
+        {
+            return Ok(selected);
+        }
         let generation_dir = self.generation_dir(generation);
         let forward: ForwardFile = read_json(&generation_dir.join("forward.json"))?;
         let reverse: ReverseFile = read_json(&generation_dir.join("reverse.json"))?;
         let manifest: GenerationManifest = read_json(&generation_dir.join("MANIFEST.json"))?;
         validate_generation_files(&forward, &reverse, &manifest)?;
-        Ok(SelectedLocatorGeneration {
+        let selected = SelectedLocatorGeneration {
             receipt: receipt_from_manifest(&manifest, true),
             parent: manifest.parent,
             operation_id: manifest.operation_id,
             publication_id: manifest.publication_id,
             forward: forward.entries,
             reverse: reverse.entries,
-        })
+        };
+        self.generation_cache
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(generation, selected.clone());
+        Ok(selected)
     }
 
     fn replace_selector(

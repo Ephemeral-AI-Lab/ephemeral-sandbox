@@ -1,0 +1,4 @@
+{
+  "error": "publication preparation failed: status='error'; exit_code=2; command_total_time_seconds=0.043703167; output=\"error: the following required arguments were not provided:\\n  --case <CASE>\\n\\nUsage: mpla-speed-poc-v1 prepare-publication-fixture --run-id <RUN_ID> --case <CASE> --candidate-sandbox-id <CANDIDATE_SANDBOX_ID> --build-commit <BUILD_COMMIT>\\n\\nFor more information, try '--help'.\"",
+  "type": "CampaignError"
+}

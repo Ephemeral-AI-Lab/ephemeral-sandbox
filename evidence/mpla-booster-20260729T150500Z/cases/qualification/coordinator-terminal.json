@@ -1,0 +1,13 @@
+{
+  "command_session_id": "namespace_execution_1",
+  "command_total_time_seconds": 0.618660834,
+  "end_offset": 1,
+  "exit_code": 2,
+  "original_token_count": 26,
+  "output": "MPLA_SCORECARD_ERROR {\"error\":\"qualification rollback omitted string field storage_admin_profile_id\"}",
+  "start_offset": 0,
+  "status": "error",
+  "total_lines": 1,
+  "wall_time_seconds": 1.068668001,
+  "workspace_session_id": "00000118c6cb3758f458bf"
+}

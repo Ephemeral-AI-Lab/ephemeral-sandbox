@@ -117,6 +117,14 @@ pub enum StorageAdminOutcome {
     Cancelled,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageAdminDurability {
+    #[default]
+    ExactObjectGraph,
+    SessionLifetime,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct StorageAdminScope {
     pub run_id: RunId,

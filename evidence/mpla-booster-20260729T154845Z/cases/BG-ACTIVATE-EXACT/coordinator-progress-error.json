@@ -1,0 +1,3 @@
+{
+  "error": "read_scorecard_progress exited 1: {\"error\":{\"kind\":\"invalid_request\",\"message\":\"selected read output exceeds the maximum of 262144 bytes: scorecard-lifecycle-progress.jsonl\",\"details\":{}}}\n"
+}

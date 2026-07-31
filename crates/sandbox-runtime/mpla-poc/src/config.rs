@@ -13,6 +13,12 @@ pub const MAX_COORDINATORS: u16 = 16;
 pub const MAX_PENDING_DESCRIPTORS: u16 = 16;
 pub const MAX_PENDING_DESCRIPTOR_BYTES: u64 = 64 * 1024;
 pub const SEMANTIC_SCAN_WINDOW_BYTES: usize = 32 * 1024;
+// The semantic record format is deliberately fixed at 32 KiB.  Physical I/O
+// may be larger: slicing a larger transfer into the exact same record windows
+// avoids one `pread` per semantic record without changing the canonical stream.
+// Four scanner workers run concurrently; 256 KiB keeps their aggregate
+// transfers within the fixed 8 MiB managed-memory ceiling.
+pub const SEMANTIC_SCAN_TRANSFER_BYTES: usize = 256 * 1024;
 pub const SEMANTIC_SPOOL_RUN_BYTES: usize = 4 * 1024 * 1024;
 pub const SEMANTIC_MERGE_FAN_IN: usize = 8;
 pub const SEMANTIC_MAX_DATA_FDS: usize = 16;

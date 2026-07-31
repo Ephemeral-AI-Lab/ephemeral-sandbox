@@ -1,4 +1,5 @@
 use std::convert::Infallible;
+use std::io::Cursor;
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -13,7 +14,7 @@ use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
 
-use sandbox_config::configs::manager::DockerCgroupNamespaceMode;
+use sandbox_config::configs::manager::{DockerCgroupNamespaceMode, DockerPersistentVolumeMount};
 use sandbox_manager::{
     CreateSandboxRequest, ManagerError, SandboxRecord, SandboxRuntime, SandboxState,
     SharedBaseMount,
@@ -41,6 +42,29 @@ fn container_limits_come_from_the_selected_named_profile() {
     assert_eq!(limits.workload_pids_max, 960);
     assert_eq!(limits.control_plane_pids_reserve, 64);
     assert!(limits.separate_workload_cgroup);
+}
+
+#[test]
+fn container_limits_preserve_an_explicit_smaller_workload_memory_envelope() {
+    let mut config = DockerRuntimeConfig {
+        resource_profile: "build-heavy".to_owned(),
+        ..DockerRuntimeConfig::default()
+    };
+    let profile = config
+        .resource_profiles
+        .get_mut("build-heavy")
+        .expect("build-heavy profile");
+    profile.workload_memory_high_bytes = Some(96 * 1024 * 1024);
+    profile.workload_memory_max_bytes = Some(128 * 1024 * 1024);
+    let runtime = DockerSandboxRuntime::new(config);
+
+    let limits = runtime
+        .configured_resource_limits()
+        .expect("selected profile is available");
+    assert_eq!(limits.memory_high_bytes, 3 * 1024 * 1024 * 1024);
+    assert_eq!(limits.memory_max_bytes, 4 * 1024 * 1024 * 1024);
+    assert_eq!(limits.workload_memory_high_bytes, 96 * 1024 * 1024);
+    assert_eq!(limits.workload_memory_max_bytes, 128 * 1024 * 1024);
 }
 
 #[test]
@@ -100,6 +124,11 @@ fn container_creation_persists_the_exact_resolved_resource_profile() {
             .join("../../config/prd.yml"),
         resource_profile: "build-heavy".to_owned(),
         cgroup_namespace_mode: DockerCgroupNamespaceMode::Host,
+        persistent_volume_mounts: vec![DockerPersistentVolumeMount {
+            name: "eos-mpla-prepared-s4-chain-v1".to_owned(),
+            target: PathBuf::from("/eos/mpla-fixtures"),
+            readonly: true,
+        }],
         ..DockerRuntimeConfig::default()
     };
     let runtime = DockerSandboxRuntime::new(config);
@@ -122,16 +151,16 @@ fn container_creation_persists_the_exact_resolved_resource_profile() {
     assert_eq!(profile.workload_pids_max, 960);
 
     let requests = docker.requests();
-    assert_eq!(requests.len(), 5);
+    assert_eq!(requests.len(), 6);
     assert_eq!(requests[0].method, "GET");
     assert!(requests[0].target.contains("/volumes/"));
-    assert!(requests[1..3]
+    assert!(requests[1..4]
         .iter()
         .all(|request| { request.method == "POST" && request.target.contains("/volumes/create") }));
-    assert_eq!(requests[3].method, "POST");
-    assert!(requests[3].target.contains("/containers/create"));
-    assert_eq!(requests[4].method, "PUT");
-    assert!(requests[4].target.contains("/archive"));
+    assert_eq!(requests[4].method, "POST");
+    assert!(requests[4].target.contains("/containers/create"));
+    assert_eq!(requests[5].method, "PUT");
+    assert!(requests[5].target.contains("/archive"));
 
     let request = requests
         .into_iter()
@@ -153,6 +182,129 @@ fn container_creation_persists_the_exact_resolved_resource_profile() {
     assert_eq!(document["HostConfig"]["NanoCpus"], 4_000_000_000_i64);
     assert_eq!(document["HostConfig"]["PidsLimit"], 1024);
     assert_eq!(document["HostConfig"]["CgroupnsMode"], "host");
+    assert!(document["HostConfig"]["Binds"]
+        .as_array()
+        .expect("Docker binds array")
+        .iter()
+        .any(|value| value == "eos-mpla-prepared-s4-chain-v1:/eos/mpla-fixtures:ro"));
+
+    std::fs::remove_dir_all(root).expect("remove fixture");
+}
+
+#[test]
+fn fixture_builder_materializes_shared_base_into_writable_persistent_volume() {
+    let docker = FakeDockerApi::new(|request| {
+        if request.method == "POST" && request.target.contains("/volumes/create") {
+            return FakeResponse::json(
+                201,
+                serde_json::json!({
+                    "CreatedAt": "",
+                    "Driver": "local",
+                    "Labels": {},
+                    "Mountpoint": "/mock",
+                    "Name": "fixture-volume",
+                    "Options": {},
+                    "Scope": "local"
+                }),
+            );
+        }
+        if request.method == "POST" && request.target.contains("/containers/create") {
+            return FakeResponse::json(
+                201,
+                serde_json::json!({"Id": "mock-container", "Warnings": []}),
+            );
+        }
+        if request.method == "PUT" && request.target.contains("/archive") {
+            return FakeResponse::empty(200);
+        }
+        FakeResponse::json(
+            404,
+            serde_json::json!({"message": format!("unexpected request: {} {}", request.method, request.target)}),
+        )
+    });
+    let root =
+        std::env::temp_dir().join(format!("eos-materialized-volume-{}", unique_test_suffix()));
+    let workspace = root.join("workspace");
+    let shared_base = root.join("base");
+    let tool = shared_base
+        .join("B000001-base")
+        .join("_campaign-tools")
+        .join("mpla-speed-poc-v1");
+    std::fs::create_dir_all(&workspace).expect("create workspace");
+    std::fs::create_dir_all(tool.parent().expect("tool parent")).expect("create shared base");
+    std::fs::write(&tool, b"static-arm64-tool").expect("write staged tool");
+
+    let config = DockerRuntimeConfig {
+        docker_endpoint: Some(docker.endpoint()),
+        daemon_config_yaml_path: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../config/mpla-poc-m3-fixture-builder-phase-profile-v2.yml"),
+        resource_profile: "build-heavy".to_owned(),
+        cgroup_namespace_mode: DockerCgroupNamespaceMode::Host,
+        sandbox_owned_workspace_volumes: false,
+        materialize_shared_base_into_persistent_volume: true,
+        persistent_volume_mounts: vec![DockerPersistentVolumeMount {
+            name: "eos-mpla-prepared-s4-phase-profile-v2".to_owned(),
+            target: PathBuf::from("/eos/mpla-fixtures"),
+            readonly: false,
+        }],
+        ..DockerRuntimeConfig::default()
+    };
+    DockerSandboxRuntime::new(config)
+        .create_sandbox(&CreateSandboxRequest {
+            image: "ubuntu:24.04".to_owned(),
+            workspace_root: workspace,
+            shared_base: Some(SharedBaseMount {
+                source: shared_base,
+                target: PathBuf::from("/eos/mpla-fixtures/s4-chain-v2/layer-stack/base"),
+                root_hash: unique_test_suffix(),
+                readonly: true,
+            }),
+        })
+        .expect("fake Docker accepts materialized fixture builder");
+
+    let requests = docker.requests();
+    assert!(requests
+        .iter()
+        .all(|request| !(request.method == "GET" && request.target.contains("/volumes/"))));
+    let create = requests
+        .iter()
+        .find(|request| request.method == "POST" && request.target.contains("/containers/create"))
+        .expect("container create request");
+    let document: serde_json::Value =
+        serde_json::from_slice(&create.body).expect("container create JSON");
+    let binds = document["HostConfig"]["Binds"]
+        .as_array()
+        .expect("Docker binds array");
+    assert!(binds
+        .iter()
+        .any(|value| value == "eos-mpla-prepared-s4-phase-profile-v2:/eos/mpla-fixtures"));
+    assert!(binds.iter().all(|value| !value
+        .as_str()
+        .unwrap_or_default()
+        .starts_with("eos-shared-base-")));
+
+    let archive = requests
+        .iter()
+        .find(|request| request.method == "PUT" && request.target.contains("/archive"))
+        .expect("seed archive request");
+    let archive_paths = tar::Archive::new(Cursor::new(archive.body.clone()))
+        .entries()
+        .expect("read archive")
+        .map(|entry| {
+            entry
+                .expect("read archive entry")
+                .path()
+                .expect("archive entry path")
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect::<Vec<_>>();
+    assert!(archive_paths.iter().any(|path| {
+        path == "eos/mpla-fixtures/s4-chain-v2/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1"
+    }));
+    assert!(archive_paths
+        .iter()
+        .any(|path| path == "eos/mpla-fixtures/s4-chain-v2/layer-stack/manifest.json"));
 
     std::fs::remove_dir_all(root).expect("remove fixture");
 }

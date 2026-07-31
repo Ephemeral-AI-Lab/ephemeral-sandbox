@@ -1,0 +1,2930 @@
+{
+  "commit": "11f793ad96754e612ca6615835c11d78cf443a83",
+  "porcelain": " M Cargo.lock\n M config/materialization-lifecycle-benchmark.yml\n M crates/sandbox-cli/src/projection/runtime.rs\n M crates/sandbox-cli/tests/fixtures/runtime-help.txt\n M crates/sandbox-cli/tests/runtime.rs\n M crates/sandbox-config/src/configs/daemon.rs\n M crates/sandbox-config/src/configs/runtime.rs\n M crates/sandbox-config/tests/unit/configs/daemon.rs\n M crates/sandbox-config/tests/unit/lib.rs\n M crates/sandbox-daemon/src/rpc/connection.rs\n M crates/sandbox-daemon/src/serve.rs\n M crates/sandbox-daemon/tests/unit.rs\n M crates/sandbox-daemon/tests/unit/connection.rs\n M crates/sandbox-daemon/tests/unit/serve.rs\n M crates/sandbox-gateway/src/gateway/connection.rs\n M crates/sandbox-gateway/src/gateway/lifecycle.rs\n M crates/sandbox-manager/src/router/forward.rs\n M crates/sandbox-observability/telemetry/src/observer.rs\n M crates/sandbox-observability/telemetry/src/sink.rs\n M crates/sandbox-observability/telemetry/tests/observer.rs\n M crates/sandbox-operations/catalog/src/runtime.rs\n M crates/sandbox-operations/catalog/src/runtime/workspace_session.rs\n M crates/sandbox-operations/catalog/tests/integrity.rs\n M crates/sandbox-operations/catalog/tests/runtime.rs\n M crates/sandbox-protocol/src/limits.rs\n M crates/sandbox-runtime/layerstack/src/stack/candidate/publication.rs\n M crates/sandbox-runtime/mpla-poc/Cargo.toml\n M crates/sandbox-runtime/mpla-poc/src/activation.rs\n M crates/sandbox-runtime/mpla-poc/src/bin/mpla-poc-oracle/oracle_record.rs\n M crates/sandbox-runtime/mpla-poc/src/bin/mpla-poc-oracle/oracle_scan.rs\n M crates/sandbox-runtime/mpla-poc/src/bin/mpla-poc.rs\n M crates/sandbox-runtime/mpla-poc/src/bin/mpla-speed-poc-v1.rs\n M crates/sandbox-runtime/mpla-poc/src/bin/mpla-storage-admin-v1.rs\n M crates/sandbox-runtime/mpla-poc/src/controls.rs\n M crates/sandbox-runtime/mpla-poc/src/evidence_schema.rs\n M crates/sandbox-runtime/mpla-poc/src/inventory.rs\n M crates/sandbox-runtime/mpla-poc/src/lib.rs\n M crates/sandbox-runtime/mpla-poc/src/locator.rs\n M crates/sandbox-runtime/mpla-poc/src/owner.rs\n M crates/sandbox-runtime/mpla-poc/src/ref_store.rs\n M crates/sandbox-runtime/mpla-poc/src/semantic/mod.rs\n M crates/sandbox-runtime/mpla-poc/src/semantic/scan.rs\n M crates/sandbox-runtime/mpla-poc/src/semantic/trie.rs\n M crates/sandbox-runtime/mpla-poc/src/session.rs\n M crates/sandbox-runtime/mpla-poc/src/storage_admin.rs\n M crates/sandbox-runtime/mpla-poc/tests/activation_projection.rs\n M crates/sandbox-runtime/mpla-poc/tests/cases/heavy_lead.rs\n M crates/sandbox-runtime/mpla-poc/tests/cases/smoke.rs\n M crates/sandbox-runtime/mpla-poc/tests/controls.rs\n M crates/sandbox-runtime/mpla-poc/tests/m1_semantic_integration.rs\n M crates/sandbox-runtime/mpla-poc/tests/session_overlay.rs\n M crates/sandbox-runtime/mpla-poc/tests/storage_admin_security.rs\n M crates/sandbox-runtime/operation/Cargo.toml\n M crates/sandbox-runtime/operation/src/command/service.rs\n M crates/sandbox-runtime/operation/src/command/service/exec_command.rs\n M crates/sandbox-runtime/operation/src/operations/registry/workspace_session_operations.rs\n M crates/sandbox-runtime/operation/src/workspace_session/mod.rs\n M crates/sandbox-runtime/operation/src/workspace_session/service.rs\n M crates/sandbox-runtime/operation/src/workspace_session/service/impls/admission.rs\n M crates/sandbox-runtime/operation/src/workspace_session/service/impls/create_mpla_workspace_session.rs\n M crates/sandbox-runtime/operation/src/workspace_session/service/impls/destroy_session.rs\n M crates/sandbox-runtime/operation/src/workspace_session/service/impls/mod.rs\n M crates/sandbox-runtime/operation/src/workspace_session/service/model.rs\n M crates/sandbox-runtime/operation/tests/workspace_session.rs\n M crates/sandbox-runtime/workspace/src/model.rs\n M crates/sandbox-runtime/workspace/src/namespace/mod.rs\n M crates/sandbox-runtime/workspace/src/service/impls/create_workspace.rs\n?? bin/__pycache__/\n?? bin/run-mpla-booster-scorecard\n?? bin/test_run_mpla_booster_scorecard.py\n?? crates/sandbox-runtime/mpla-poc/src/atomic_cgroup_process.rs\n?? crates/sandbox-runtime/mpla-poc/src/bin/mpla_hv07_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/src/bin/mpla_poc_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/src/bin/mpla_publication_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/src/bin/mpla_qualification_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/src/bin/mpla_speed_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/src/bin/mpla_stream_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/src/external_publication.rs\n?? crates/sandbox-runtime/mpla-poc/src/publication_qualification.rs\n?? crates/sandbox-runtime/mpla-poc/tests/external_publication.rs\n?? crates/sandbox-runtime/mpla-poc/tests/hv07_campaign.rs\n?? crates/sandbox-runtime/mpla-poc/tests/mpla_poc_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/tests/publication_fixture_cli.rs\n?? crates/sandbox-runtime/mpla-poc/tests/publication_qualification.rs\n?? crates/sandbox-runtime/mpla-poc/tests/scorecard_oracle_validation.rs\n?? crates/sandbox-runtime/operation/src/command/service/security_profile.rs\n?? crates/sandbox-runtime/operation/src/workspace_session/service/impls/mpla_lifecycle.rs\n?? crates/sandbox-runtime/operation/src/workspace_session/service/impls/mpla_storage_admin.rs\n?? crates/sandbox-runtime/operation/src/workspace_session/service/mpla_policy.rs\n?? crates/sandbox-runtime/operation/tests/command_security_profile.rs\n?? crates/sandbox-runtime/operation/tests/mpla_policy.rs\n?? evidence/\n",
+  "porcelain_sha256": "b4b380d1647c3536630f002176ca98e82a54ca73e174f496e18f6d6c702cf4bf",
+  "tracked_diff_bytes": 337964,
+  "tracked_diff_sha256": "b6238e5711527f19e09abfe75a76cb45de77904988dc8513bfa3004a4ea182a2",
+  "tree": "bf0943f5677d549d8cba8c42230adf0381a56ac1",
+  "worktree_files": {
+    "Cargo.lock": {
+      "bytes": 70667,
+      "sha256": "0c7669de984598109fa65d27fcef6ec70ed97b4567c75916b898cd61943251fc"
+    },
+    "bin/__pycache__/run-mpla-booster-scorecardcpython-314.pyc": {
+      "bytes": 75696,
+      "sha256": "7a53dc770ff663b22005a4acad3d9698a1137dad805e5093456c2c1a778a7059"
+    },
+    "bin/__pycache__/test_run_mpla_booster_scorecard.cpython-314.pyc": {
+      "bytes": 26873,
+      "sha256": "0789eff262878812083cd5920cbb2d84355d7541ebf7bef34c6a478fd2d1cc46"
+    },
+    "bin/run-mpla-booster-scorecard": {
+      "bytes": 62871,
+      "sha256": "2ee3dd68c8204b6ad27049877c07b7f218950af923b36a7765f625719414e2ca"
+    },
+    "bin/test_run_mpla_booster_scorecard.py": {
+      "bytes": 22929,
+      "sha256": "9db1809e71a75d3644dc393a9ed472b5dbb74195dc1bc061d88bc155b0a9dab1"
+    },
+    "config/materialization-lifecycle-benchmark.yml": {
+      "bytes": 2442,
+      "sha256": "6a25e59ca595a66782718517fcd40f91f75ae8991927acfa7473ac4ff01cbe03"
+    },
+    "crates/sandbox-cli/src/projection/runtime.rs": {
+      "bytes": 12537,
+      "sha256": "c4458441da6b158a8015230b74f073d3127cf4d73ee46e44c6a3695d43751571"
+    },
+    "crates/sandbox-cli/tests/fixtures/runtime-help.txt": {
+      "bytes": 1906,
+      "sha256": "aa8aa6614888be77cb9c1b1e1c8d8c7c507e893a6380cc5b9cd2d4685ec1085b"
+    },
+    "crates/sandbox-cli/tests/runtime.rs": {
+      "bytes": 24348,
+      "sha256": "d070d13420d11b8f8869f7b3ba5a7d32e7e5e05f3339bdd730901bf7a944bf81"
+    },
+    "crates/sandbox-config/src/configs/daemon.rs": {
+      "bytes": 8168,
+      "sha256": "fc58e6ce87056490b44875547d543a6471518a7dcfec13927c41eb122d756a5f"
+    },
+    "crates/sandbox-config/src/configs/runtime.rs": {
+      "bytes": 15234,
+      "sha256": "7eeef8c76745fab4fba576170a2b91a4d9c5a452eae1447574cbc5a399413bf8"
+    },
+    "crates/sandbox-config/tests/unit/configs/daemon.rs": {
+      "bytes": 6991,
+      "sha256": "806b49fa620fd60077abc22c55d3d63fdacf0d2b00a9c7b649ac6ae2de91c44f"
+    },
+    "crates/sandbox-config/tests/unit/lib.rs": {
+      "bytes": 11919,
+      "sha256": "d91a9c00da503d55206e605901b979fc474690257a87082c3d3808ce3a8f5ee4"
+    },
+    "crates/sandbox-daemon/src/rpc/connection.rs": {
+      "bytes": 4056,
+      "sha256": "9dbcef111ac656545b76015da926982a2b0d5bdf346ab7e82b4c52388341c466"
+    },
+    "crates/sandbox-daemon/src/serve.rs": {
+      "bytes": 21237,
+      "sha256": "aabe09c47547432ea683cb349d99012024765bf96a9113833a96194250dcbd7b"
+    },
+    "crates/sandbox-daemon/tests/unit.rs": {
+      "bytes": 3195,
+      "sha256": "ee21878ac6acfedb1fb461e7288f7be7628a55ff75d20e8924bbb03b3a65c1e8"
+    },
+    "crates/sandbox-daemon/tests/unit/connection.rs": {
+      "bytes": 5508,
+      "sha256": "fcc101fd654fe99b170d7067bbdc1e76a3b0510bb84b0c2930b8b9edea22f678"
+    },
+    "crates/sandbox-daemon/tests/unit/serve.rs": {
+      "bytes": 8959,
+      "sha256": "9d6d35e16a3ca7ed88ce3bcd42ebb22ff90c3006f335091f4d4db211489cb30a"
+    },
+    "crates/sandbox-gateway/src/gateway/connection.rs": {
+      "bytes": 5903,
+      "sha256": "600726ed773d3ba79e3d964e31d00bec730f13362fcb5a03ca84b51e6d3ee63f"
+    },
+    "crates/sandbox-gateway/src/gateway/lifecycle.rs": {
+      "bytes": 2541,
+      "sha256": "a8c8b308caed0e071ef9e7280b909dad096c3a9e62c3def625288abc06ea85b9"
+    },
+    "crates/sandbox-manager/src/router/forward.rs": {
+      "bytes": 10197,
+      "sha256": "452210c22841837cfa426c1d8999cebd606996e654fe0dad77898e7a7beeeec4"
+    },
+    "crates/sandbox-observability/telemetry/src/observer.rs": {
+      "bytes": 15650,
+      "sha256": "26e1d66cdb2d735c99c27df97c4f264e3561dff057e59d2f76573c87a44bb62c"
+    },
+    "crates/sandbox-observability/telemetry/src/sink.rs": {
+      "bytes": 13675,
+      "sha256": "a6aee69020d01ac31af918ee5a48352783910ea8867038b2dfde04dd59957ee9"
+    },
+    "crates/sandbox-observability/telemetry/tests/observer.rs": {
+      "bytes": 11348,
+      "sha256": "8b659c4c356e13504cfbb70c25b029cc473329d6ca80f64e97eb87fcc8ce496e"
+    },
+    "crates/sandbox-operations/catalog/src/runtime.rs": {
+      "bytes": 4811,
+      "sha256": "b7f122c6864bdffd724e7281577793a0f64e2a7b9e2692d68fb093b31968ab8c"
+    },
+    "crates/sandbox-operations/catalog/src/runtime/workspace_session.rs": {
+      "bytes": 12394,
+      "sha256": "c8c5f7b0a93606f8d4f73cfff9c0e6acf407e2e4a5961991c1bccb522244850f"
+    },
+    "crates/sandbox-operations/catalog/tests/integrity.rs": {
+      "bytes": 12914,
+      "sha256": "376ec45ad11a5e2b8d72b7a8d8b9ca520c28c8d77e106a6778c807845e10cdce"
+    },
+    "crates/sandbox-operations/catalog/tests/runtime.rs": {
+      "bytes": 7548,
+      "sha256": "57c45363ac9d7f032b584d06f4cb6bbff511dd23d0992f91b971c810ece341f8"
+    },
+    "crates/sandbox-protocol/src/limits.rs": {
+      "bytes": 1257,
+      "sha256": "b138b8555653e5bdc0729c667b4a6c1daef2d9cbbcb15a5874b8b94d3ce4a577"
+    },
+    "crates/sandbox-runtime/layerstack/src/stack/candidate/publication.rs": {
+      "bytes": 22740,
+      "sha256": "1b87b035a402b0a103e541c7db963d69c7bdb0fc5a5d2132bc43b1af05efd2c2"
+    },
+    "crates/sandbox-runtime/mpla-poc/Cargo.toml": {
+      "bytes": 797,
+      "sha256": "a00054a4226fa1d27efaaa17406952011ebf9120b0a96bedafc3e6218092e912"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/activation.rs": {
+      "bytes": 14730,
+      "sha256": "c47f8a4de8f04f638953caf46294b77a816e13f5d8e9d69e1c8de35639a0aa69"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/atomic_cgroup_process.rs": {
+      "bytes": 6977,
+      "sha256": "016a69541ee937c9fff350836e691907cca64163e9e45c3c6d07ec27ed5d4a58"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla-poc-oracle/oracle_record.rs": {
+      "bytes": 26405,
+      "sha256": "0f21191134d9f76342fb5de0c17b5c6da8f77ec83f6d78acef805d5aea2ad2c5"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla-poc-oracle/oracle_scan.rs": {
+      "bytes": 42977,
+      "sha256": "37fdcda51fea62236019271ea1a9d46bd9918de3e0a05ee2529866d8a057315d"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla-poc.rs": {
+      "bytes": 19933,
+      "sha256": "a24c35492534c95f540819ae04365e2d6a1b057519c3eee45762d61384db0e71"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla-speed-poc-v1.rs": {
+      "bytes": 73231,
+      "sha256": "2ccf48efdae9a7dca54be5fecf2b15756bf610b7cc0f855770455d5be828f880"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla-storage-admin-v1.rs": {
+      "bytes": 3210,
+      "sha256": "d0ac570e4c39434996f360f86e28890161ccd2028a9cf7af48574c8a9bcdfa94"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla_hv07_scorecard.rs": {
+      "bytes": 4750,
+      "sha256": "288f21db5e8374310923cc9e60eb68a3d58639ab6cfc0c51a5079e2463d7541b"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla_poc_scorecard.rs": {
+      "bytes": 44208,
+      "sha256": "ee13ff856a88ce0676efffaf3134d0c0a31fd3306ff1ccac1189a836c95762b0"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla_publication_scorecard.rs": {
+      "bytes": 48762,
+      "sha256": "e1439ec6c56335a79f8e406cd7db91ee9c54cae78582fbff687c03307c2bff0e"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla_qualification_scorecard.rs": {
+      "bytes": 31908,
+      "sha256": "b5ba06f2d3623c81d88c5079f8f4f1056d8ca264818befea832528b2e5a79f2f"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla_speed_scorecard.rs": {
+      "bytes": 53089,
+      "sha256": "9ff6331768a30e3ef87573a5949f4fad39be97fb95dc89fe9d74c5f21f5abdd7"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla_stream_scorecard.rs": {
+      "bytes": 18511,
+      "sha256": "6d67d19faeecdea8d0a1a5eb83b8b475484facd05957009f4017e8a45995c7b1"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/controls.rs": {
+      "bytes": 35214,
+      "sha256": "992e30ac22dcda57ca11933c4a873c6c35dc85287e1215901800e632a41bc0d0"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/evidence_schema.rs": {
+      "bytes": 2277,
+      "sha256": "7e3d60b8d91845c2df0bff8b42930bba5708544098f41c30a22598a0ad8d377c"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/external_publication.rs": {
+      "bytes": 20872,
+      "sha256": "d1b1276210fa83e0d9660ec23c2222b2df7de0fd5e1c8ac95250378170589b77"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/inventory.rs": {
+      "bytes": 17709,
+      "sha256": "8150df48394965ff86254ab532ca2bb98879dbbbd53434df7a44a6079a8d3203"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/lib.rs": {
+      "bytes": 5372,
+      "sha256": "c95279b4c44f28466d40fe403aa0c126f72a5dd9169b3249369ce7b68ee57628"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/locator.rs": {
+      "bytes": 37449,
+      "sha256": "fdcb8fa9b9f705073d97013c70fd66b5a334c1e55808e43277cb6fd694d39148"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/owner.rs": {
+      "bytes": 37464,
+      "sha256": "3dcb4e67e59d8615ad1251deaaa52fcb3be267275eeebf74fb13150ba28b481e"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/publication_qualification.rs": {
+      "bytes": 6285,
+      "sha256": "ba96fadc39730247acadfdfe72b6fcdb11461b063c2485d63df5daeaf36284d7"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/ref_store.rs": {
+      "bytes": 29645,
+      "sha256": "14e6350e2bfd2022cecde85d7b150c843c69c2f849edfba2ae2aa6f4f2c0bd1f"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/semantic/mod.rs": {
+      "bytes": 48286,
+      "sha256": "5a3a09a1dc59bd613cc7b84e73939164b0fe1dd002f41df8071f082e3d79b82b"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/semantic/scan.rs": {
+      "bytes": 32055,
+      "sha256": "fe940afd9e3dfdceb93f73ee75e31ac5b2354e0dd7eed04999f3ec1e8f091eb6"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/semantic/trie.rs": {
+      "bytes": 56795,
+      "sha256": "bbf236d47fbe91fcc996e28804991e69fb13242412e9a936ac79f3578c7978b0"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/session.rs": {
+      "bytes": 22956,
+      "sha256": "8854e2cb284ef6926eb49f5921fcd808ec9a31ff4fc6c121d4254022d8a94b59"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/storage_admin.rs": {
+      "bytes": 149757,
+      "sha256": "f6eb41eaa9db53805c8d319426573879c865ee7293d6a861269dceb8594fd257"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/activation_projection.rs": {
+      "bytes": 4329,
+      "sha256": "431f8ff7e87dd23b2b043326a773063e98e810e75a9710c2ea3f0ed45ff97690"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/cases/heavy_lead.rs": {
+      "bytes": 148719,
+      "sha256": "9bc13c30f10191ebce233e919be0447b15dc57676dcce7e14ede26b93f9c7630"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/cases/smoke.rs": {
+      "bytes": 151502,
+      "sha256": "dd9afc948305e7efd7febfa7dbc9b28fd0d7d61b688b7f7e00606e13466a040a"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/controls.rs": {
+      "bytes": 11510,
+      "sha256": "59be77221f31d5acbbd24bc3bd1d7d5d49a3777413d345d0a32346b6cfaf1d3c"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/external_publication.rs": {
+      "bytes": 14449,
+      "sha256": "189091dd6e73ee70aa0ba599711c3c9c6e5b44ab9713441894945c97e992c12d"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/hv07_campaign.rs": {
+      "bytes": 534,
+      "sha256": "36bf1eccd87f8d9b7d8989a83fd149ee181217f98873b0513f5e3fdca2bba49b"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/m1_semantic_integration.rs": {
+      "bytes": 19133,
+      "sha256": "8ca43750cddb5a556f4107f79b1a99bdd534fd36a33ecdf91d6955ecfb28057a"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/mpla_poc_scorecard.rs": {
+      "bytes": 8876,
+      "sha256": "7abdb47d1479dbdfb32581a91ff577443b6b27c1f60ee2bebe8caaa410970fa3"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/publication_fixture_cli.rs": {
+      "bytes": 812,
+      "sha256": "24f5564567882b10218df7379d2f6487076bcc4dc5d164d2fb403f9306db680e"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/publication_qualification.rs": {
+      "bytes": 9825,
+      "sha256": "d76848a718c26986c6b1fc0c1745a0fcad4fcb5d62b7038e72bab3e5343a4fc0"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/scorecard_oracle_validation.rs": {
+      "bytes": 4415,
+      "sha256": "b4e5d5299211a77376531c07e5bd948c5ac28c843e9031e60dda519322e34631"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/session_overlay.rs": {
+      "bytes": 10777,
+      "sha256": "81691cd3b5bced953cf887c0444a4fa84652218d009a9d99bb1f473fc99bae1e"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/storage_admin_security.rs": {
+      "bytes": 50501,
+      "sha256": "e4f777e043cf3db1dbefa61327b20d08598678d0f502a866b936105ad5ec33e1"
+    },
+    "crates/sandbox-runtime/operation/Cargo.toml": {
+      "bytes": 913,
+      "sha256": "38a19f15e14d070e3ee46454c9c90b2d6053e2dbe241d71e2f9531957bb33946"
+    },
+    "crates/sandbox-runtime/operation/src/command/service.rs": {
+      "bytes": 314,
+      "sha256": "4135ad7b6aa14d3f191c92c9b042f2861171ee370e7ce54356df47db1e523d73"
+    },
+    "crates/sandbox-runtime/operation/src/command/service/exec_command.rs": {
+      "bytes": 13066,
+      "sha256": "7b821619f5c98e7df0e4d05144f3fd66e7553e03f22b2d46ec7cd255e47fa5d0"
+    },
+    "crates/sandbox-runtime/operation/src/command/service/security_profile.rs": {
+      "bytes": 3353,
+      "sha256": "ca9cb95520716267895b3c1067d63bd1452917f0aa3631872a6bef3e06b4e461"
+    },
+    "crates/sandbox-runtime/operation/src/operations/registry/workspace_session_operations.rs": {
+      "bytes": 33328,
+      "sha256": "6534bd4cc8461d21387488bb6e2fab0995de989795de0144465a6cdd4f91801d"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/mod.rs": {
+      "bytes": 853,
+      "sha256": "3f2a79533db1e220932d0bc9b0e54838176a1cf7211fc6553ccf1cf316e19de3"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service.rs": {
+      "bytes": 957,
+      "sha256": "a8c60e8341170fe8115d7aca3a37116bf2567ded26d8eca69beb0041768b9f51"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/impls/admission.rs": {
+      "bytes": 30943,
+      "sha256": "d934ec11074866813d55f6177cd43d82b2a306f103f8ed573729537021e8aacf"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/impls/create_mpla_workspace_session.rs": {
+      "bytes": 10993,
+      "sha256": "c3a4f07a86606aa8ee585e1de5b406a0a39c95dac2742701bd5eff0529fb8b2c"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/impls/destroy_session.rs": {
+      "bytes": 22581,
+      "sha256": "6c421c1d68230e99faeee27c5d7c22ceed4ee08e59bb4f6457278f8831d68167"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/impls/mod.rs": {
+      "bytes": 489,
+      "sha256": "8901c7a05aff71ecb92a3e79cb338c709591265c643382da1db6de3791715c63"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/impls/mpla_lifecycle.rs": {
+      "bytes": 90765,
+      "sha256": "623d4dd8dd6286cab634e258fffc4ebdd68c536d72367f85e43b5c7e806cb168"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/impls/mpla_storage_admin.rs": {
+      "bytes": 37543,
+      "sha256": "f3da9004806fe712bb0c100ffe548523fdeee27f8aba4ce5000bc9ea6ad66f42"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/model.rs": {
+      "bytes": 13519,
+      "sha256": "ff5a7b4586ed7113a531496f7e4ac5ae56f59949f28f4124d0dce4fd64447a2f"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/mpla_policy.rs": {
+      "bytes": 585,
+      "sha256": "827afb7b0313c8cf29040c40da357c1db6775023e2ea998a06c8aee5d3af84ab"
+    },
+    "crates/sandbox-runtime/operation/tests/command_security_profile.rs": {
+      "bytes": 4602,
+      "sha256": "f2819312e00c0ec885aec31d9bc2b2ee6141b63b879e43432e446748f14b9d4f"
+    },
+    "crates/sandbox-runtime/operation/tests/mpla_policy.rs": {
+      "bytes": 1358,
+      "sha256": "4b182c5cb38ee76c620e4a132f074cb44358aaf97de0705a73dc939bec1c1e9b"
+    },
+    "crates/sandbox-runtime/operation/tests/workspace_session.rs": {
+      "bytes": 61421,
+      "sha256": "ff5e9ee9820f5ae4848d75aaf1de1379c15dbf732fa2305eb99180410bf45126"
+    },
+    "crates/sandbox-runtime/workspace/src/model.rs": {
+      "bytes": 18432,
+      "sha256": "9e18b17173a8e8712cc2989160629e96483f0c0ef3312c72379994ec1e3cdab2"
+    },
+    "crates/sandbox-runtime/workspace/src/namespace/mod.rs": {
+      "bytes": 4315,
+      "sha256": "67ce061c352320e7693dca6be9866dd364a2561c3e45bcf76c6caa72b1d648ac"
+    },
+    "crates/sandbox-runtime/workspace/src/service/impls/create_workspace.rs": {
+      "bytes": 5656,
+      "sha256": "1030609f984b4b3d458e2ae902d83621804f4ade295520a2ae8c16bef41f13d1"
+    },
+    "evidence/mpla-booster-20260729T133510Z/cases/HV-07/error.json": {
+      "bytes": 213,
+      "sha256": "5ed7d23d24bd72c26477ebaed41eba97a4fe918539070e4ab883a1bbd4a85c9e"
+    },
+    "evidence/mpla-booster-20260729T133510Z/command-ledger.jsonl": {
+      "bytes": 8090,
+      "sha256": "8f777fa2d2b395bd9d6fb7cdbd37dd667a3cb48ba283b79f1040fd4938cd6e9f"
+    },
+    "evidence/mpla-booster-20260729T133510Z/environment.json": {
+      "bytes": 553,
+      "sha256": "057c9a077b1b08d81d0a92d875d6d6b9d8f9e8cba2a8beba3a8b5c33cdd1a2af"
+    },
+    "evidence/mpla-booster-20260729T133510Z/source.json": {
+      "bytes": 18345,
+      "sha256": "d358a121d48673c69096a6fdd6e12c1d9e5656cee6822cfc6f311fb323298730"
+    },
+    "evidence/mpla-booster-20260729T133510Z/staged-artifacts.json": {
+      "bytes": 1285,
+      "sha256": "c2c2dc85c9474f8037a0293d6a7ae4aa9222bf26f1b5a81915b6b8a0eea29e57"
+    },
+    "evidence/mpla-booster-20260729T134200Z/cases/HV-07/error.json": {
+      "bytes": 84,
+      "sha256": "fe152ff028770c8f33ec0705e6679428b50c86b48a05ffba2c1e9a4ac9c19adc"
+    },
+    "evidence/mpla-booster-20260729T134200Z/cleanup.json": {
+      "bytes": 13489,
+      "sha256": "fc883279c914a904b98350e72dd8c595b8af8cad1e6e553210fdbf751097cffc"
+    },
+    "evidence/mpla-booster-20260729T134200Z/command-ledger.jsonl": {
+      "bytes": 1300,
+      "sha256": "b4d1315d66da0d9d16480b5c4f44345487dc12f7ebead0f183f9529f6d5ffb33"
+    },
+    "evidence/mpla-booster-20260729T134200Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T134200Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T134200Z/environment.json": {
+      "bytes": 553,
+      "sha256": "a856ecdc0160879366bfcd35cbf399f8001c1d69296a8cf6c2b90924b92e0aca"
+    },
+    "evidence/mpla-booster-20260729T134200Z/manifest.sha256": {
+      "bytes": 905,
+      "sha256": "43c17e685a1be64c15cf0f0296a59b35f7b7d1bd837002122283aedb48225a01"
+    },
+    "evidence/mpla-booster-20260729T134200Z/report.md": {
+      "bytes": 167,
+      "sha256": "0ac0ba0575b4dda97f525ba8d90ad0a7d8620b62bafb500a34126db22d06f77a"
+    },
+    "evidence/mpla-booster-20260729T134200Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T134200Z/scorecard.json": {
+      "bytes": 2605,
+      "sha256": "0de881f9b6fa1d4fb424b89b1e933c2313baad40bc81a6993173513794e87613"
+    },
+    "evidence/mpla-booster-20260729T134200Z/security-profile.json": {
+      "bytes": 552,
+      "sha256": "6629268c06b969655abfb1022cca71ae0e1d3ca2d114d72c7a1354394d718b2c"
+    },
+    "evidence/mpla-booster-20260729T134200Z/source.json": {
+      "bytes": 19248,
+      "sha256": "66261f25988c003186666c0d4f9c7de0ce3bef3192261f3e06f93ac202873ff2"
+    },
+    "evidence/mpla-booster-20260729T134600Z/cases/HV-07/coordinator-terminal.json": {
+      "bytes": 1046,
+      "sha256": "25842f51cbc2a784d2471a991a8925c668b8283c059660470d99e986985fcc77"
+    },
+    "evidence/mpla-booster-20260729T134600Z/cases/HV-07/error.json": {
+      "bytes": 904,
+      "sha256": "fa10207e4e8552541a1f62d068b2c3586264aad816f59c7681342c248feef542"
+    },
+    "evidence/mpla-booster-20260729T134600Z/cleanup.json": {
+      "bytes": 3476,
+      "sha256": "2d389788fbee56bd4c96dae90ac6c7c958e00130993aebabd325ee6ba2f39dff"
+    },
+    "evidence/mpla-booster-20260729T134600Z/command-ledger.jsonl": {
+      "bytes": 7552,
+      "sha256": "111f242eb515909bd0c655a1bbb703bce9d39b1890d087bd73366fa58e3d1bdc"
+    },
+    "evidence/mpla-booster-20260729T134600Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T134600Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T134600Z/environment.json": {
+      "bytes": 553,
+      "sha256": "117f318463915fe1a4c34e7122fbdce3b96c307935b94670fe1d6377cfb3eca8"
+    },
+    "evidence/mpla-booster-20260729T134600Z/manifest.sha256": {
+      "bytes": 1097,
+      "sha256": "85f76ef056cde9adc4f13b47efc3c9b034c80afaa17550b347ce4d1f8bd87f12"
+    },
+    "evidence/mpla-booster-20260729T134600Z/report.md": {
+      "bytes": 167,
+      "sha256": "66a9ea60e4cd94e4486e2eda49ec3c10bc5c899e3125679eaa2493ae05eb8dad"
+    },
+    "evidence/mpla-booster-20260729T134600Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T134600Z/scorecard.json": {
+      "bytes": 2604,
+      "sha256": "afd2982f45e40bdb1df6f56911423d3b59ac82597d7fafb38dc84fc52c342a2f"
+    },
+    "evidence/mpla-booster-20260729T134600Z/security-profile.json": {
+      "bytes": 552,
+      "sha256": "6629268c06b969655abfb1022cca71ae0e1d3ca2d114d72c7a1354394d718b2c"
+    },
+    "evidence/mpla-booster-20260729T134600Z/source.json": {
+      "bytes": 21345,
+      "sha256": "5b46b5303fa7440ede2b0537693280463fc9365f1c1f0ef9202f0df0c76859fb"
+    },
+    "evidence/mpla-booster-20260729T134600Z/staged-artifacts.json": {
+      "bytes": 1285,
+      "sha256": "8d0d33847e1ad0abb3cb689b6e20340126967968fb4655e5a32a868af84590f6"
+    },
+    "evidence/mpla-booster-20260729T135200Z/cases/HV-07/coordinator-terminal.json": {
+      "bytes": 533,
+      "sha256": "ef6686053cd94a8a654c46c2d69b8ad1ad11022144d40a303fcd9b445da0a6f1"
+    },
+    "evidence/mpla-booster-20260729T135200Z/cases/HV-07/raw-result.json": {
+      "bytes": 20870,
+      "sha256": "d39bfe04c5ffb99c9dd002e1f73b66d8b3e4d4ebbfbf9ab6d8b8e1982cfbb3cb"
+    },
+    "evidence/mpla-booster-20260729T135200Z/cases/HV-07/summary.json": {
+      "bytes": 188,
+      "sha256": "bac6fe0ef673bdd59df10c635c7bf009630d8c3f628e8725d07e131f93c33336"
+    },
+    "evidence/mpla-booster-20260729T135200Z/cleanup.json": {
+      "bytes": 3480,
+      "sha256": "b300e43f34e99cea4001248f43827f86d6ba565a82ac54c3f4c61ccfad51469a"
+    },
+    "evidence/mpla-booster-20260729T135200Z/command-ledger.jsonl": {
+      "bytes": 9210,
+      "sha256": "3a4fc025b3c9b87de097fd04815974c63539a9555974913629134b41270ca682"
+    },
+    "evidence/mpla-booster-20260729T135200Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T135200Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T135200Z/environment.json": {
+      "bytes": 553,
+      "sha256": "ca2cddc384a9b27d85244d76605b55496dfca843d2b738639138e090364def58"
+    },
+    "evidence/mpla-booster-20260729T135200Z/manifest.sha256": {
+      "bytes": 1193,
+      "sha256": "5df61111f06cd7e1a79d109415cffd71d92225ca19c105dd748b16f729d9ecc3"
+    },
+    "evidence/mpla-booster-20260729T135200Z/report.md": {
+      "bytes": 167,
+      "sha256": "26f65fbc391fbf13d6cf93c8318d718b3433e507dcca287eaa631eaec9546394"
+    },
+    "evidence/mpla-booster-20260729T135200Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T135200Z/scorecard.json": {
+      "bytes": 2604,
+      "sha256": "f9f0772dba0b07290bec1b463eb6df5e4225973e2597cf102bac1dfdce357918"
+    },
+    "evidence/mpla-booster-20260729T135200Z/security-profile.json": {
+      "bytes": 552,
+      "sha256": "6629268c06b969655abfb1022cca71ae0e1d3ca2d114d72c7a1354394d718b2c"
+    },
+    "evidence/mpla-booster-20260729T135200Z/source.json": {
+      "bytes": 23821,
+      "sha256": "d1ea4c0f44741c963d92804dfa11b858df12a618a196786dd9744e716ac54516"
+    },
+    "evidence/mpla-booster-20260729T135200Z/staged-artifacts.json": {
+      "bytes": 1285,
+      "sha256": "9a75b2a416d2a838be40b1c084a79075041905bf3a0fd9cfdfb6b210d13f4531"
+    },
+    "evidence/mpla-booster-20260729T140139Z/cases/HV-07/coordinator-terminal.json": {
+      "bytes": 534,
+      "sha256": "212f75bf356290c11b8a505da8e7c548e8892f176bfa2bb0cfa92f39f81ac5aa"
+    },
+    "evidence/mpla-booster-20260729T140139Z/cases/HV-07/raw-result.json": {
+      "bytes": 858640,
+      "sha256": "807d28dfed467819aa277a66d44e4a35df912d1f79656f83cb68ad684a3817a0"
+    },
+    "evidence/mpla-booster-20260729T140139Z/cases/HV-07/summary.json": {
+      "bytes": 189,
+      "sha256": "201edc13fbf4444ecaa75cd1f1c8d9573b24ef7f50e9952219ed36c092495178"
+    },
+    "evidence/mpla-booster-20260729T140139Z/cleanup.json": {
+      "bytes": 3481,
+      "sha256": "84168876bfca92bf0f3f8f5bd57062cb24738afd33751a47093c6464091dd749"
+    },
+    "evidence/mpla-booster-20260729T140139Z/command-ledger.jsonl": {
+      "bytes": 33310,
+      "sha256": "7f3abab639e4076e0482181eb934053ca3cbf0cfc2f55bec0ddc306bfae93037"
+    },
+    "evidence/mpla-booster-20260729T140139Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T140139Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T140139Z/environment.json": {
+      "bytes": 553,
+      "sha256": "ec951429b235c6f76e0d87097ae468f122124d04d29f0a609e8178f71f14bd68"
+    },
+    "evidence/mpla-booster-20260729T140139Z/manifest.sha256": {
+      "bytes": 1193,
+      "sha256": "a5db573858d64f9549d609b1099691f2792cd2a45f0d39098d5fd5b9acc1d1ca"
+    },
+    "evidence/mpla-booster-20260729T140139Z/report.md": {
+      "bytes": 167,
+      "sha256": "42c45d4873ba65e49be19aaa26d8fcb1ce04146726a6020371a771a302225cc8"
+    },
+    "evidence/mpla-booster-20260729T140139Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T140139Z/scorecard.json": {
+      "bytes": 2604,
+      "sha256": "9e17c5cdc8933c58707ad45671e33c8f1a050f6c6385cc2cda66f2d79a54d557"
+    },
+    "evidence/mpla-booster-20260729T140139Z/security-profile.json": {
+      "bytes": 552,
+      "sha256": "6629268c06b969655abfb1022cca71ae0e1d3ca2d114d72c7a1354394d718b2c"
+    },
+    "evidence/mpla-booster-20260729T140139Z/source.json": {
+      "bytes": 29153,
+      "sha256": "463461995425ac9e4f9da888f874a818c232ef30f561790bab4bebfefa6399a3"
+    },
+    "evidence/mpla-booster-20260729T140139Z/staged-artifacts.json": {
+      "bytes": 1285,
+      "sha256": "79037d4eb6efd823ada7235b94131679b7ef05233fca0596cac0c47ca1a7181f"
+    },
+    "evidence/mpla-booster-20260729T140300Z/cases/HV-07/coordinator-terminal.json": {
+      "bytes": 532,
+      "sha256": "c39d133377058d207a0cb8f0a98e9919de92fed8f5083cf7f17c7fd7e696d346"
+    },
+    "evidence/mpla-booster-20260729T140300Z/cases/HV-07/raw-result.json": {
+      "bytes": 525221,
+      "sha256": "d05a28e90294305dd9e39e31ed64a2e821474bcda377b12a65cf3e84a63faf8f"
+    },
+    "evidence/mpla-booster-20260729T140300Z/cases/HV-07/summary.json": {
+      "bytes": 189,
+      "sha256": "3f6c735149b4a52983d2dbe26d789f65c077f18dea3df75ce87d58ccd8e3d1c9"
+    },
+    "evidence/mpla-booster-20260729T140300Z/cleanup.json": {
+      "bytes": 3481,
+      "sha256": "84c1f6a14394cb27074bdc0dceb74a8feba211f40328f1a6ff02c3ebb37c35d9"
+    },
+    "evidence/mpla-booster-20260729T140300Z/command-ledger.jsonl": {
+      "bytes": 24846,
+      "sha256": "32c35c0eb3a0ab363fc1d18b8ad4e17cff201799bbb21e6e6f2bd28764b630c1"
+    },
+    "evidence/mpla-booster-20260729T140300Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T140300Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T140300Z/environment.json": {
+      "bytes": 553,
+      "sha256": "dcd650662066345890aa3a41044491b4e2f3a53f19bbdbd84e73a70c6b330cbb"
+    },
+    "evidence/mpla-booster-20260729T140300Z/manifest.sha256": {
+      "bytes": 1193,
+      "sha256": "37867a2c954e67b9e78d47057cd83cf707020a42b792f8898803f968a789a1a8"
+    },
+    "evidence/mpla-booster-20260729T140300Z/report.md": {
+      "bytes": 167,
+      "sha256": "8f1ff97328f6e9a4e7b071949d6aa558759198b58e14eb7d3fea68113cbe97af"
+    },
+    "evidence/mpla-booster-20260729T140300Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T140300Z/scorecard.json": {
+      "bytes": 2604,
+      "sha256": "cae21cbef74f212ee067a9785c1eccd4a63dfee856066e445f0a5a8f0d0e4d91"
+    },
+    "evidence/mpla-booster-20260729T140300Z/security-profile.json": {
+      "bytes": 552,
+      "sha256": "6629268c06b969655abfb1022cca71ae0e1d3ca2d114d72c7a1354394d718b2c"
+    },
+    "evidence/mpla-booster-20260729T140300Z/source.json": {
+      "bytes": 26486,
+      "sha256": "0b4097caba18d6eca516f208bd7c1be35eddb05560f27a7ad4f91f06b761b6b0"
+    },
+    "evidence/mpla-booster-20260729T140300Z/staged-artifacts.json": {
+      "bytes": 1285,
+      "sha256": "1e1efe2d68aa092c273293fb3ea9cdbfb2ab487515ffeb5e305c0accb2621c77"
+    },
+    "evidence/mpla-booster-20260729T141100Z/cases/HV-07/coordinator-terminal.json": {
+      "bytes": 534,
+      "sha256": "1c9306402c0e20e4e2592662bbab5c30bf7007f69efd1f098b6d81d5f37b52ce"
+    },
+    "evidence/mpla-booster-20260729T141100Z/cases/HV-07/raw-result.json": {
+      "bytes": 862318,
+      "sha256": "0ff8f710167edf1cb7897f375b65a303be00825de6974d0bdef639b4b1cc2ca7"
+    },
+    "evidence/mpla-booster-20260729T141100Z/cases/HV-07/summary.json": {
+      "bytes": 189,
+      "sha256": "a8a88e7d69059e4fd44fc65bae474ab8b5e08bc39acbb43869bf6c90e3b05634"
+    },
+    "evidence/mpla-booster-20260729T141100Z/cleanup.json": {
+      "bytes": 3481,
+      "sha256": "827179d22fa619f82c0025bf249986f2144d68b91894fdcd4a80318d5e3ceb7e"
+    },
+    "evidence/mpla-booster-20260729T141100Z/command-ledger.jsonl": {
+      "bytes": 32804,
+      "sha256": "017d567e6571425836b5a018ce27aae317a7ef056fd54897e499d6fe461abedb"
+    },
+    "evidence/mpla-booster-20260729T141100Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T141100Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T141100Z/environment.json": {
+      "bytes": 553,
+      "sha256": "4bff349bedc7e65384a0f2a1bdf0aba010905af3ffb7b8b20363444aa6a4c2f9"
+    },
+    "evidence/mpla-booster-20260729T141100Z/manifest.sha256": {
+      "bytes": 1193,
+      "sha256": "9887b1d2ded58446d05024413aa17a3fca3ad97699f4b366b17dff12c10ccda1"
+    },
+    "evidence/mpla-booster-20260729T141100Z/report.md": {
+      "bytes": 167,
+      "sha256": "a83266cf6c263c0a4c7daaa8d3aac3427ec25087fc0ea8436398f5bd82b06c40"
+    },
+    "evidence/mpla-booster-20260729T141100Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T141100Z/scorecard.json": {
+      "bytes": 2604,
+      "sha256": "2af50549ec0e158711cbc51eb41b72ed712295b04c8f5a4e3c07b2c73f0976b5"
+    },
+    "evidence/mpla-booster-20260729T141100Z/security-profile.json": {
+      "bytes": 552,
+      "sha256": "6629268c06b969655abfb1022cca71ae0e1d3ca2d114d72c7a1354394d718b2c"
+    },
+    "evidence/mpla-booster-20260729T141100Z/source.json": {
+      "bytes": 31820,
+      "sha256": "e683f47b1f6361c8ce3ded9ada72546c6ead86e54418cabb8777ad64fc26759d"
+    },
+    "evidence/mpla-booster-20260729T141100Z/staged-artifacts.json": {
+      "bytes": 1285,
+      "sha256": "3c31d6b43e903d4d2e1354146e6a10967906f81a5f34ea5a86375da5afde4a3c"
+    },
+    "evidence/mpla-booster-20260729T150000Z/cases/qualification/error.json": {
+      "bytes": 368,
+      "sha256": "fe647e7ed543936c041ff286518e25cd90c6eeaa2d6f09f2a7b70d526c4bfa7b"
+    },
+    "evidence/mpla-booster-20260729T150000Z/cleanup.json": {
+      "bytes": 400,
+      "sha256": "a1a71b226383d9cd3ed0422700626c8925abd53be817e894b2f02fb0a4725b47"
+    },
+    "evidence/mpla-booster-20260729T150000Z/command-ledger.jsonl": {
+      "bytes": 1850,
+      "sha256": "e72c6cd3ad43b9664e9fe29b584d42bcdb1238e62ab34f1f025e4de39d3d6412"
+    },
+    "evidence/mpla-booster-20260729T150000Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T150000Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T150000Z/environment.json": {
+      "bytes": 558,
+      "sha256": "65279207eaf0c83822869132dae2b15d57bf816858199397046d99fd627152fe"
+    },
+    "evidence/mpla-booster-20260729T150000Z/manifest.sha256": {
+      "bytes": 1001,
+      "sha256": "3bd68b3f446e04dfe9374f9890821afedad6b556d1ab6a91ef0c45b468569a74"
+    },
+    "evidence/mpla-booster-20260729T150000Z/report.md": {
+      "bytes": 167,
+      "sha256": "dc22b14f5a9de63e7fe9ec5bb1f7c3395aba1219f7c363998334e48625070fb7"
+    },
+    "evidence/mpla-booster-20260729T150000Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T150000Z/scorecard.json": {
+      "bytes": 2609,
+      "sha256": "91657fa59171d96f075a54f8397970c689d22dab55c0924225c136715e5a3bac"
+    },
+    "evidence/mpla-booster-20260729T150000Z/security-profile.json": {
+      "bytes": 562,
+      "sha256": "e7f300a85cd17e72f7ed05d6d5f61a19292881a87122a86655c94de3771f9079"
+    },
+    "evidence/mpla-booster-20260729T150000Z/source.json": {
+      "bytes": 39347,
+      "sha256": "8935348df441358fa5386d6a0603421015216d5b4aaa266f9f1e89bf3263fef7"
+    },
+    "evidence/mpla-booster-20260729T150000Z/staged-artifacts.json": {
+      "bytes": 1153,
+      "sha256": "770a0700ee44151a9667a249c8f95094a89f957592eeb4aa9f4275a0a1c0044f"
+    },
+    "evidence/mpla-booster-20260729T150300Z/cases/qualification/coordinator-terminal.json": {
+      "bytes": 426,
+      "sha256": "bd4db69907d23c8bebd6a1d01c83e40f3df51f93aac827e771bf225a4be47b09"
+    },
+    "evidence/mpla-booster-20260729T150300Z/cases/qualification/coordinator-trace.json": {
+      "bytes": 1951,
+      "sha256": "e358b483e8e934258829bed3e2321781c770572800f187584f82c3e96904412b"
+    },
+    "evidence/mpla-booster-20260729T150300Z/cases/qualification/error.json": {
+      "bytes": 253,
+      "sha256": "2291c2e8728601001931aa306ba3bddaab8ceb80c2feb88be316ec7b03352cd5"
+    },
+    "evidence/mpla-booster-20260729T150300Z/cleanup.json": {
+      "bytes": 3491,
+      "sha256": "df07afbceeba1abe783590732d4d7f403b50c206dd23d7306950eccfcf5d7f3c"
+    },
+    "evidence/mpla-booster-20260729T150300Z/command-ledger.jsonl": {
+      "bytes": 5909,
+      "sha256": "048ed6432c042bd7e387f4c32aceb3023346a62e25e1223022e3fe0a05a18638"
+    },
+    "evidence/mpla-booster-20260729T150300Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T150300Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T150300Z/environment.json": {
+      "bytes": 558,
+      "sha256": "323bf9878ea07c3c83d74847afa9969dad90159de97aeb2766e4f070195e86d9"
+    },
+    "evidence/mpla-booster-20260729T150300Z/manifest.sha256": {
+      "bytes": 1222,
+      "sha256": "739c2a901952c1d78bcb8bf73c886c03d0aedf9d430965009fb05dd9b305d01b"
+    },
+    "evidence/mpla-booster-20260729T150300Z/report.md": {
+      "bytes": 167,
+      "sha256": "010e06a8e8bbce4ab1adf7a33cc134fee9eea4a436fcc3c9ac2ae8a2d53a83b4"
+    },
+    "evidence/mpla-booster-20260729T150300Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T150300Z/scorecard.json": {
+      "bytes": 2609,
+      "sha256": "1c247a72f6db396c1bd6d6762c4e2024e27b3560402a665bd2de1f36484c0798"
+    },
+    "evidence/mpla-booster-20260729T150300Z/security-profile.json": {
+      "bytes": 562,
+      "sha256": "e7f300a85cd17e72f7ed05d6d5f61a19292881a87122a86655c94de3771f9079"
+    },
+    "evidence/mpla-booster-20260729T150300Z/source.json": {
+      "bytes": 41633,
+      "sha256": "41d1ea3a8721b5cdbf319a17ed4cd5f0c02ab149f0823f1b6d47c979a6cb175c"
+    },
+    "evidence/mpla-booster-20260729T150300Z/staged-artifacts.json": {
+      "bytes": 1153,
+      "sha256": "f2b7d13ebf7659238966e22da3176982b41934b23579bc1657a1b8a0e209fb8d"
+    },
+    "evidence/mpla-booster-20260729T150500Z/cases/qualification/coordinator-terminal.json": {
+      "bytes": 435,
+      "sha256": "3f386602ec468e4a93665d259119df5a10264011296f6a3f1f49771774c6c94c"
+    },
+    "evidence/mpla-booster-20260729T150500Z/cases/qualification/coordinator-trace.json": {
+      "bytes": 1951,
+      "sha256": "a93c21464cf1aa69f6bbea68c790998123bc0899938ea475b030b110d1994782"
+    },
+    "evidence/mpla-booster-20260729T150500Z/cases/qualification/error.json": {
+      "bytes": 262,
+      "sha256": "f7caa4a8c8727521a7df20af7de1cbd2ba6ce37989a3099737b4f49bc30da08c"
+    },
+    "evidence/mpla-booster-20260729T150500Z/cleanup.json": {
+      "bytes": 3471,
+      "sha256": "5de79792d478238f6e0031beea8bd57f594d4d154893a28e5247be73c772b37c"
+    },
+    "evidence/mpla-booster-20260729T150500Z/command-ledger.jsonl": {
+      "bytes": 5884,
+      "sha256": "8a978a9da5dc3c2426c166a7631ec4f22f7851db20fac7c46a7393cd5a862764"
+    },
+    "evidence/mpla-booster-20260729T150500Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T150500Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T150500Z/environment.json": {
+      "bytes": 548,
+      "sha256": "e6a7461c2bf31597a38f5319485e089f67266d0ca1889224d5a03f0af133f8e3"
+    },
+    "evidence/mpla-booster-20260729T150500Z/fixture-manifest.json": {
+      "bytes": 776135,
+      "sha256": "0108639cb5c1bf8ce6ed6e3552ced53b11215e92986c6bb3e401657f541f23b0"
+    },
+    "evidence/mpla-booster-20260729T150500Z/manifest.sha256": {
+      "bytes": 1310,
+      "sha256": "30942535fc3e62d9de8783677beed35b502cd3e2b47ca4f09df5aa82f5b0f24b"
+    },
+    "evidence/mpla-booster-20260729T150500Z/report.md": {
+      "bytes": 167,
+      "sha256": "bff9a845e8c8771e0131d891de3cbe358c853801acf83ad86e62330afd25f39f"
+    },
+    "evidence/mpla-booster-20260729T150500Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T150500Z/scorecard.json": {
+      "bytes": 2675,
+      "sha256": "e80d1bc270600859bfedc825813eb4299317ec0ff638a698ed2b1f0b131e396c"
+    },
+    "evidence/mpla-booster-20260729T150500Z/security-profile.json": {
+      "bytes": 562,
+      "sha256": "e7f300a85cd17e72f7ed05d6d5f61a19292881a87122a86655c94de3771f9079"
+    },
+    "evidence/mpla-booster-20260729T150500Z/source.json": {
+      "bytes": 44326,
+      "sha256": "56a5d72e9ddb1d031393dada9f65c57db532b52caa81299784417fc4bc034d6e"
+    },
+    "evidence/mpla-booster-20260729T150500Z/staged-artifacts.json": {
+      "bytes": 1448,
+      "sha256": "0946c58e7ee0b275fef41e8373f2954f99b899123372f18b64b942b8a5f530bc"
+    },
+    "evidence/mpla-booster-20260729T151000Z/cases/qualification/coordinator-terminal.json": {
+      "bytes": 715,
+      "sha256": "dd37583b28056a4e82abba7b1a49b719aa1ed4d2066b566613719981dd59259d"
+    },
+    "evidence/mpla-booster-20260729T151000Z/cases/qualification/coordinator-trace.json": {
+      "bytes": 1951,
+      "sha256": "5d21210d6420528fc66f2e0d40c49ae18ab53b6a2c0f340d501b2966da8464bf"
+    },
+    "evidence/mpla-booster-20260729T151000Z/cases/qualification/error.json": {
+      "bytes": 580,
+      "sha256": "557d1cfa668711a8414f5703eacf0ff6286befe05ad2d058e945de7d46129bb4"
+    },
+    "evidence/mpla-booster-20260729T151000Z/cleanup.json": {
+      "bytes": 3472,
+      "sha256": "a06e99f9fdd09e439802e6aa4e904759761d5cda738d9cd32fa6a59407d2300e"
+    },
+    "evidence/mpla-booster-20260729T151000Z/command-ledger.jsonl": {
+      "bytes": 5883,
+      "sha256": "7c7e3bd42a75884f3ea3b2bb1cd74e1d011bd24fdb3b6d29f4658e3441a3eb03"
+    },
+    "evidence/mpla-booster-20260729T151000Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T151000Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T151000Z/environment.json": {
+      "bytes": 548,
+      "sha256": "a68f6b9bc83f2f3e2f55084a29bdf76e664a7510850d84eb7a343f4f5ff8003b"
+    },
+    "evidence/mpla-booster-20260729T151000Z/fixture-manifest.json": {
+      "bytes": 776135,
+      "sha256": "0108639cb5c1bf8ce6ed6e3552ced53b11215e92986c6bb3e401657f541f23b0"
+    },
+    "evidence/mpla-booster-20260729T151000Z/manifest.sha256": {
+      "bytes": 1310,
+      "sha256": "9433c976572280a0f0c42781bfee8a9cd57dab247505fc65c0aa658a7ff3b5e7"
+    },
+    "evidence/mpla-booster-20260729T151000Z/report.md": {
+      "bytes": 167,
+      "sha256": "06752ea96d4b2dc31a84a5bb87eee29b1de1f139366822d020c012b5b0bf3bab"
+    },
+    "evidence/mpla-booster-20260729T151000Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T151000Z/scorecard.json": {
+      "bytes": 2675,
+      "sha256": "8fa89ab8a2b9e9d01f6d0a16fda21b26d9a643b8ae651269fcb00aede3893b95"
+    },
+    "evidence/mpla-booster-20260729T151000Z/security-profile.json": {
+      "bytes": 562,
+      "sha256": "e7f300a85cd17e72f7ed05d6d5f61a19292881a87122a86655c94de3771f9079"
+    },
+    "evidence/mpla-booster-20260729T151000Z/source.json": {
+      "bytes": 47202,
+      "sha256": "86c05381f59ab602db84cced7f242389f086fbf59a3f795c209ab7911d3a2d36"
+    },
+    "evidence/mpla-booster-20260729T151000Z/staged-artifacts.json": {
+      "bytes": 1448,
+      "sha256": "00d2fea2de51a5bf6e07bc27c3dce1b5e7427d3e36ce378e74165a38c5ee8048"
+    },
+    "evidence/mpla-booster-20260729T151100Z/cases/qualification/coordinator-terminal.json": {
+      "bytes": 500,
+      "sha256": "9822f2110bbe03bcb9521a48bd667492e1c246f5ea08bd91d713638f5e3194af"
+    },
+    "evidence/mpla-booster-20260729T151100Z/cases/qualification/error.json": {
+      "bytes": 327,
+      "sha256": "93c3b9cb4b30f0f3f4e9080bd0c91a5395dbe79d23bfbd835f7f4a362f191037"
+    },
+    "evidence/mpla-booster-20260729T151100Z/cleanup.json": {
+      "bytes": 3491,
+      "sha256": "197b47a24bc2814610fe8ea0dd2a9efac8f5a81272e70076ce15fbd4647987f3"
+    },
+    "evidence/mpla-booster-20260729T151100Z/command-ledger.jsonl": {
+      "bytes": 5457,
+      "sha256": "f266b2c02f789f3d1078d9d8e475b90dbd310b4f9fdc87562a5c84de417e58c3"
+    },
+    "evidence/mpla-booster-20260729T151100Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T151100Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T151100Z/environment.json": {
+      "bytes": 558,
+      "sha256": "0da3f4ee5e4eaa6aee9c1cf3ca4ee1e1ea04fc7318ff3f330ca0307eeab8bd80"
+    },
+    "evidence/mpla-booster-20260729T151100Z/manifest.sha256": {
+      "bytes": 1113,
+      "sha256": "927535d422c625e5a326f285602c12d6655d93d378f0845a5a1861befea03ed3"
+    },
+    "evidence/mpla-booster-20260729T151100Z/report.md": {
+      "bytes": 167,
+      "sha256": "e2da491d8f6c9864d5c9966ab7a2f07c9d66969eb7d490bf8b51bd4b43b330dd"
+    },
+    "evidence/mpla-booster-20260729T151100Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T151100Z/scorecard.json": {
+      "bytes": 2609,
+      "sha256": "78c8711323cbfd57ce221b6c1b9056d06ffdb4a6d2ed520b566072eb64937077"
+    },
+    "evidence/mpla-booster-20260729T151100Z/security-profile.json": {
+      "bytes": 562,
+      "sha256": "e7f300a85cd17e72f7ed05d6d5f61a19292881a87122a86655c94de3771f9079"
+    },
+    "evidence/mpla-booster-20260729T151100Z/source.json": {
+      "bytes": 34757,
+      "sha256": "3e342900dfd1b747acf1722033e8d681a55f9e8428341f8e33e3d65c3a5e1970"
+    },
+    "evidence/mpla-booster-20260729T151100Z/staged-artifacts.json": {
+      "bytes": 1153,
+      "sha256": "a6216a3451e209df01b12561165706f16aad0b4793617da143c7212ea8dece8c"
+    },
+    "evidence/mpla-booster-20260729T151300Z/cases/qualification/coordinator-terminal.json": {
+      "bytes": 794,
+      "sha256": "525e333feaaf2b8f07d3b8f31da3247e6c960b436fcac40eda83c4bbdb996a57"
+    },
+    "evidence/mpla-booster-20260729T151300Z/cases/qualification/coordinator-trace.json": {
+      "bytes": 1952,
+      "sha256": "635843ec9dd682957cd58b3d587151c177657e49b3f5f3aff0220994274c4e4c"
+    },
+    "evidence/mpla-booster-20260729T151300Z/cases/qualification/error.json": {
+      "bytes": 672,
+      "sha256": "6b9b475fc258e87faa53264c6c35b47880b8641f7a5fa3487790b339f5629d4b"
+    },
+    "evidence/mpla-booster-20260729T151300Z/cleanup.json": {
+      "bytes": 3472,
+      "sha256": "a8ae367c28b918ed42e4f2523730cbae363fa8f3c731a5a3ce2d42836b1398d8"
+    },
+    "evidence/mpla-booster-20260729T151300Z/command-ledger.jsonl": {
+      "bytes": 5883,
+      "sha256": "5f3f7f8c2b63e3165ae0efb836e8f439cba145965bc45ab573e1faff8811b483"
+    },
+    "evidence/mpla-booster-20260729T151300Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T151300Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T151300Z/environment.json": {
+      "bytes": 548,
+      "sha256": "55be8566976cdd90a706649489182e3d7f84f0ad8d3d154c1d3e38ec6469ce41"
+    },
+    "evidence/mpla-booster-20260729T151300Z/fixture-manifest.json": {
+      "bytes": 776135,
+      "sha256": "0108639cb5c1bf8ce6ed6e3552ced53b11215e92986c6bb3e401657f541f23b0"
+    },
+    "evidence/mpla-booster-20260729T151300Z/manifest.sha256": {
+      "bytes": 1310,
+      "sha256": "81f218fdb1767423137e6563d5e63ef9968e7b433013a424c1f1d52a8c7f2af6"
+    },
+    "evidence/mpla-booster-20260729T151300Z/report.md": {
+      "bytes": 167,
+      "sha256": "00df83056a2344ae5da05f82429d7615c2e63775cc56fb1c0a839d098b838795"
+    },
+    "evidence/mpla-booster-20260729T151300Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T151300Z/scorecard.json": {
+      "bytes": 2675,
+      "sha256": "e1b9d598daccc09b2edf9950940cd8357bcfb3e4e0b70f5ff55253323cd93c83"
+    },
+    "evidence/mpla-booster-20260729T151300Z/security-profile.json": {
+      "bytes": 562,
+      "sha256": "e7f300a85cd17e72f7ed05d6d5f61a19292881a87122a86655c94de3771f9079"
+    },
+    "evidence/mpla-booster-20260729T151300Z/source.json": {
+      "bytes": 50078,
+      "sha256": "49c33d07f4f3e3906cfa5d9bfba85bd17c8ea7e953aa97e35ce40da2cc7b440f"
+    },
+    "evidence/mpla-booster-20260729T151300Z/staged-artifacts.json": {
+      "bytes": 1448,
+      "sha256": "9d0627d51a66d3331ebf9f8e625b42a0e2075efe56f84d209bcf12bbd98c16c2"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/AG-SQUASH/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "3daf4c2627540bf590797cc8ed0b5d29a7974064696f7ff21e3f775052b9aa1a"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/AG-SQUASH/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "bc527e1c26618f42e59a4c6dad06510b15e228432b24a899c02e001d652033fa"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/AG-SQUASH/error.json": {
+      "bytes": 155,
+      "sha256": "d5f0c4a5e7cba52710b6b3b9fd43b2fb9144c845d51fbde317055ddd4c64012f"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/BG-ACTIVATE-EXACT/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "3daf4c2627540bf590797cc8ed0b5d29a7974064696f7ff21e3f775052b9aa1a"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/BG-ACTIVATE-EXACT/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "bc527e1c26618f42e59a4c6dad06510b15e228432b24a899c02e001d652033fa"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/BG-ACTIVATE-EXACT/error.json": {
+      "bytes": 155,
+      "sha256": "d5f0c4a5e7cba52710b6b3b9fd43b2fb9144c845d51fbde317055ddd4c64012f"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/BG-ACTIVATE-SAME/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "3daf4c2627540bf590797cc8ed0b5d29a7974064696f7ff21e3f775052b9aa1a"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/BG-ACTIVATE-SAME/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "bc527e1c26618f42e59a4c6dad06510b15e228432b24a899c02e001d652033fa"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/BG-ACTIVATE-SAME/error.json": {
+      "bytes": 155,
+      "sha256": "d5f0c4a5e7cba52710b6b3b9fd43b2fb9144c845d51fbde317055ddd4c64012f"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/BG-FORK/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "3daf4c2627540bf590797cc8ed0b5d29a7974064696f7ff21e3f775052b9aa1a"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/BG-FORK/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "bc527e1c26618f42e59a4c6dad06510b15e228432b24a899c02e001d652033fa"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/BG-FORK/error.json": {
+      "bytes": 155,
+      "sha256": "d5f0c4a5e7cba52710b6b3b9fd43b2fb9144c845d51fbde317055ddd4c64012f"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/BG-ROLLBACK/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "3daf4c2627540bf590797cc8ed0b5d29a7974064696f7ff21e3f775052b9aa1a"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/BG-ROLLBACK/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "bc527e1c26618f42e59a4c6dad06510b15e228432b24a899c02e001d652033fa"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/BG-ROLLBACK/error.json": {
+      "bytes": 155,
+      "sha256": "d5f0c4a5e7cba52710b6b3b9fd43b2fb9144c845d51fbde317055ddd4c64012f"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/qualification/coordinator-terminal.json": {
+      "bytes": 759,
+      "sha256": "52c196a21c135e1a384e9085f587efc54a1a834fa4a0cb313421dbc1f8f0fb53"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/qualification/raw-result.json": {
+      "bytes": 136827,
+      "sha256": "87223c44c1510d0ead55f21f964bcafa5da3f2537bfa32dfcc8e99fffe687fcf"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cases/qualification/summary.json": {
+      "bytes": 427,
+      "sha256": "a510f0fb416ef4f0175f6a7a89ded221b7356f549d8946767e1d36976748f0a5"
+    },
+    "evidence/mpla-booster-20260729T151700Z/cleanup.json": {
+      "bytes": 6494,
+      "sha256": "f72a11f2e137e12eb584f05e43b6521313703c93fa9eb7a3a0a2ef00ec2f3742"
+    },
+    "evidence/mpla-booster-20260729T151700Z/command-ledger.jsonl": {
+      "bytes": 32997,
+      "sha256": "965aa9fac47bdd9524615eb435fe0dd79fcc69f33de444e74bba258d94e6e153"
+    },
+    "evidence/mpla-booster-20260729T151700Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T151700Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T151700Z/environment.json": {
+      "bytes": 548,
+      "sha256": "b73b96498b26c3a48d2c3d1dee83d314b672cb31f061c6116c1edbd149d54915"
+    },
+    "evidence/mpla-booster-20260729T151700Z/fixture-manifest.json": {
+      "bytes": 776135,
+      "sha256": "0108639cb5c1bf8ce6ed6e3552ced53b11215e92986c6bb3e401657f541f23b0"
+    },
+    "evidence/mpla-booster-20260729T151700Z/manifest.sha256": {
+      "bytes": 2880,
+      "sha256": "7cd8403b88e123683c5264b48e7152a9f1e13054b84ae04f5dcf0d546b348d2a"
+    },
+    "evidence/mpla-booster-20260729T151700Z/report.md": {
+      "bytes": 167,
+      "sha256": "0795ef374c7b1c92a236ae77c4743b6a9f8395fbc0043d24cb10981c99033999"
+    },
+    "evidence/mpla-booster-20260729T151700Z/resources.json": {
+      "bytes": 538,
+      "sha256": "6421d7fce591b08b4b66d2020ec9ec7784ed67abf3a0b27d458dfc14f091cc76"
+    },
+    "evidence/mpla-booster-20260729T151700Z/scorecard.json": {
+      "bytes": 2675,
+      "sha256": "a8d4bc7d19778fa513ca3e08e177343043d4f6cd0b4ee2cbf350f9e644fd4f4d"
+    },
+    "evidence/mpla-booster-20260729T151700Z/security-profile.json": {
+      "bytes": 626,
+      "sha256": "6fb5e6d6f7ad2ca6d5b71f42832680dfed70bb6a26bf7a26f47a7191c6623550"
+    },
+    "evidence/mpla-booster-20260729T151700Z/source.json": {
+      "bytes": 52954,
+      "sha256": "255716a29dc8bbb04995025e642cb3c23b1910bd436b4ba699e4ec53bb729124"
+    },
+    "evidence/mpla-booster-20260729T151700Z/staged-artifacts.json": {
+      "bytes": 1448,
+      "sha256": "83968311ead19365e6854696af17fa71e24573022186eaccd2737460a5f70066"
+    },
+    "evidence/mpla-booster-20260729T152300Z/cases/qualification/coordinator-terminal.json": {
+      "bytes": 1056,
+      "sha256": "867575003c382744b6f884e0b90428ca8531ebd2f67b6d33821bae2402636001"
+    },
+    "evidence/mpla-booster-20260729T152300Z/cases/qualification/coordinator-trace.json": {
+      "bytes": 491,
+      "sha256": "9b4594d4ac88de95e867e473cccd1264ac5ec1546d0c4ea4ec86ac88dabc0e0f"
+    },
+    "evidence/mpla-booster-20260729T152300Z/cases/qualification/error.json": {
+      "bytes": 920,
+      "sha256": "d3777458cb7ce909d8483ecb8796a2078eb462d694bb91014c27966e94c017b2"
+    },
+    "evidence/mpla-booster-20260729T152300Z/cleanup.json": {
+      "bytes": 3491,
+      "sha256": "c8fe1e053ac4fdea28b747fe7ef12f7c9f4c68d4550176ae92830de7949cdcbf"
+    },
+    "evidence/mpla-booster-20260729T152300Z/command-ledger.jsonl": {
+      "bytes": 5856,
+      "sha256": "c81daeb10e50e44e406a910802ef6394205b350a609419967ea695d1e52ec1e0"
+    },
+    "evidence/mpla-booster-20260729T152300Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T152300Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T152300Z/environment.json": {
+      "bytes": 558,
+      "sha256": "c4b9f5409924bda695ac2a2abb878e8abb3fa4a1b5d7a773e5300eb2267d1f32"
+    },
+    "evidence/mpla-booster-20260729T152300Z/manifest.sha256": {
+      "bytes": 1222,
+      "sha256": "8c759ef9e7e4707baaddf84524689b84e4ad2977a009ed7fa5a3efaa8885f62e"
+    },
+    "evidence/mpla-booster-20260729T152300Z/report.md": {
+      "bytes": 167,
+      "sha256": "3d2445f79fdaa4f931c200e2b2319440b27463358759c040443967d91caaf8e1"
+    },
+    "evidence/mpla-booster-20260729T152300Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T152300Z/scorecard.json": {
+      "bytes": 2609,
+      "sha256": "b8349f4294940b4d0e08afb4e373b4ef4280d335677e9b06de261f876b9b8744"
+    },
+    "evidence/mpla-booster-20260729T152300Z/security-profile.json": {
+      "bytes": 562,
+      "sha256": "e7f300a85cd17e72f7ed05d6d5f61a19292881a87122a86655c94de3771f9079"
+    },
+    "evidence/mpla-booster-20260729T152300Z/source.json": {
+      "bytes": 37248,
+      "sha256": "2cd7b192d014365abb3dccab54945c4d04698f4e315157fd6d02b90b5b3aeebe"
+    },
+    "evidence/mpla-booster-20260729T152300Z/staged-artifacts.json": {
+      "bytes": 1153,
+      "sha256": "4fd4f26d3cc9083f01623f756cce4237dc57e3f53c08c1e26953c8b2bc27f76c"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/AG-SQUASH/coordinator-progress.json": {
+      "bytes": 1815,
+      "sha256": "8a771a29c24159b77d6a24ed4e6b2121bea2af757ca64f77f4c9f57e8c47109d"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/AG-SQUASH/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "a502a75c7aeee156dc4b4983e94261ec9ef08d7042c4861428062109fdef6f03"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/AG-SQUASH/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "e882d8c986d0adba7e09b445a06916675701883ae35413026ece547e74889778"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/AG-SQUASH/error.json": {
+      "bytes": 155,
+      "sha256": "b6ee93fdf700c738e98333612fa3c7d975779376baef023a41fcb233a4e2d45d"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-ACTIVATE-EXACT/coordinator-progress.json": {
+      "bytes": 1815,
+      "sha256": "8a771a29c24159b77d6a24ed4e6b2121bea2af757ca64f77f4c9f57e8c47109d"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-ACTIVATE-EXACT/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "a502a75c7aeee156dc4b4983e94261ec9ef08d7042c4861428062109fdef6f03"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-ACTIVATE-EXACT/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "e882d8c986d0adba7e09b445a06916675701883ae35413026ece547e74889778"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-ACTIVATE-EXACT/error.json": {
+      "bytes": 155,
+      "sha256": "b6ee93fdf700c738e98333612fa3c7d975779376baef023a41fcb233a4e2d45d"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-ACTIVATE-SAME/coordinator-progress.json": {
+      "bytes": 1815,
+      "sha256": "8a771a29c24159b77d6a24ed4e6b2121bea2af757ca64f77f4c9f57e8c47109d"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-ACTIVATE-SAME/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "a502a75c7aeee156dc4b4983e94261ec9ef08d7042c4861428062109fdef6f03"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-ACTIVATE-SAME/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "e882d8c986d0adba7e09b445a06916675701883ae35413026ece547e74889778"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-ACTIVATE-SAME/error.json": {
+      "bytes": 155,
+      "sha256": "b6ee93fdf700c738e98333612fa3c7d975779376baef023a41fcb233a4e2d45d"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-FORK/coordinator-progress.json": {
+      "bytes": 1815,
+      "sha256": "8a771a29c24159b77d6a24ed4e6b2121bea2af757ca64f77f4c9f57e8c47109d"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-FORK/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "a502a75c7aeee156dc4b4983e94261ec9ef08d7042c4861428062109fdef6f03"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-FORK/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "e882d8c986d0adba7e09b445a06916675701883ae35413026ece547e74889778"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-FORK/error.json": {
+      "bytes": 155,
+      "sha256": "b6ee93fdf700c738e98333612fa3c7d975779376baef023a41fcb233a4e2d45d"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-ROLLBACK/coordinator-progress.json": {
+      "bytes": 1815,
+      "sha256": "8a771a29c24159b77d6a24ed4e6b2121bea2af757ca64f77f4c9f57e8c47109d"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-ROLLBACK/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "a502a75c7aeee156dc4b4983e94261ec9ef08d7042c4861428062109fdef6f03"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-ROLLBACK/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "e882d8c986d0adba7e09b445a06916675701883ae35413026ece547e74889778"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cases/BG-ROLLBACK/error.json": {
+      "bytes": 155,
+      "sha256": "b6ee93fdf700c738e98333612fa3c7d975779376baef023a41fcb233a4e2d45d"
+    },
+    "evidence/mpla-booster-20260729T153846Z/cleanup.json": {
+      "bytes": 3482,
+      "sha256": "1573d09016171203b5652a67263d5076072bab57e3241ab45aac2ac5f1f2278a"
+    },
+    "evidence/mpla-booster-20260729T153846Z/command-ledger.jsonl": {
+      "bytes": 20876,
+      "sha256": "ecbdc404ea0f1db0b3aa456aff1562ca206ffcb427c6d12c7c523899c9d20cc7"
+    },
+    "evidence/mpla-booster-20260729T153846Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T153846Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T153846Z/environment.json": {
+      "bytes": 554,
+      "sha256": "2e24f2745d3abf627b8b5ae2811f19e0cd7cac18d4fbd30abeac04bee5020826"
+    },
+    "evidence/mpla-booster-20260729T153846Z/fixture-manifest.json": {
+      "bytes": 776135,
+      "sha256": "0108639cb5c1bf8ce6ed6e3552ced53b11215e92986c6bb3e401657f541f23b0"
+    },
+    "evidence/mpla-booster-20260729T153846Z/manifest.sha256": {
+      "bytes": 3122,
+      "sha256": "115a0c9314820ee37ace053d163ea53ce5b508e22b772c2b1e26302f3fe7408d"
+    },
+    "evidence/mpla-booster-20260729T153846Z/report.md": {
+      "bytes": 167,
+      "sha256": "84755481ebf0fbdd30d044dcc1841e465b28cbd40a902bf8c3cd39a37ad1a165"
+    },
+    "evidence/mpla-booster-20260729T153846Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T153846Z/scorecard.json": {
+      "bytes": 2605,
+      "sha256": "70ace39b04fcdf795b24cd43d05454c8e285f42f283ed751f49c613f5c752ad8"
+    },
+    "evidence/mpla-booster-20260729T153846Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260729T153846Z/source.json": {
+      "bytes": 58788,
+      "sha256": "b5efcdaa1f99458b193242cd4c4de2e37c6a27930589488d90f1dabab8df138f"
+    },
+    "evidence/mpla-booster-20260729T153846Z/staged-artifacts.json": {
+      "bytes": 1317,
+      "sha256": "c219a2d5b226bb2d32804cfc0bfc2c6987058ab25b1101005d207cef9b31fce6"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/AG-SQUASH/coordinator-progress-error.json": {
+      "bytes": 220,
+      "sha256": "97aba9d274d3f5374186dd878a94b3fe4c6dfaaa06184c73b089a9e3794c9884"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/AG-SQUASH/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "e4b503fb4e8aeb9729100ca127a647929ea1d7a7270a18aac005d7753684ded9"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/AG-SQUASH/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "ecd3ba4becca7b1f148562575951a28384d34365dfc51a490f9ab0c45405941a"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/AG-SQUASH/error.json": {
+      "bytes": 155,
+      "sha256": "a1568c39ddfc71580e11c647b1f480fb23b9f219f712dbad6689c82ebdefcc98"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-ACTIVATE-EXACT/coordinator-progress-error.json": {
+      "bytes": 220,
+      "sha256": "97aba9d274d3f5374186dd878a94b3fe4c6dfaaa06184c73b089a9e3794c9884"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-ACTIVATE-EXACT/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "e4b503fb4e8aeb9729100ca127a647929ea1d7a7270a18aac005d7753684ded9"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-ACTIVATE-EXACT/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "ecd3ba4becca7b1f148562575951a28384d34365dfc51a490f9ab0c45405941a"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-ACTIVATE-EXACT/error.json": {
+      "bytes": 155,
+      "sha256": "a1568c39ddfc71580e11c647b1f480fb23b9f219f712dbad6689c82ebdefcc98"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-ACTIVATE-SAME/coordinator-progress-error.json": {
+      "bytes": 220,
+      "sha256": "97aba9d274d3f5374186dd878a94b3fe4c6dfaaa06184c73b089a9e3794c9884"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-ACTIVATE-SAME/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "e4b503fb4e8aeb9729100ca127a647929ea1d7a7270a18aac005d7753684ded9"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-ACTIVATE-SAME/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "ecd3ba4becca7b1f148562575951a28384d34365dfc51a490f9ab0c45405941a"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-ACTIVATE-SAME/error.json": {
+      "bytes": 155,
+      "sha256": "a1568c39ddfc71580e11c647b1f480fb23b9f219f712dbad6689c82ebdefcc98"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-FORK/coordinator-progress-error.json": {
+      "bytes": 220,
+      "sha256": "97aba9d274d3f5374186dd878a94b3fe4c6dfaaa06184c73b089a9e3794c9884"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-FORK/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "e4b503fb4e8aeb9729100ca127a647929ea1d7a7270a18aac005d7753684ded9"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-FORK/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "ecd3ba4becca7b1f148562575951a28384d34365dfc51a490f9ab0c45405941a"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-FORK/error.json": {
+      "bytes": 155,
+      "sha256": "a1568c39ddfc71580e11c647b1f480fb23b9f219f712dbad6689c82ebdefcc98"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-ROLLBACK/coordinator-progress-error.json": {
+      "bytes": 220,
+      "sha256": "97aba9d274d3f5374186dd878a94b3fe4c6dfaaa06184c73b089a9e3794c9884"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-ROLLBACK/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "e4b503fb4e8aeb9729100ca127a647929ea1d7a7270a18aac005d7753684ded9"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-ROLLBACK/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "ecd3ba4becca7b1f148562575951a28384d34365dfc51a490f9ab0c45405941a"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cases/BG-ROLLBACK/error.json": {
+      "bytes": 155,
+      "sha256": "a1568c39ddfc71580e11c647b1f480fb23b9f219f712dbad6689c82ebdefcc98"
+    },
+    "evidence/mpla-booster-20260729T154845Z/cleanup.json": {
+      "bytes": 3485,
+      "sha256": "1af7a13c13287f29fc100bffacc62ce35a46ae45686909c8c14d087f30a7ceaf"
+    },
+    "evidence/mpla-booster-20260729T154845Z/command-ledger.jsonl": {
+      "bytes": 20342,
+      "sha256": "50520e394b7a26a8712186e81d4911c011d1b2b061400c086709fa0a07075a14"
+    },
+    "evidence/mpla-booster-20260729T154845Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T154845Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T154845Z/environment.json": {
+      "bytes": 554,
+      "sha256": "5bad988591f3dfa688277dddfb1b0b1b5b2e8b570f6567e5a010597842df8124"
+    },
+    "evidence/mpla-booster-20260729T154845Z/fixture-manifest.json": {
+      "bytes": 776135,
+      "sha256": "0108639cb5c1bf8ce6ed6e3552ced53b11215e92986c6bb3e401657f541f23b0"
+    },
+    "evidence/mpla-booster-20260729T154845Z/manifest.sha256": {
+      "bytes": 3152,
+      "sha256": "42a33dbcebd0bdcb2789dd1231b528b75c60f8012e4311c18b253481a8563936"
+    },
+    "evidence/mpla-booster-20260729T154845Z/report.md": {
+      "bytes": 167,
+      "sha256": "8068c13d613a78fa7361dfd4b3a7aa0d1950f682e2ae1b5634ac052a2beb7ccf"
+    },
+    "evidence/mpla-booster-20260729T154845Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T154845Z/scorecard.json": {
+      "bytes": 2605,
+      "sha256": "ea353b3ade56426a4a04f6b9b6995638e57a889ab0807dddef2e3b91030d6295"
+    },
+    "evidence/mpla-booster-20260729T154845Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260729T154845Z/source.json": {
+      "bytes": 65050,
+      "sha256": "25f2ca3e734e66c5b50a7f49856cb692b3625be40d09ff951a433ac2e3cdcdeb"
+    },
+    "evidence/mpla-booster-20260729T154845Z/staged-artifacts.json": {
+      "bytes": 1317,
+      "sha256": "152c2513d9ef8a6af16223692c2aaa89bb85637f5051cf63a8ec6ffc9959eea4"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/AG-SQUASH/coordinator-progress.json": {
+      "bytes": 64682,
+      "sha256": "fc064daac0e8a7e7100c1023f1065b05665526be3fb296f20d26488572b4aac3"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/AG-SQUASH/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "1f86cbfe8350a581317e0079cbb2c123330e8386f6fc55f50d65b317a5422aed"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/AG-SQUASH/coordinator-trace.json": {
+      "bytes": 1936,
+      "sha256": "cc3459135d2482a2de5338680dd0b5d1df1b500309103d2f54530c66fa5fc9ec"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/AG-SQUASH/error.json": {
+      "bytes": 155,
+      "sha256": "1cbf1957eb1b484dd626cec4f1ddd228922c075bef7c9bd756a24bd8e0efbb5d"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-ACTIVATE-EXACT/coordinator-progress.json": {
+      "bytes": 64682,
+      "sha256": "fc064daac0e8a7e7100c1023f1065b05665526be3fb296f20d26488572b4aac3"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-ACTIVATE-EXACT/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "1f86cbfe8350a581317e0079cbb2c123330e8386f6fc55f50d65b317a5422aed"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-ACTIVATE-EXACT/coordinator-trace.json": {
+      "bytes": 1936,
+      "sha256": "cc3459135d2482a2de5338680dd0b5d1df1b500309103d2f54530c66fa5fc9ec"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-ACTIVATE-EXACT/error.json": {
+      "bytes": 155,
+      "sha256": "1cbf1957eb1b484dd626cec4f1ddd228922c075bef7c9bd756a24bd8e0efbb5d"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-ACTIVATE-SAME/coordinator-progress.json": {
+      "bytes": 64682,
+      "sha256": "fc064daac0e8a7e7100c1023f1065b05665526be3fb296f20d26488572b4aac3"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-ACTIVATE-SAME/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "1f86cbfe8350a581317e0079cbb2c123330e8386f6fc55f50d65b317a5422aed"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-ACTIVATE-SAME/coordinator-trace.json": {
+      "bytes": 1936,
+      "sha256": "cc3459135d2482a2de5338680dd0b5d1df1b500309103d2f54530c66fa5fc9ec"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-ACTIVATE-SAME/error.json": {
+      "bytes": 155,
+      "sha256": "1cbf1957eb1b484dd626cec4f1ddd228922c075bef7c9bd756a24bd8e0efbb5d"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-FORK/coordinator-progress.json": {
+      "bytes": 64682,
+      "sha256": "fc064daac0e8a7e7100c1023f1065b05665526be3fb296f20d26488572b4aac3"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-FORK/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "1f86cbfe8350a581317e0079cbb2c123330e8386f6fc55f50d65b317a5422aed"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-FORK/coordinator-trace.json": {
+      "bytes": 1936,
+      "sha256": "cc3459135d2482a2de5338680dd0b5d1df1b500309103d2f54530c66fa5fc9ec"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-FORK/error.json": {
+      "bytes": 155,
+      "sha256": "1cbf1957eb1b484dd626cec4f1ddd228922c075bef7c9bd756a24bd8e0efbb5d"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-ROLLBACK/coordinator-progress.json": {
+      "bytes": 64682,
+      "sha256": "fc064daac0e8a7e7100c1023f1065b05665526be3fb296f20d26488572b4aac3"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-ROLLBACK/coordinator-terminal.json": {
+      "bytes": 333,
+      "sha256": "1f86cbfe8350a581317e0079cbb2c123330e8386f6fc55f50d65b317a5422aed"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-ROLLBACK/coordinator-trace.json": {
+      "bytes": 1936,
+      "sha256": "cc3459135d2482a2de5338680dd0b5d1df1b500309103d2f54530c66fa5fc9ec"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cases/BG-ROLLBACK/error.json": {
+      "bytes": 155,
+      "sha256": "1cbf1957eb1b484dd626cec4f1ddd228922c075bef7c9bd756a24bd8e0efbb5d"
+    },
+    "evidence/mpla-booster-20260729T155907Z/cleanup.json": {
+      "bytes": 3483,
+      "sha256": "9598299a2650172a49853172537bc47e4111267ee967de27ee50c28e7699b7b6"
+    },
+    "evidence/mpla-booster-20260729T155907Z/command-ledger.jsonl": {
+      "bytes": 20876,
+      "sha256": "2b8213c6f47be8990fd244add974f1b01fd013156d93391f5e7c73b11b57f07f"
+    },
+    "evidence/mpla-booster-20260729T155907Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T155907Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T155907Z/environment.json": {
+      "bytes": 554,
+      "sha256": "062fa423e23549d43de5423ecb703439639b96bd555dd0943278ab8724631886"
+    },
+    "evidence/mpla-booster-20260729T155907Z/fixture-manifest.json": {
+      "bytes": 776135,
+      "sha256": "0108639cb5c1bf8ce6ed6e3552ced53b11215e92986c6bb3e401657f541f23b0"
+    },
+    "evidence/mpla-booster-20260729T155907Z/manifest.sha256": {
+      "bytes": 3122,
+      "sha256": "b136c55a6860fab0d61c9d5b39232ba08e2cac8e743a75dd52ea55637f1887f6"
+    },
+    "evidence/mpla-booster-20260729T155907Z/report.md": {
+      "bytes": 167,
+      "sha256": "7289802683390adff9186f7ea8dc2cee193b630df15857cf697461ed8eea5dac"
+    },
+    "evidence/mpla-booster-20260729T155907Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T155907Z/scorecard.json": {
+      "bytes": 2605,
+      "sha256": "57f58db9336184a816b2f3fbacc697d4f676a224e20147bb33e9c150555c8f59"
+    },
+    "evidence/mpla-booster-20260729T155907Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260729T155907Z/source.json": {
+      "bytes": 71337,
+      "sha256": "311911be35c0bcee8563e0d13ab02e077d5e624f9fcf878de53227fc20d0e378"
+    },
+    "evidence/mpla-booster-20260729T155907Z/staged-artifacts.json": {
+      "bytes": 1317,
+      "sha256": "d5880540254aca3d2c7a0b38b84e0a616a8ac95c9bf5a612e7964b178fc4ee74"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/AG-SQUASH/coordinator-progress.json": {
+      "bytes": 2136,
+      "sha256": "c46f25d42820c3888a30f83ae20bcdcb52eacdd8f11e7e6b3ec2b76ef93ae3a5"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/AG-SQUASH/coordinator-terminal.json": {
+      "bytes": 606,
+      "sha256": "c755e7c57c031514b09863927389f87f46188da83b65abc80c4359a6052f232d"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/AG-SQUASH/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "784f6eaaf9818824ff276b0df8b4144f39d9c4318fb48146d8186039358edcb3"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/AG-SQUASH/error.json": {
+      "bytes": 429,
+      "sha256": "011ae80425334929a05b38efc8f3d3e2b4198bd4e876a7624ef8965a2bec7080"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-ACTIVATE-EXACT/coordinator-progress.json": {
+      "bytes": 2136,
+      "sha256": "c46f25d42820c3888a30f83ae20bcdcb52eacdd8f11e7e6b3ec2b76ef93ae3a5"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-ACTIVATE-EXACT/coordinator-terminal.json": {
+      "bytes": 606,
+      "sha256": "c755e7c57c031514b09863927389f87f46188da83b65abc80c4359a6052f232d"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-ACTIVATE-EXACT/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "784f6eaaf9818824ff276b0df8b4144f39d9c4318fb48146d8186039358edcb3"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-ACTIVATE-EXACT/error.json": {
+      "bytes": 429,
+      "sha256": "011ae80425334929a05b38efc8f3d3e2b4198bd4e876a7624ef8965a2bec7080"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-ACTIVATE-SAME/coordinator-progress.json": {
+      "bytes": 2136,
+      "sha256": "c46f25d42820c3888a30f83ae20bcdcb52eacdd8f11e7e6b3ec2b76ef93ae3a5"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-ACTIVATE-SAME/coordinator-terminal.json": {
+      "bytes": 606,
+      "sha256": "c755e7c57c031514b09863927389f87f46188da83b65abc80c4359a6052f232d"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-ACTIVATE-SAME/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "784f6eaaf9818824ff276b0df8b4144f39d9c4318fb48146d8186039358edcb3"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-ACTIVATE-SAME/error.json": {
+      "bytes": 429,
+      "sha256": "011ae80425334929a05b38efc8f3d3e2b4198bd4e876a7624ef8965a2bec7080"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-FORK/coordinator-progress.json": {
+      "bytes": 2136,
+      "sha256": "c46f25d42820c3888a30f83ae20bcdcb52eacdd8f11e7e6b3ec2b76ef93ae3a5"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-FORK/coordinator-terminal.json": {
+      "bytes": 606,
+      "sha256": "c755e7c57c031514b09863927389f87f46188da83b65abc80c4359a6052f232d"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-FORK/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "784f6eaaf9818824ff276b0df8b4144f39d9c4318fb48146d8186039358edcb3"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-FORK/error.json": {
+      "bytes": 429,
+      "sha256": "011ae80425334929a05b38efc8f3d3e2b4198bd4e876a7624ef8965a2bec7080"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-ROLLBACK/coordinator-progress.json": {
+      "bytes": 2136,
+      "sha256": "c46f25d42820c3888a30f83ae20bcdcb52eacdd8f11e7e6b3ec2b76ef93ae3a5"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-ROLLBACK/coordinator-terminal.json": {
+      "bytes": 606,
+      "sha256": "c755e7c57c031514b09863927389f87f46188da83b65abc80c4359a6052f232d"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-ROLLBACK/coordinator-trace.json": {
+      "bytes": 1938,
+      "sha256": "784f6eaaf9818824ff276b0df8b4144f39d9c4318fb48146d8186039358edcb3"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/BG-ROLLBACK/error.json": {
+      "bytes": 429,
+      "sha256": "011ae80425334929a05b38efc8f3d3e2b4198bd4e876a7624ef8965a2bec7080"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/qualification/coordinator-terminal.json": {
+      "bytes": 756,
+      "sha256": "a760f13d87f7755800cc97f2b1847ee659951aa055d2bae83406d9afecf148da"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/qualification/raw-result.json": {
+      "bytes": 136835,
+      "sha256": "8f8739ab243e12d0c906a599b5b667b1991afe9cf0ef597fba24694692829797"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cases/qualification/summary.json": {
+      "bytes": 427,
+      "sha256": "4364d73d8a95cd0a9fb91d327d851da55e18abec6be1405b4171cd06f923ecf3"
+    },
+    "evidence/mpla-booster-20260729T160939Z/cleanup.json": {
+      "bytes": 6497,
+      "sha256": "7aaf0c401d2f17d2895e7fe4d9015128ad39ac7d073edda3528271564b4dca33"
+    },
+    "evidence/mpla-booster-20260729T160939Z/command-ledger.jsonl": {
+      "bytes": 32517,
+      "sha256": "221ad1eb2445572519d9a87c24a6296de20aab328f63f86f41070948f5b96963"
+    },
+    "evidence/mpla-booster-20260729T160939Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T160939Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T160939Z/environment.json": {
+      "bytes": 548,
+      "sha256": "8731b4394c23405166d1e2bb7e2bb2476ab920c3393459885c6aa3989527f881"
+    },
+    "evidence/mpla-booster-20260729T160939Z/fixture-manifest.json": {
+      "bytes": 776135,
+      "sha256": "0108639cb5c1bf8ce6ed6e3552ced53b11215e92986c6bb3e401657f541f23b0"
+    },
+    "evidence/mpla-booster-20260729T160939Z/manifest.sha256": {
+      "bytes": 3435,
+      "sha256": "b0d9c2253555e5052af99232e26f7c1423b2c3bb116b36d82156ee00995fa79c"
+    },
+    "evidence/mpla-booster-20260729T160939Z/report.md": {
+      "bytes": 167,
+      "sha256": "075c5689f5047d11868c2789ee3f29485e1425443d6ffb5c310118c22beeed51"
+    },
+    "evidence/mpla-booster-20260729T160939Z/resources.json": {
+      "bytes": 538,
+      "sha256": "c9a923dffd56c4b3e9ca0d708700c7f9f53e5cd5f1878fccf9b95d8bace6188a"
+    },
+    "evidence/mpla-booster-20260729T160939Z/scorecard.json": {
+      "bytes": 2675,
+      "sha256": "43702e8814e418ef5a58492a56ca51deeecd3d81bf8fa641585d6e49a1243d12"
+    },
+    "evidence/mpla-booster-20260729T160939Z/security-profile.json": {
+      "bytes": 627,
+      "sha256": "44557e343e0beca734f93eb209f7ff589504fbb455e75406319b62ff191ced3f"
+    },
+    "evidence/mpla-booster-20260729T160939Z/source.json": {
+      "bytes": 78299,
+      "sha256": "80d3325e7af4d10fb2cfbab7dccbfc2c5682df5bdd5951803b3e885557eb250c"
+    },
+    "evidence/mpla-booster-20260729T160939Z/staged-artifacts.json": {
+      "bytes": 1448,
+      "sha256": "f6c42edf333dc76983854f832388f01df8cf76f6b661f3944d8180b25ea1878b"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/AG-SQUASH/coordinator-terminal.json": {
+      "bytes": 795,
+      "sha256": "a7b452ac93a17bebc7ce0b685a73a6c850d3d71529dbe7231e2b67a01be6d03b"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/AG-SQUASH/raw-result.json": {
+      "bytes": 6278053,
+      "sha256": "4a1d0f2173ee6671c6cdc51b26033f634b176580a2cbafbfbc9c110ca0444afe"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/AG-SQUASH/summary.json": {
+      "bytes": 463,
+      "sha256": "a8d119e14e5f1d724632f14da1e2965288a6da3dba952f74b64f5b95577ff6ce"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-ACTIVATE-EXACT/coordinator-terminal.json": {
+      "bytes": 795,
+      "sha256": "a7b452ac93a17bebc7ce0b685a73a6c850d3d71529dbe7231e2b67a01be6d03b"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-ACTIVATE-EXACT/raw-result.json": {
+      "bytes": 6278053,
+      "sha256": "4a1d0f2173ee6671c6cdc51b26033f634b176580a2cbafbfbc9c110ca0444afe"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-ACTIVATE-EXACT/summary.json": {
+      "bytes": 463,
+      "sha256": "a8d119e14e5f1d724632f14da1e2965288a6da3dba952f74b64f5b95577ff6ce"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-ACTIVATE-SAME/coordinator-terminal.json": {
+      "bytes": 795,
+      "sha256": "a7b452ac93a17bebc7ce0b685a73a6c850d3d71529dbe7231e2b67a01be6d03b"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-ACTIVATE-SAME/raw-result.json": {
+      "bytes": 6278053,
+      "sha256": "4a1d0f2173ee6671c6cdc51b26033f634b176580a2cbafbfbc9c110ca0444afe"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-ACTIVATE-SAME/summary.json": {
+      "bytes": 463,
+      "sha256": "a8d119e14e5f1d724632f14da1e2965288a6da3dba952f74b64f5b95577ff6ce"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-FORK/coordinator-terminal.json": {
+      "bytes": 795,
+      "sha256": "a7b452ac93a17bebc7ce0b685a73a6c850d3d71529dbe7231e2b67a01be6d03b"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-FORK/raw-result.json": {
+      "bytes": 6278053,
+      "sha256": "4a1d0f2173ee6671c6cdc51b26033f634b176580a2cbafbfbc9c110ca0444afe"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-FORK/summary.json": {
+      "bytes": 463,
+      "sha256": "a8d119e14e5f1d724632f14da1e2965288a6da3dba952f74b64f5b95577ff6ce"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-PUBLISH-SMALL/coordinator-terminal.json": {
+      "bytes": 521,
+      "sha256": "753db9d2949500782e0156846620ba61879a4d96aa53392f44666b36e62622fc"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-PUBLISH-SMALL/coordinator-trace.json": {
+      "bytes": 1945,
+      "sha256": "bad7c043295e520970dfa989c478e0fed0842237f6a16d662d1d28bba20a445d"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-PUBLISH-SMALL/error.json": {
+      "bytes": 345,
+      "sha256": "68f8c66e3f33ce4b5c74f4895611923ba2c3432d5fa7bd0075c3cc02ecd4bc80"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-ROLLBACK/coordinator-terminal.json": {
+      "bytes": 795,
+      "sha256": "a7b452ac93a17bebc7ce0b685a73a6c850d3d71529dbe7231e2b67a01be6d03b"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-ROLLBACK/raw-result.json": {
+      "bytes": 6278053,
+      "sha256": "4a1d0f2173ee6671c6cdc51b26033f634b176580a2cbafbfbc9c110ca0444afe"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/BG-ROLLBACK/summary.json": {
+      "bytes": 463,
+      "sha256": "a8d119e14e5f1d724632f14da1e2965288a6da3dba952f74b64f5b95577ff6ce"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/qualification/coordinator-terminal.json": {
+      "bytes": 759,
+      "sha256": "c973823b44c501f7de346f79db103ebada77204fd86dc4b2c93a5833a27ece43"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/qualification/raw-result.json": {
+      "bytes": 136840,
+      "sha256": "3c64d0ec4757e71f0acf6428d530e58f33c60fbd4f4359213aa942a63f9858a4"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cases/qualification/summary.json": {
+      "bytes": 427,
+      "sha256": "76b7707c95a3ad89e6a787a53f478c88366809162c0de029dd4351c765b92c8d"
+    },
+    "evidence/mpla-booster-20260729T161845Z/cleanup.json": {
+      "bytes": 9518,
+      "sha256": "6b0f1bdd80ae746ea27e1b9b25d75b3dd31a24c33f1ff20e660f8c346da81eea"
+    },
+    "evidence/mpla-booster-20260729T161845Z/command-ledger.jsonl": {
+      "bytes": 383706,
+      "sha256": "5814144c29009dfbb75188d5727ebeff543f535f803c3306645e50b1be61079f"
+    },
+    "evidence/mpla-booster-20260729T161845Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T161845Z/decision.json": {
+      "bytes": 143,
+      "sha256": "e15a11660b866500221ad8506587e337e8ff9ce2091d51e976a6a548b1f2e7b0"
+    },
+    "evidence/mpla-booster-20260729T161845Z/environment.json": {
+      "bytes": 548,
+      "sha256": "f8ec77e3e19e5f63d1c6cb033811965749a6609a2418c46981b59c902143024d"
+    },
+    "evidence/mpla-booster-20260729T161845Z/fixture-manifest.json": {
+      "bytes": 776135,
+      "sha256": "0108639cb5c1bf8ce6ed6e3552ced53b11215e92986c6bb3e401657f541f23b0"
+    },
+    "evidence/mpla-booster-20260729T161845Z/manifest.sha256": {
+      "bytes": 3182,
+      "sha256": "a47d28d1245cda6fc2dc295176acee00e3c4707b7d47df5a1e2c1972fdfed21b"
+    },
+    "evidence/mpla-booster-20260729T161845Z/report.md": {
+      "bytes": 164,
+      "sha256": "a3bd5295053a76b23f645552bd0a93a55cb08454e050d3ac70545533069f3ce7"
+    },
+    "evidence/mpla-booster-20260729T161845Z/resources.json": {
+      "bytes": 809,
+      "sha256": "9d3b002e1347191967e82e664caccd3188c106822bd275a544ceea84c92e0693"
+    },
+    "evidence/mpla-booster-20260729T161845Z/scorecard.json": {
+      "bytes": 2674,
+      "sha256": "155a7b981f583b028f47cd32538c34e87632466c24659ceb57f7b79954bf9c8e"
+    },
+    "evidence/mpla-booster-20260729T161845Z/security-profile.json": {
+      "bytes": 627,
+      "sha256": "44557e343e0beca734f93eb209f7ff589504fbb455e75406319b62ff191ced3f"
+    },
+    "evidence/mpla-booster-20260729T161845Z/source.json": {
+      "bytes": 85153,
+      "sha256": "cbc4372adb70e4a83298c1c900afa22262d56eb9f07da955b41a314e634b054f"
+    },
+    "evidence/mpla-booster-20260729T161845Z/staged-artifacts.json": {
+      "bytes": 1448,
+      "sha256": "1759a6617e77a57b1c016ac43efa27829948a6ab2f8bfcf61a4a5c5e4ad1e2ce"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/AG-SQUASH/coordinator-terminal.json": {
+      "bytes": 794,
+      "sha256": "b474247ff2af0ad792d1950e65214d4a03d08ec8bcc22f22eb09ef1aa421179a"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/AG-SQUASH/raw-result.json": {
+      "bytes": 6278038,
+      "sha256": "833eb1362a0e4d5ab9561b86012b30b2c3cc2469c05e58ce0720efffef571425"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/AG-SQUASH/summary.json": {
+      "bytes": 462,
+      "sha256": "607978fcabd97ca1a2e565af7327fc5ae02b61f5b00fb20638c6004c8bba7bd3"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-ACTIVATE-EXACT/coordinator-terminal.json": {
+      "bytes": 794,
+      "sha256": "b474247ff2af0ad792d1950e65214d4a03d08ec8bcc22f22eb09ef1aa421179a"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-ACTIVATE-EXACT/raw-result.json": {
+      "bytes": 6278038,
+      "sha256": "833eb1362a0e4d5ab9561b86012b30b2c3cc2469c05e58ce0720efffef571425"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-ACTIVATE-EXACT/summary.json": {
+      "bytes": 462,
+      "sha256": "607978fcabd97ca1a2e565af7327fc5ae02b61f5b00fb20638c6004c8bba7bd3"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-ACTIVATE-SAME/coordinator-terminal.json": {
+      "bytes": 794,
+      "sha256": "b474247ff2af0ad792d1950e65214d4a03d08ec8bcc22f22eb09ef1aa421179a"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-ACTIVATE-SAME/raw-result.json": {
+      "bytes": 6278038,
+      "sha256": "833eb1362a0e4d5ab9561b86012b30b2c3cc2469c05e58ce0720efffef571425"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-ACTIVATE-SAME/summary.json": {
+      "bytes": 462,
+      "sha256": "607978fcabd97ca1a2e565af7327fc5ae02b61f5b00fb20638c6004c8bba7bd3"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-FORK/coordinator-terminal.json": {
+      "bytes": 794,
+      "sha256": "b474247ff2af0ad792d1950e65214d4a03d08ec8bcc22f22eb09ef1aa421179a"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-FORK/raw-result.json": {
+      "bytes": 6278038,
+      "sha256": "833eb1362a0e4d5ab9561b86012b30b2c3cc2469c05e58ce0720efffef571425"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-FORK/summary.json": {
+      "bytes": 462,
+      "sha256": "607978fcabd97ca1a2e565af7327fc5ae02b61f5b00fb20638c6004c8bba7bd3"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-PUBLISH-SMALL/error.json": {
+      "bytes": 91,
+      "sha256": "3ef106a8f1d5294386c919fd10f9f51308fd7afb6741396377c102b1992c176b"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-ROLLBACK/coordinator-terminal.json": {
+      "bytes": 794,
+      "sha256": "b474247ff2af0ad792d1950e65214d4a03d08ec8bcc22f22eb09ef1aa421179a"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-ROLLBACK/raw-result.json": {
+      "bytes": 6278038,
+      "sha256": "833eb1362a0e4d5ab9561b86012b30b2c3cc2469c05e58ce0720efffef571425"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/BG-ROLLBACK/summary.json": {
+      "bytes": 462,
+      "sha256": "607978fcabd97ca1a2e565af7327fc5ae02b61f5b00fb20638c6004c8bba7bd3"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/qualification/coordinator-terminal.json": {
+      "bytes": 759,
+      "sha256": "e07f05389c9972f012a0bb9909d795308d5a7e7b3e37d444c088e1370ef496a3"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/qualification/raw-result.json": {
+      "bytes": 136837,
+      "sha256": "07d4ba0802c66527e58fdbb4bb70ce8dff40f2e5236bddd0d4196466215c4718"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cases/qualification/summary.json": {
+      "bytes": 427,
+      "sha256": "fcf92012477d2dfcda2190f87ba6b0651ab89579ae928e5b23b87e68d29b98ef"
+    },
+    "evidence/mpla-booster-20260729T163853Z/cleanup.json": {
+      "bytes": 9519,
+      "sha256": "c43fed58155589c24c69a84ab7f95ac516cce7cb59a906e4d5436667914a94ee"
+    },
+    "evidence/mpla-booster-20260729T163853Z/command-ledger.jsonl": {
+      "bytes": 388538,
+      "sha256": "caf107971fa6c1c543cc10f2c352db3639dbcd9826193bbcfcb729374777079e"
+    },
+    "evidence/mpla-booster-20260729T163853Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T163853Z/decision.json": {
+      "bytes": 143,
+      "sha256": "9c0b0de466d0f53b5b06eb607026d1efd655da77c6a6e3677060b8dfa4069053"
+    },
+    "evidence/mpla-booster-20260729T163853Z/environment.json": {
+      "bytes": 548,
+      "sha256": "0abbc923d8d289c88dab139e0f18dfd1b58c91be129bc418edc8c915b3602905"
+    },
+    "evidence/mpla-booster-20260729T163853Z/fixture-manifest.json": {
+      "bytes": 776135,
+      "sha256": "0108639cb5c1bf8ce6ed6e3552ced53b11215e92986c6bb3e401657f541f23b0"
+    },
+    "evidence/mpla-booster-20260729T163853Z/manifest.sha256": {
+      "bytes": 2955,
+      "sha256": "b7605a093f3f126e52c22aafef09c2871dc31cbe0d7a3891e72485c23a5df032"
+    },
+    "evidence/mpla-booster-20260729T163853Z/report.md": {
+      "bytes": 164,
+      "sha256": "f9efda9333a36ae8d36677f74d8b7298e1a7a11af2fedb2b3927e471d6d92a03"
+    },
+    "evidence/mpla-booster-20260729T163853Z/resources.json": {
+      "bytes": 809,
+      "sha256": "627a4bae4e28500607b3cedfdf07fc5e181d3b9ea17d7608d0cb0397b646a77f"
+    },
+    "evidence/mpla-booster-20260729T163853Z/scorecard.json": {
+      "bytes": 2673,
+      "sha256": "78221ecc795b3fd62d4b33f64fde471a86eede8a9cb6b118c1b07fb7e29ddc31"
+    },
+    "evidence/mpla-booster-20260729T163853Z/security-profile.json": {
+      "bytes": 627,
+      "sha256": "44557e343e0beca734f93eb209f7ff589504fbb455e75406319b62ff191ced3f"
+    },
+    "evidence/mpla-booster-20260729T163853Z/source.json": {
+      "bytes": 91845,
+      "sha256": "18e644b75782263e8e717c5ac71c97fe9569a4e834ba6d71ffc26e85de84ab64"
+    },
+    "evidence/mpla-booster-20260729T163853Z/staged-artifacts.json": {
+      "bytes": 1448,
+      "sha256": "dd88fb2bfb138120e536f3c6bed5acde4845f1049d732e7fdc46779e8ba9c890"
+    },
+    "evidence/mpla-booster-20260729T165343Z/cases/qualification/error.json": {
+      "bytes": 189,
+      "sha256": "74ac88188ecde70046e5c90e9067cf9ab49b8e57abd131f04fb642832a83149d"
+    },
+    "evidence/mpla-booster-20260729T165343Z/command-ledger.jsonl": {
+      "bytes": 1844,
+      "sha256": "4cfc1f5be0a768707d9acaa2d6a1437a81def060db3989cff6e9589310d963aa"
+    },
+    "evidence/mpla-booster-20260729T165343Z/environment.json": {
+      "bytes": 548,
+      "sha256": "4d4d23c53b23a5365f8863195ba871849a26b327d7cd61d366425be5d53cadc8"
+    },
+    "evidence/mpla-booster-20260729T165343Z/fixture-manifest.json": {
+      "bytes": 776135,
+      "sha256": "0108639cb5c1bf8ce6ed6e3552ced53b11215e92986c6bb3e401657f541f23b0"
+    },
+    "evidence/mpla-booster-20260729T165343Z/source.json": {
+      "bytes": 97861,
+      "sha256": "952bc241de1d65eb0bb165565ae5133ffbc791920d3bff888c6d2c83c6b4a4ca"
+    },
+    "evidence/mpla-booster-20260729T165343Z/staged-artifacts.json": {
+      "bytes": 1448,
+      "sha256": "e2a560862e2ca1b8336c1ab7fd847ea34e0fda56544df5fdab9446cc6380b6eb"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/AG-SQUASH/coordinator-terminal.json": {
+      "bytes": 794,
+      "sha256": "869709521862d50454561cd2fff4c35f653d5197ed50646d1b1967992e0a2cb6"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/AG-SQUASH/raw-result.json": {
+      "bytes": 6278027,
+      "sha256": "9b42d73280300518907fff0004dbabff6eac65b7c165bbf48df00c351eaa4868"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/AG-SQUASH/summary.json": {
+      "bytes": 462,
+      "sha256": "d86c587bad5fd7db51e4e08082184b7f66118061df53b754e194e1c3324ef3fd"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-ACTIVATE-EXACT/coordinator-terminal.json": {
+      "bytes": 794,
+      "sha256": "869709521862d50454561cd2fff4c35f653d5197ed50646d1b1967992e0a2cb6"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-ACTIVATE-EXACT/raw-result.json": {
+      "bytes": 6278027,
+      "sha256": "9b42d73280300518907fff0004dbabff6eac65b7c165bbf48df00c351eaa4868"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-ACTIVATE-EXACT/summary.json": {
+      "bytes": 462,
+      "sha256": "d86c587bad5fd7db51e4e08082184b7f66118061df53b754e194e1c3324ef3fd"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-ACTIVATE-SAME/coordinator-terminal.json": {
+      "bytes": 794,
+      "sha256": "869709521862d50454561cd2fff4c35f653d5197ed50646d1b1967992e0a2cb6"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-ACTIVATE-SAME/raw-result.json": {
+      "bytes": 6278027,
+      "sha256": "9b42d73280300518907fff0004dbabff6eac65b7c165bbf48df00c351eaa4868"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-ACTIVATE-SAME/summary.json": {
+      "bytes": 462,
+      "sha256": "d86c587bad5fd7db51e4e08082184b7f66118061df53b754e194e1c3324ef3fd"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-FORK/coordinator-terminal.json": {
+      "bytes": 794,
+      "sha256": "869709521862d50454561cd2fff4c35f653d5197ed50646d1b1967992e0a2cb6"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-FORK/raw-result.json": {
+      "bytes": 6278027,
+      "sha256": "9b42d73280300518907fff0004dbabff6eac65b7c165bbf48df00c351eaa4868"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-FORK/summary.json": {
+      "bytes": 462,
+      "sha256": "d86c587bad5fd7db51e4e08082184b7f66118061df53b754e194e1c3324ef3fd"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-PUBLISH-SMALL/coordinator-terminal.json": {
+      "bytes": 339,
+      "sha256": "344573acc1a1ea6f4cd018ada83ac3ff563255a1ae1a98bff2fd5df3353f895e"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-PUBLISH-SMALL/coordinator-trace.json": {
+      "bytes": 1952,
+      "sha256": "42ba1927b25cf84a384fa0133fe231ffda247a80c9d96b5a6e568dda1a348465"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-PUBLISH-SMALL/error.json": {
+      "bytes": 163,
+      "sha256": "fb418f0d7bb11f260a953fb9b0ca80c58aabd9c6e87983654882592e12459935"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-ROLLBACK/coordinator-terminal.json": {
+      "bytes": 794,
+      "sha256": "869709521862d50454561cd2fff4c35f653d5197ed50646d1b1967992e0a2cb6"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-ROLLBACK/raw-result.json": {
+      "bytes": 6278027,
+      "sha256": "9b42d73280300518907fff0004dbabff6eac65b7c165bbf48df00c351eaa4868"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/BG-ROLLBACK/summary.json": {
+      "bytes": 462,
+      "sha256": "d86c587bad5fd7db51e4e08082184b7f66118061df53b754e194e1c3324ef3fd"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/qualification/coordinator-terminal.json": {
+      "bytes": 759,
+      "sha256": "b1f8216e34fece9934d3ca5b10344fe617be3257f5fe1d8d7f42c89fccc29320"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/qualification/raw-result.json": {
+      "bytes": 136831,
+      "sha256": "a18cbcc382554ac6d8e4378ceef813d81d4830a6c7eab11eaf8e1bf35aab63b1"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cases/qualification/summary.json": {
+      "bytes": 427,
+      "sha256": "1b1c9d7cdfaa79cf10546595641df38a6ef07c5d5e979e65380124660f532ef2"
+    },
+    "evidence/mpla-booster-20260729T170720Z/cleanup.json": {
+      "bytes": 9519,
+      "sha256": "26570f8b2a034a1a4d1bd4ed9fecb58afe16cb3e3f081ca7f0b3626a420f7a2f"
+    },
+    "evidence/mpla-booster-20260729T170720Z/command-ledger.jsonl": {
+      "bytes": 410105,
+      "sha256": "f65880e290862e33e65cecc2957ff6f07f918aff29ef300ee7fbf8e55cfeb399"
+    },
+    "evidence/mpla-booster-20260729T170720Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T170720Z/decision.json": {
+      "bytes": 143,
+      "sha256": "9c0b0de466d0f53b5b06eb607026d1efd655da77c6a6e3677060b8dfa4069053"
+    },
+    "evidence/mpla-booster-20260729T170720Z/environment.json": {
+      "bytes": 548,
+      "sha256": "05e5b8106c1c6aefd0f935f27fadc92179e1c9220f589d0233d89e3719f97ac9"
+    },
+    "evidence/mpla-booster-20260729T170720Z/fixture-manifest.json": {
+      "bytes": 776135,
+      "sha256": "0108639cb5c1bf8ce6ed6e3552ced53b11215e92986c6bb3e401657f541f23b0"
+    },
+    "evidence/mpla-booster-20260729T170720Z/manifest.sha256": {
+      "bytes": 3182,
+      "sha256": "f648567eec4bcd3b7854e721ff28797812bfe01339c1c382d8783207312ea181"
+    },
+    "evidence/mpla-booster-20260729T170720Z/report.md": {
+      "bytes": 164,
+      "sha256": "95d032a94b1d27d18d18298046629500b55ef4b17bb81e0ad736b67fb81cea60"
+    },
+    "evidence/mpla-booster-20260729T170720Z/resources.json": {
+      "bytes": 809,
+      "sha256": "e5da83e68606b2d637171cd352de20af0b536539c6d317a68cff09793dcaf9e6"
+    },
+    "evidence/mpla-booster-20260729T170720Z/scorecard.json": {
+      "bytes": 2673,
+      "sha256": "d29a95c8f26d605a453cbd10830ffa8775499dca203135932f2ddb0b4e4e860e"
+    },
+    "evidence/mpla-booster-20260729T170720Z/security-profile.json": {
+      "bytes": 627,
+      "sha256": "44557e343e0beca734f93eb209f7ff589504fbb455e75406319b62ff191ced3f"
+    },
+    "evidence/mpla-booster-20260729T170720Z/source.json": {
+      "bytes": 98941,
+      "sha256": "fc15f73a3cdfec7344e355e3c05f1385e97754f93270e805437eb8821f824291"
+    },
+    "evidence/mpla-booster-20260729T170720Z/staged-artifacts.json": {
+      "bytes": 1448,
+      "sha256": "679acef9e48033602ce373161bfb2500bb7ca227338a31d87066c1394936b712"
+    },
+    "evidence/mpla-booster-20260729T173742Z/cases/BG-PUBLISH-SMALL/error.json": {
+      "bytes": 440,
+      "sha256": "00b1d17ed640f5a9347fe6c934917f6c45f1806d0274121dd3173718d30665cf"
+    },
+    "evidence/mpla-booster-20260729T173742Z/cases/BG-PUBLISH-SMALL/fixture-preparation-progress-error.json": {
+      "bytes": 223,
+      "sha256": "7e7d8ef30065d6a525185f7bb96ccf5c82ebaef01de694143e49785e94b08991"
+    },
+    "evidence/mpla-booster-20260729T173742Z/cases/BG-PUBLISH-SMALL/fixture-preparation-terminal.json": {
+      "bytes": 608,
+      "sha256": "3e250e613a334c000beef9414cfc37f64f514a0f72dc760d0b61f32ea034273c"
+    },
+    "evidence/mpla-booster-20260729T173742Z/cases/BG-PUBLISH-SMALL/fixture-preparation-trace.json": {
+      "bytes": 105,
+      "sha256": "ac300666885a52e615729eb5cf84e06e69f5c3b9ec9e8195c96a466d47e29711"
+    },
+    "evidence/mpla-booster-20260729T173742Z/cleanup.json": {
+      "bytes": 3485,
+      "sha256": "1550c36940860e17cdda690e51b297553f981b0b59ab935fa6218208b1383a17"
+    },
+    "evidence/mpla-booster-20260729T173742Z/command-ledger.jsonl": {
+      "bytes": 6461,
+      "sha256": "fdb8bfe192e239f7d45d6aea91720cf950bc550406a21f6e73e577e0c77b2d87"
+    },
+    "evidence/mpla-booster-20260729T173742Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T173742Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T173742Z/environment.json": {
+      "bytes": 556,
+      "sha256": "d80e7ad4805b8f136b7d75892159825dd505011ab0ad935e541a8aac7eec81d2"
+    },
+    "evidence/mpla-booster-20260729T173742Z/manifest.sha256": {
+      "bytes": 1376,
+      "sha256": "73f02e82029a7c910d93bc594f61e81a6debb274863a0c1c9fc4393634fcaed5"
+    },
+    "evidence/mpla-booster-20260729T173742Z/report.md": {
+      "bytes": 167,
+      "sha256": "8d872a74ac856afabe4036d54a930c22662d470d408a3e6fdaf075b713e16e2b"
+    },
+    "evidence/mpla-booster-20260729T173742Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T173742Z/scorecard.json": {
+      "bytes": 2607,
+      "sha256": "cd0157bd9a67731e1571ba8d192386a6fdedc7a4c7fa08f221e8de9813f0e18d"
+    },
+    "evidence/mpla-booster-20260729T173742Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260729T173742Z/source.json": {
+      "bytes": 105370,
+      "sha256": "dbb5d2f140acea41eb8af8f9918080422438720b0abcdf2209f50bd9d47b4aad"
+    },
+    "evidence/mpla-booster-20260729T173742Z/staged-artifacts.json": {
+      "bytes": 1151,
+      "sha256": "7b3bd9bcd2362ed32086b6659f3f4157547259cebe440f4af66719ab00838d1c"
+    },
+    "evidence/mpla-booster-20260729T174157Z/cases/BG-PUBLISH-SMALL/error.json": {
+      "bytes": 163,
+      "sha256": "5a5039e2434f93a65b7620f0e07aa315ff0c83a509377d053752bdf798439327"
+    },
+    "evidence/mpla-booster-20260729T174157Z/cases/BG-PUBLISH-SMALL/fixture-preparation-progress.json": {
+      "bytes": 1154,
+      "sha256": "7d5c74530e73c79861c559c982e5ebd0e122335871bc7f64a3596ee3c36afd9e"
+    },
+    "evidence/mpla-booster-20260729T174157Z/cases/BG-PUBLISH-SMALL/fixture-preparation-terminal.json": {
+      "bytes": 339,
+      "sha256": "3a79ad103ffcd360ae894c5a685050e3237a11b749250c5bb7c7bfb2ed33da52"
+    },
+    "evidence/mpla-booster-20260729T174157Z/cases/BG-PUBLISH-SMALL/fixture-preparation-trace.json": {
+      "bytes": 105,
+      "sha256": "d3dd4f9a034fb391c5d051a156c662d85435621d0ff56552b2c1fbe99c73509b"
+    },
+    "evidence/mpla-booster-20260729T174157Z/cleanup.json": {
+      "bytes": 3487,
+      "sha256": "f4551da4b8a31a25a0dab519e256a616102ab6dc231723cd0cf17a3a9cc8ad31"
+    },
+    "evidence/mpla-booster-20260729T174157Z/command-ledger.jsonl": {
+      "bytes": 36476,
+      "sha256": "363d2da0b58df6fb7dad439bfed2bebf1690e7d9132d562ac0b0aa171bcd9a00"
+    },
+    "evidence/mpla-booster-20260729T174157Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T174157Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T174157Z/environment.json": {
+      "bytes": 556,
+      "sha256": "1e00d5f7aac301773aff0d885e258c86a6252b79b29805294ebecc9ee38f04fd"
+    },
+    "evidence/mpla-booster-20260729T174157Z/manifest.sha256": {
+      "bytes": 1370,
+      "sha256": "3a24f6653e4a9bf43734afa83f9e6c8b1bce7ad8640203f94f69c2616544626a"
+    },
+    "evidence/mpla-booster-20260729T174157Z/report.md": {
+      "bytes": 167,
+      "sha256": "1a029127c8a5e2a6a9a8bffb11547ec65a5f1250b3ae54a0cef026b6537e3282"
+    },
+    "evidence/mpla-booster-20260729T174157Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T174157Z/scorecard.json": {
+      "bytes": 2607,
+      "sha256": "9b65f6410fb8ad023c5191da2cb1c09051a3bb54c72896eb7df2caadb9e41382"
+    },
+    "evidence/mpla-booster-20260729T174157Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260729T174157Z/source.json": {
+      "bytes": 108562,
+      "sha256": "cb97ee6383b63c8f7099aeb6400c2e7996c2ce8b16545164beefa79f31caf2c6"
+    },
+    "evidence/mpla-booster-20260729T174157Z/staged-artifacts.json": {
+      "bytes": 1151,
+      "sha256": "0699ecc91561fd7d704bcb998a8f2bd7fd9fb987292fae728b7091ebb2c99234"
+    },
+    "evidence/mpla-booster-20260729T175922Z/cases/BG-PUBLISH-SMALL/error.json": {
+      "bytes": 161,
+      "sha256": "d315a3df116346cd0606f9d8db5c3276b25d24fee6b024d045ffcdcf6dff7f1e"
+    },
+    "evidence/mpla-booster-20260729T175922Z/cases/BG-PUBLISH-SMALL/fixture-preparation-progress.json": {
+      "bytes": 3662,
+      "sha256": "d293e27d95f65ce720e5fc9a549515bca93c5de19ac3256d018627f07eaaa8d6"
+    },
+    "evidence/mpla-booster-20260729T175922Z/cases/BG-PUBLISH-SMALL/fixture-preparation-terminal.json": {
+      "bytes": 337,
+      "sha256": "d503350dce0b86413dfebd619a0d9dfa2327a43ce8903a5b5447fe3f6c3636ba"
+    },
+    "evidence/mpla-booster-20260729T175922Z/cases/BG-PUBLISH-SMALL/fixture-preparation-trace.json": {
+      "bytes": 105,
+      "sha256": "6031950b94899e0ea662795d8bd8c385b273566a92e0130702d9dc7102377b61"
+    },
+    "evidence/mpla-booster-20260729T175922Z/cleanup.json": {
+      "bytes": 3488,
+      "sha256": "45dabda35ff9efd391cab978b3d9120d21f72afb316c2552e86e5d9474ce740d"
+    },
+    "evidence/mpla-booster-20260729T175922Z/command-ledger.jsonl": {
+      "bytes": 36476,
+      "sha256": "c00ea57a93cb61d547b487b1690596d084f6611bc1b84c6e8953c5d293aedf25"
+    },
+    "evidence/mpla-booster-20260729T175922Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T175922Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T175922Z/environment.json": {
+      "bytes": 556,
+      "sha256": "7951e1bc01d2c170e5e54bd3a7ccf2bb7405efce027474543d8dd8448aa5b86f"
+    },
+    "evidence/mpla-booster-20260729T175922Z/manifest.sha256": {
+      "bytes": 1370,
+      "sha256": "5fc2ef660bdfcc969bc5bac66a647555c6aead2a5b878ba2a111c67f1a0f6c71"
+    },
+    "evidence/mpla-booster-20260729T175922Z/report.md": {
+      "bytes": 167,
+      "sha256": "0bb786117c7debbc0b078c219a79503e04327f4188168f98edcd9a6f359f64e0"
+    },
+    "evidence/mpla-booster-20260729T175922Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T175922Z/scorecard.json": {
+      "bytes": 2607,
+      "sha256": "4e817ce1143487c7365a3af51c8004d7c96fd45cd1c69765353ae278b4044da8"
+    },
+    "evidence/mpla-booster-20260729T175922Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260729T175922Z/source.json": {
+      "bytes": 111497,
+      "sha256": "12f487192fef82534ea5cf35654dbf52c154bbe95a197990d55e67a542bba28d"
+    },
+    "evidence/mpla-booster-20260729T175922Z/staged-artifacts.json": {
+      "bytes": 1151,
+      "sha256": "a9813d5665dbbde789b5277320330c5ddad18dc5d314125cc3391a9dc617e6c0"
+    },
+    "evidence/mpla-booster-20260729T182434Z/cases/BG-PUBLISH-SMALL/error.json": {
+      "bytes": 163,
+      "sha256": "8599eb359f0b5515a2a487dc73817ae3cea9b9a6a06d4e40c2d63f97fb9e2cc3"
+    },
+    "evidence/mpla-booster-20260729T182434Z/cases/BG-PUBLISH-SMALL/fixture-preparation-candidate-events.json": {
+      "bytes": 41009,
+      "sha256": "82b464c4ab45dc32b3e97c4ce9218368bc923098c7efcf546cf0eb067f2f4477"
+    },
+    "evidence/mpla-booster-20260729T182434Z/cases/BG-PUBLISH-SMALL/fixture-preparation-candidate-trace.json": {
+      "bytes": 14667,
+      "sha256": "d5b72bfbbdbe5415c418b3e3521ecc95a7aeaa85edd7f1fe7a17622c7c0b2c8c"
+    },
+    "evidence/mpla-booster-20260729T182434Z/cases/BG-PUBLISH-SMALL/fixture-preparation-progress.json": {
+      "bytes": 3662,
+      "sha256": "6c0b890ff5044dff1c15b6d80790acbd5e02ee558d05ba3e10184434e9648d5a"
+    },
+    "evidence/mpla-booster-20260729T182434Z/cases/BG-PUBLISH-SMALL/fixture-preparation-terminal.json": {
+      "bytes": 339,
+      "sha256": "fa2d0e51fb695e5029a17c7e60e5c2795dece62b6fef9fc869d894515f1d1942"
+    },
+    "evidence/mpla-booster-20260729T182434Z/cases/BG-PUBLISH-SMALL/fixture-preparation-trace.json": {
+      "bytes": 105,
+      "sha256": "72e3b7300fcc8f00093bd0d6e6150f4bb61b376474711ede8b87df1254940ed6"
+    },
+    "evidence/mpla-booster-20260729T182434Z/cleanup.json": {
+      "bytes": 3488,
+      "sha256": "267413c2f3c779c1425845eb2934e2bcf3c28e437fbe8607b87ba55a21399747"
+    },
+    "evidence/mpla-booster-20260729T182434Z/command-ledger.jsonl": {
+      "bytes": 37362,
+      "sha256": "5528b0441d5766dbc29a9ee025e61c062c320228ff1d970539eaf56ff21fe0ce"
+    },
+    "evidence/mpla-booster-20260729T182434Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T182434Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T182434Z/environment.json": {
+      "bytes": 556,
+      "sha256": "ab710da381e7be37cbc198dbba71be19674916b7ed71aedd57780bcfaa2acae1"
+    },
+    "evidence/mpla-booster-20260729T182434Z/manifest.sha256": {
+      "bytes": 1631,
+      "sha256": "736c2e353db32086739dabb6ef3bf271cc708d2ed689ece9696987aa9a5dae26"
+    },
+    "evidence/mpla-booster-20260729T182434Z/report.md": {
+      "bytes": 167,
+      "sha256": "48a907fa4adb68fa8cc0c0f8b9057322e81d454d4a8b7c2c89e068bfa2a00400"
+    },
+    "evidence/mpla-booster-20260729T182434Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T182434Z/scorecard.json": {
+      "bytes": 2607,
+      "sha256": "1b270bea6bf5f0c173b8e6d8f67c2bf71a8201c4d0fa1dbc6d7083ddd1609d9b"
+    },
+    "evidence/mpla-booster-20260729T182434Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260729T182434Z/source.json": {
+      "bytes": 114432,
+      "sha256": "279eddb0c4a90db6ad5df48a4298fccbb930b6430f8d132b7f6b38c0f64fa8f8"
+    },
+    "evidence/mpla-booster-20260729T182434Z/staged-artifacts.json": {
+      "bytes": 1151,
+      "sha256": "be108872423126c43d63241c8adc32922939dc1c6c6b75c3fefa7ffb26e36ba2"
+    },
+    "evidence/mpla-booster-20260729T185344Z/cases/BG-PUBLISH-SMALL/error.json": {
+      "bytes": 163,
+      "sha256": "12b8bf35917b04c7096824c4ab7b945476bbbeb1a18a9686139e80e78aab7e28"
+    },
+    "evidence/mpla-booster-20260729T185344Z/cases/BG-PUBLISH-SMALL/fixture-preparation-candidate-events.json": {
+      "bytes": 39615,
+      "sha256": "406c3d68b74a9c4eb28585ebd41dc4ba5a365b2c7cc45a69cb4f4a5768e4a1bb"
+    },
+    "evidence/mpla-booster-20260729T185344Z/cases/BG-PUBLISH-SMALL/fixture-preparation-candidate-trace.json": {
+      "bytes": 16510,
+      "sha256": "37d89c7e29dbc3e932597aae905816800871d4a21e0bebf2c81b6fc8f5a69cab"
+    },
+    "evidence/mpla-booster-20260729T185344Z/cases/BG-PUBLISH-SMALL/fixture-preparation-progress.json": {
+      "bytes": 3662,
+      "sha256": "789932d38009497b9863069cb8c5fd28de8a984508156504a287eacf365bc827"
+    },
+    "evidence/mpla-booster-20260729T185344Z/cases/BG-PUBLISH-SMALL/fixture-preparation-terminal.json": {
+      "bytes": 339,
+      "sha256": "968f270b0b9a6efe77beaf4796f40b6fcf66748dcc8cedfbe000d248d6fd0261"
+    },
+    "evidence/mpla-booster-20260729T185344Z/cases/BG-PUBLISH-SMALL/fixture-preparation-trace.json": {
+      "bytes": 105,
+      "sha256": "4b97176a55a2b4f87d04245bde6f1719501d9c7d7d80ec6788a82c0d0818eb65"
+    },
+    "evidence/mpla-booster-20260729T185344Z/cleanup.json": {
+      "bytes": 3488,
+      "sha256": "db610961d9b8609b68cbd24bc3b81e242fd8d2e2b9cebfefc9a6634aa5c71a12"
+    },
+    "evidence/mpla-booster-20260729T185344Z/command-ledger.jsonl": {
+      "bytes": 37362,
+      "sha256": "0d3fa308d7c24a61c47da607bcec5ddaa14deacd61a7db00d5892ed2cb96f946"
+    },
+    "evidence/mpla-booster-20260729T185344Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T185344Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T185344Z/environment.json": {
+      "bytes": 556,
+      "sha256": "1f59847f60159a165587357aa661f48d4fd95b1778d02d21a6be6a3b7028c318"
+    },
+    "evidence/mpla-booster-20260729T185344Z/manifest.sha256": {
+      "bytes": 1631,
+      "sha256": "291aceb7c65583db0fa737d13c49e6eda12012b95171bca42cebc9bb1aee1ca2"
+    },
+    "evidence/mpla-booster-20260729T185344Z/report.md": {
+      "bytes": 167,
+      "sha256": "64b2b3819e356120b453f86ad79d2b22e8c89757e371ab084af9e58a11c95aad"
+    },
+    "evidence/mpla-booster-20260729T185344Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T185344Z/scorecard.json": {
+      "bytes": 2607,
+      "sha256": "6cb0d0f5d1daaacfa1dc01b1a1a59f1e3532148256a829dace36be8f07bace1e"
+    },
+    "evidence/mpla-booster-20260729T185344Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260729T185344Z/source.json": {
+      "bytes": 118729,
+      "sha256": "d6fa975b009879ece8e27a3a3d85052a4741d2e329903cc4aae4f4d3536f7e99"
+    },
+    "evidence/mpla-booster-20260729T185344Z/staged-artifacts.json": {
+      "bytes": 1151,
+      "sha256": "ace51db147e4ba3f6fd19aa47ae3729d2437b0392c8640e3af135276bc69481a"
+    },
+    "evidence/mpla-booster-20260730T031500Z/cases/BG-PUBLISH-SMALL/error.json": {
+      "bytes": 163,
+      "sha256": "4a823ef6071a1e5688893b0be04c883e4f3e96017241ac6733240bb6dd5582e8"
+    },
+    "evidence/mpla-booster-20260730T031500Z/cases/BG-PUBLISH-SMALL/fixture-preparation-candidate-events.json": {
+      "bytes": 39608,
+      "sha256": "18889917bea677536ec8308751975ca27cfe7d74034af212742e63d3ebac7acc"
+    },
+    "evidence/mpla-booster-20260730T031500Z/cases/BG-PUBLISH-SMALL/fixture-preparation-candidate-trace.json": {
+      "bytes": 16511,
+      "sha256": "f16cfcf441e57943ec210f2366cbd9f99fe8ee8d37b099f5b30d705cebb486a4"
+    },
+    "evidence/mpla-booster-20260730T031500Z/cases/BG-PUBLISH-SMALL/fixture-preparation-progress.json": {
+      "bytes": 3662,
+      "sha256": "c80c2b624127d8802b344f1e2960007a93a81b29085ac72a14f6c6e7a160ba12"
+    },
+    "evidence/mpla-booster-20260730T031500Z/cases/BG-PUBLISH-SMALL/fixture-preparation-terminal.json": {
+      "bytes": 339,
+      "sha256": "f234daf9b5a1214fd936cb8062c61ad1ed88b26d8164e1b2083cdcf15356b2ea"
+    },
+    "evidence/mpla-booster-20260730T031500Z/cases/BG-PUBLISH-SMALL/fixture-preparation-trace.json": {
+      "bytes": 105,
+      "sha256": "3c90b8e24ba956b1008fbb5e57e634a3fcb97a7e39afac3cb445a14769dae5ee"
+    },
+    "evidence/mpla-booster-20260730T031500Z/cleanup.json": {
+      "bytes": 3488,
+      "sha256": "df868b4b03573de0c51d50be34295236be0f761698ab9ca3b2741b14c2aa096e"
+    },
+    "evidence/mpla-booster-20260730T031500Z/command-ledger.jsonl": {
+      "bytes": 37362,
+      "sha256": "4f25f24820fcd27ab75e4d1307924863be3384c52eba4f673252d89be92563a5"
+    },
+    "evidence/mpla-booster-20260730T031500Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260730T031500Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260730T031500Z/environment.json": {
+      "bytes": 556,
+      "sha256": "d67cc961714d498e1f092d2cd4f2ab4d5e7d52f478160f91b37a5ffdf377a382"
+    },
+    "evidence/mpla-booster-20260730T031500Z/manifest.sha256": {
+      "bytes": 1631,
+      "sha256": "f065c4914e394625f24947bbdc6786c3216198a28cd01db4bb38323c167261fc"
+    },
+    "evidence/mpla-booster-20260730T031500Z/report.md": {
+      "bytes": 167,
+      "sha256": "e48730d2b7a36fb6459c03154430c7e63a747f9a520a37436c230ea6f63c008f"
+    },
+    "evidence/mpla-booster-20260730T031500Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260730T031500Z/scorecard.json": {
+      "bytes": 2607,
+      "sha256": "73ee9b62cc81402bc973b647093209308597ef43f1db7073f648c85a276bcd25"
+    },
+    "evidence/mpla-booster-20260730T031500Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260730T031500Z/source.json": {
+      "bytes": 124216,
+      "sha256": "0b53d4648006e4ce0a77612d88cf2b10e2a7a8a205ea442fb704a8a764f97224"
+    },
+    "evidence/mpla-booster-20260730T031500Z/staged-artifacts.json": {
+      "bytes": 1151,
+      "sha256": "84af73492e213ac0309b89a75573f84719ae6c6f3cceac680ae4dcce87179c1f"
+    },
+    "evidence/mpla-booster-20260730T035800Z/cases/BG-PUBLISH-SMALL/coordinator-terminal.json": {
+      "bytes": 763,
+      "sha256": "2d708e392a5c37e505a6d2f6284d40c1a9fe42c4e0796a4f21c8bd083563323e"
+    },
+    "evidence/mpla-booster-20260730T035800Z/cases/BG-PUBLISH-SMALL/fixture-preparation-summary.json": {
+      "bytes": 294,
+      "sha256": "166660a2859ee2524df430db503414e43124e2d5c64bfeadbc56b8033765f0b1"
+    },
+    "evidence/mpla-booster-20260730T035800Z/cases/BG-PUBLISH-SMALL/fixture-preparation-terminal.json": {
+      "bytes": 637,
+      "sha256": "da5526c5245e009378f36f658fa7034752611f8e55f8064014b38c3ed77b140c"
+    },
+    "evidence/mpla-booster-20260730T035800Z/cases/BG-PUBLISH-SMALL/raw-result.json": {
+      "bytes": 1066172,
+      "sha256": "be96b334adc1e372a56f0ea33bf004d0ed43d4dc84a6ebf54b1bc2c8fb7a01b8"
+    },
+    "evidence/mpla-booster-20260730T035800Z/cases/BG-PUBLISH-SMALL/summary.json": {
+      "bytes": 428,
+      "sha256": "33f6a2cd84fa239eb3bd3f34069f4157494619d82bf0b9da848a45b18ab1d107"
+    },
+    "evidence/mpla-booster-20260730T035800Z/cleanup.json": {
+      "bytes": 3492,
+      "sha256": "52720355970c6b6a8ea38c1c8c9658d984a59b520d1952892fe490b2c9829279"
+    },
+    "evidence/mpla-booster-20260730T035800Z/command-ledger.jsonl": {
+      "bytes": 82532,
+      "sha256": "d8f095b9381a1faab52ad21de6f15cbcc52973624fb996a2522dbf30c6155733"
+    },
+    "evidence/mpla-booster-20260730T035800Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260730T035800Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260730T035800Z/environment.json": {
+      "bytes": 556,
+      "sha256": "ece81994a630f45011f473bff9b5be2a3f482b6a91a043c64ac82ce008b00c29"
+    },
+    "evidence/mpla-booster-20260730T035800Z/manifest.sha256": {
+      "bytes": 1471,
+      "sha256": "96b770d84a9248899fd2b666d106fcbab5df2634e36d1b689340d251f141a462"
+    },
+    "evidence/mpla-booster-20260730T035800Z/report.md": {
+      "bytes": 167,
+      "sha256": "451a8ba69b73949b6dc81f427e334e484ccc2912bb57ee1327ebbdae11f6b79f"
+    },
+    "evidence/mpla-booster-20260730T035800Z/resources.json": {
+      "bytes": 536,
+      "sha256": "5d9c6163b7938b4d124ea46158707f034a23a0067e084b5977947849a584a188"
+    },
+    "evidence/mpla-booster-20260730T035800Z/scorecard.json": {
+      "bytes": 2608,
+      "sha256": "ec0380d627b0e7c134b0f9642b607165ccd7f2afc9599727cc87436dab1f8eba"
+    },
+    "evidence/mpla-booster-20260730T035800Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260730T035800Z/source.json": {
+      "bytes": 127600,
+      "sha256": "8231016b13ef25ae239ae9ae6e9a887e534cee2bdecb3121b139a437ca109f7e"
+    },
+    "evidence/mpla-booster-20260730T035800Z/staged-artifacts.json": {
+      "bytes": 1151,
+      "sha256": "fb13916097822994b49779964918adefcfd349bdd090a5fc765034fcf64b5b5f"
+    },
+    "evidence/mpla-booster-20260730T042200Z/cases/BG-PUBLISH-SMALL/coordinator-terminal.json": {
+      "bytes": 764,
+      "sha256": "442c46492a6f4a3c94dac7d27a95b3936b07e2b1e8f6cf7420bbd6b5fc377b9a"
+    },
+    "evidence/mpla-booster-20260730T042200Z/cases/BG-PUBLISH-SMALL/fixture-preparation-summary.json": {
+      "bytes": 294,
+      "sha256": "59589b81e80f7c411208705238bd5c3012d2e36fedaa56adf51c4cb0db7acc23"
+    },
+    "evidence/mpla-booster-20260730T042200Z/cases/BG-PUBLISH-SMALL/fixture-preparation-terminal.json": {
+      "bytes": 637,
+      "sha256": "2edbe961a3ea1403c39c0a5d12cfeffa225f8951313a17f9342f275d9005e361"
+    },
+    "evidence/mpla-booster-20260730T042200Z/cases/BG-PUBLISH-SMALL/raw-result.json": {
+      "bytes": 1058931,
+      "sha256": "a9e43fb542276ce99903b348d69de08af75ee92a58895a770dc78cb8620e0b12"
+    },
+    "evidence/mpla-booster-20260730T042200Z/cases/BG-PUBLISH-SMALL/summary.json": {
+      "bytes": 428,
+      "sha256": "0fe95a235663e392b7e239e33726c32333af58de5b74704441fa3b578491f140"
+    },
+    "evidence/mpla-booster-20260730T042200Z/cleanup.json": {
+      "bytes": 3492,
+      "sha256": "4c3733194533271597dfaf098349fefc45ace9ea67f7a776cc58d488a60fdada"
+    },
+    "evidence/mpla-booster-20260730T042200Z/command-ledger.jsonl": {
+      "bytes": 77710,
+      "sha256": "9c86b312c0a1ae60946f4e08af706e5b09023ebd44ffe33fd5869e85dd38a18a"
+    },
+    "evidence/mpla-booster-20260730T042200Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260730T042200Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260730T042200Z/environment.json": {
+      "bytes": 556,
+      "sha256": "ab85c2ebcb7100ac7f5c7e5c733bf01bd525f30a8459cd0d3fb21d7d7286c714"
+    },
+    "evidence/mpla-booster-20260730T042200Z/manifest.sha256": {
+      "bytes": 1471,
+      "sha256": "f3ee3f28ca82ea194a38878dd3b1bd36f205f63791b470c9957629ec65d87298"
+    },
+    "evidence/mpla-booster-20260730T042200Z/report.md": {
+      "bytes": 167,
+      "sha256": "589ad9a26b74d39064957d8277edd85893382e52b33eb12a4a3c6cc43b0f5ee5"
+    },
+    "evidence/mpla-booster-20260730T042200Z/resources.json": {
+      "bytes": 536,
+      "sha256": "90f050c2a9a88d0d1cf25727cba54546ce5c28bcfac35c6bb5dea0542574ed80"
+    },
+    "evidence/mpla-booster-20260730T042200Z/scorecard.json": {
+      "bytes": 2608,
+      "sha256": "7fbe0dadaac9c651a34e5ddfdf69aee2ca97da1f080e43b8fb05e0d90fcbf04b"
+    },
+    "evidence/mpla-booster-20260730T042200Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260730T042200Z/source.json": {
+      "bytes": 130732,
+      "sha256": "f156cf3c595e5f7189d0aceac38bf5aa945d38c5753cbad79a6ae27c08854dc9"
+    },
+    "evidence/mpla-booster-20260730T042200Z/staged-artifacts.json": {
+      "bytes": 1151,
+      "sha256": "e8d3de1dbc47224cd4785edd4bc8d5f7f94140b2a23861f4ce1066fd126655c2"
+    },
+    "evidence/mpla-booster-20260730T043700Z/cases/BG-PUBLISH-SMALL/coordinator-terminal.json": {
+      "bytes": 764,
+      "sha256": "e8c8960afb772674b2e34a07087e682ea7e2266c8918599a07b0d90ac32ba226"
+    },
+    "evidence/mpla-booster-20260730T043700Z/cases/BG-PUBLISH-SMALL/fixture-preparation-summary.json": {
+      "bytes": 294,
+      "sha256": "6871f0d1688b7b102457864b444752cf4b78339314a3196fec5ad89c45399451"
+    },
+    "evidence/mpla-booster-20260730T043700Z/cases/BG-PUBLISH-SMALL/fixture-preparation-terminal.json": {
+      "bytes": 637,
+      "sha256": "ae6d6f5d700850ac27ffdbc0248b77c09013ab74035f8cb2bc2a81fcace17a22"
+    },
+    "evidence/mpla-booster-20260730T043700Z/cases/BG-PUBLISH-SMALL/raw-result.json": {
+      "bytes": 1058917,
+      "sha256": "db829f0bda1a874af935d1d7af7c5bbcc4d5a0e78043227af1ddb4684ba1e450"
+    },
+    "evidence/mpla-booster-20260730T043700Z/cases/BG-PUBLISH-SMALL/summary.json": {
+      "bytes": 428,
+      "sha256": "a1db391aa0e24b9469143ad741af8b18e5cd606b6ce5c41617ecadf589b50d90"
+    },
+    "evidence/mpla-booster-20260730T043700Z/cleanup.json": {
+      "bytes": 3492,
+      "sha256": "dc0f4d08f9647dd1a09aa4467bb1e7fb2e1c189749d1d91882de8d808ff58d5b"
+    },
+    "evidence/mpla-booster-20260730T043700Z/command-ledger.jsonl": {
+      "bytes": 77174,
+      "sha256": "21a56cbfb13b485d082452b5c1250c2b7e911359d48978ceb3e7a7919f97e418"
+    },
+    "evidence/mpla-booster-20260730T043700Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260730T043700Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260730T043700Z/environment.json": {
+      "bytes": 556,
+      "sha256": "4aeb7c9ca6655a6803871da0e4550eda8ff41176819e663422e30103526aad0e"
+    },
+    "evidence/mpla-booster-20260730T043700Z/manifest.sha256": {
+      "bytes": 1471,
+      "sha256": "c4000dea4fcc7b6edfa282e82552484912e9c00483e40d8a72b139b43f228b59"
+    },
+    "evidence/mpla-booster-20260730T043700Z/report.md": {
+      "bytes": 167,
+      "sha256": "b5e74789f77c5e6d9e62901f22bf7d507af9964ba4b9af65fa20b1e256fc9525"
+    },
+    "evidence/mpla-booster-20260730T043700Z/resources.json": {
+      "bytes": 536,
+      "sha256": "835ea096f3bebe58f2cc16621ac2ea8b57175d60e21e6cf1d4aa6d46e0c65ba8"
+    },
+    "evidence/mpla-booster-20260730T043700Z/scorecard.json": {
+      "bytes": 2608,
+      "sha256": "4bc26304dda5ba0d73fb2bd0b5f771210b69e4c514f626de1f55c3b98baa808f"
+    },
+    "evidence/mpla-booster-20260730T043700Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260730T043700Z/source.json": {
+      "bytes": 133863,
+      "sha256": "045cba7ba13caef1e6e8571f7afef5e3bce8c2a7f08ba7707ae03de463a1d427"
+    },
+    "evidence/mpla-booster-20260730T043700Z/staged-artifacts.json": {
+      "bytes": 1151,
+      "sha256": "a93a4f6b79af0e7bd4814d6ab793156282056cb68e4bc7cd52ada1dc7a4d8133"
+    },
+    "evidence/mpla-booster-20260730T045000Z/cases/BG-PUBLISH-SMALL/coordinator-terminal.json": {
+      "bytes": 764,
+      "sha256": "d0d356f3f7bf1069771254e2a07638c82d97d6acfb17942d34fb8316bfdb6c70"
+    },
+    "evidence/mpla-booster-20260730T045000Z/cases/BG-PUBLISH-SMALL/fixture-preparation-summary.json": {
+      "bytes": 294,
+      "sha256": "e8bf4f0571a79b9238aab991422fbb98a12be9bc44916c05474695f6f68cd68d"
+    },
+    "evidence/mpla-booster-20260730T045000Z/cases/BG-PUBLISH-SMALL/fixture-preparation-terminal.json": {
+      "bytes": 637,
+      "sha256": "f4fd8453c257a95068394a69e0be1e8c575428410120fc571ab53f9f56b5e547"
+    },
+    "evidence/mpla-booster-20260730T045000Z/cases/BG-PUBLISH-SMALL/raw-result.json": {
+      "bytes": 1058903,
+      "sha256": "ebbf925adbf41b95b6d8499db130d2e034bfa6c5b1e2e55bce12835d4e6c09e7"
+    },
+    "evidence/mpla-booster-20260730T045000Z/cases/BG-PUBLISH-SMALL/summary.json": {
+      "bytes": 428,
+      "sha256": "d1d0fd5da47e9d6f599fad87b6f2e3af3c492fb1f95cefc94876838cce1b37c6"
+    },
+    "evidence/mpla-booster-20260730T045000Z/cleanup.json": {
+      "bytes": 3492,
+      "sha256": "11054899ac87529ee164437d440f80cc6c187a7db87f1504cd5fce7753c095f5"
+    },
+    "evidence/mpla-booster-20260730T045000Z/command-ledger.jsonl": {
+      "bytes": 77174,
+      "sha256": "58f5421113d162354cadcaecd6bf090e7aa4c0446c780c76ceb837a4958caf6e"
+    },
+    "evidence/mpla-booster-20260730T045000Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260730T045000Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260730T045000Z/environment.json": {
+      "bytes": 556,
+      "sha256": "cc9e3603e2784a7636da75074fed7c59d58600771c44342a607ea916c31c6bae"
+    },
+    "evidence/mpla-booster-20260730T045000Z/manifest.sha256": {
+      "bytes": 1471,
+      "sha256": "a6c3c7a4ab52ca439a7b5b09d6268af63377e113d8ac36db2f53e7df3651ba75"
+    },
+    "evidence/mpla-booster-20260730T045000Z/report.md": {
+      "bytes": 167,
+      "sha256": "68177b74a879e4fcb7aa6eece586bd7347c51cb95f4398266c3fbbda20023db1"
+    },
+    "evidence/mpla-booster-20260730T045000Z/resources.json": {
+      "bytes": 536,
+      "sha256": "21b4a5601ad3393e52a78e7d38c0b000ccfd0f44c6c7e63a7268f1138d564a3b"
+    },
+    "evidence/mpla-booster-20260730T045000Z/scorecard.json": {
+      "bytes": 2608,
+      "sha256": "4e493f19447ad83a0c04a5dec3e2db839441ed4aa551ac7b9ca5e419a308df49"
+    },
+    "evidence/mpla-booster-20260730T045000Z/security-profile.json": {
+      "bytes": 639,
+      "sha256": "056588ae236fb678ee4dccb31baf1998b0151f5f65dc91a5cc2a595d68e9abd2"
+    },
+    "evidence/mpla-booster-20260730T045000Z/source.json": {
+      "bytes": 136994,
+      "sha256": "4e583c33df051851a914c0038f27ac18730389311c2e1d89cc65411336b7e184"
+    },
+    "evidence/mpla-booster-20260730T045000Z/staged-artifacts.json": {
+      "bytes": 1151,
+      "sha256": "06bfb38806f386fcc113d2bbadc84460dbdcc4f5489617710758bddebf24a9dc"
+    }
+  }
+}

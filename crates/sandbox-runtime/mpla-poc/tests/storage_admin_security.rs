@@ -2,19 +2,23 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use sandbox_runtime_mpla_poc::storage_admin::{
-    authorize_storage_admin, decode_invocation, run_platform_invocation, run_storage_admin,
-    storage_admin_authorized_path_sha256, storage_admin_mount_attestation_sha256,
-    storage_admin_mount_plan_evidence, storage_admin_mountinfo_target_sha256,
-    storage_admin_process_evidence_from_status, validate_opened_mount_namespace,
+    authorize_storage_admin, decode_holder_namespace_semantic_snapshot_invocation,
+    decode_invocation, decode_publication_invocation_sequence, run_platform_invocation,
+    run_platform_publication_sequence, run_storage_admin, storage_admin_authorized_path_sha256,
+    storage_admin_mount_attestation_sha256, storage_admin_mount_plan_evidence,
+    storage_admin_mountinfo_target_sha256, storage_admin_process_evidence_from_status,
+    validate_opened_mount_namespace, HolderNamespaceSemanticSnapshotInvocation,
     OrdinaryWorkloadPolicy, StorageAdminCapabilityProfile, StorageAdminExecution,
     StorageAdminInvocation, StorageAdminLifecycle, StorageAdminLowerBinding,
     StorageAdminMountAttestation, StorageAdminMountReceiptBinding, StorageAdminMountTableEvidence,
     StorageAdminObservedMount, StorageAdminPathIdentity, StorageAdminPreparationStep,
-    StorageAdminProcessProfile, StorageAdminTargetBinding, STORAGE_ADMIN_SECCOMP_PROFILE_ID,
+    StorageAdminProcessProfile, StorageAdminTargetBinding,
+    HOLDER_NAMESPACE_SEMANTIC_SNAPSHOT_FORMAT, STORAGE_ADMIN_SECCOMP_PROFILE_ID,
 };
 use sandbox_runtime_mpla_poc::{
-    AllocationId, OperationId, RunId, SessionId, StorageAdminAction, StorageAdminAuthorization,
-    StorageAdminOutcome, StorageAdminRequest, StorageAdminScope, INTERFACE_VERSION, SCHEMA_VERSION,
+    AllocationId, AttributionInput, OperationId, RunId, SemanticBuildRequest, SessionId,
+    StorageAdminAction, StorageAdminAuthorization, StorageAdminDurability, StorageAdminOutcome,
+    StorageAdminRequest, StorageAdminScope, INTERFACE_VERSION, SCHEMA_VERSION,
     STORAGE_ADMIN_EFFECTIVE_CAPABILITIES,
     STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_EFFECTIVE_CAPABILITIES,
     STORAGE_ADMIN_OVERLAYFS_DAC_OVERRIDE_QUALIFICATION_PROFILE_ID,
@@ -85,6 +89,11 @@ enum InputAccessMutation {
 }
 
 impl FakeLifecycle {
+    fn with_capability_mask(mut self, capability_mask: u64) -> Self {
+        self.capability_mask = capability_mask;
+        self
+    }
+
     fn succeeding() -> Self {
         Self {
             execution: StorageAdminExecution::succeeded(),
@@ -109,11 +118,6 @@ impl FakeLifecycle {
             attestation_mutation: None,
             input_access_mutation: None,
         }
-    }
-
-    fn with_capability_mask(mut self, capability_mask: u64) -> Self {
-        self.capability_mask = capability_mask;
-        self
     }
 
     fn with_mountinfo_after(mut self, mountinfo_after: StorageAdminMountTableEvidence) -> Self {
@@ -406,11 +410,27 @@ fn invocation(root: &Path, operation_id: &str) -> StorageAdminInvocation {
         request,
         authorization,
         trusted_actor_id: TRUSTED_ACTOR.to_owned(),
+        durability: StorageAdminDurability::ExactObjectGraph,
         trusted_executable_sha256: "00".repeat(32),
         workload_cgroup_procs: root.join("workload/cgroup.procs"),
         mount_namespace_holder_pid: NAMESPACE_HOLDER_PID,
         mount_receipt_binding: None,
     }
+}
+
+fn publication_invocation(
+    root: &Path,
+    operation_id: &str,
+    action: StorageAdminAction,
+) -> StorageAdminInvocation {
+    let mut invocation = invocation(root, operation_id);
+    invocation.expected_request.action = action;
+    invocation.request.action = action;
+    invocation.mount_receipt_binding = Some(StorageAdminMountReceiptBinding {
+        storage_operation_id: OperationId::from_string("mount-publication-sequence"),
+        attestation_sha256: "11".repeat(32),
+    });
+    invocation
 }
 
 fn rejection(invocation: &StorageAdminInvocation) -> String {
@@ -863,6 +883,184 @@ fn executable_command_shell_capability_and_extra_path_inputs_are_not_accepted() 
         &serde_json::to_vec(&encoded).expect("encode path-substituted invocation")
     )
     .is_err());
+}
+
+#[test]
+fn session_lifetime_durability_is_mount_only_and_replay_binds_the_exact_mode() {
+    let root = TestRoot::new();
+    let mut live_mount = invocation(&root.0, "operation-session-lifetime-mount");
+    live_mount.durability = StorageAdminDurability::SessionLifetime;
+    let mut lifecycle = FakeLifecycle::succeeding();
+    let first = run_storage_admin(&live_mount, &mut lifecycle)
+        .expect("daemon-internal live mount accepts session-lifetime durability");
+    assert_eq!(lifecycle.executions, 1);
+    assert!(!first.idempotent_replay);
+
+    let mut replay_lifecycle =
+        FakeLifecycle::returning(StorageAdminExecution::failed("must not execute", false));
+    let replay = run_storage_admin(&live_mount, &mut replay_lifecycle)
+        .expect("same session-lifetime invocation replays its immutable receipt");
+    assert!(replay.idempotent_replay);
+    assert_eq!(replay_lifecycle.executions, 0);
+    assert_eq!(replay_lifecycle.recoveries, 0);
+
+    let mut substituted_mode = live_mount.clone();
+    substituted_mode.durability = StorageAdminDurability::ExactObjectGraph;
+    let mut must_not_execute = FakeLifecycle::succeeding();
+    let error = run_storage_admin(&substituted_mode, &mut must_not_execute)
+        .expect_err("stored attempt must reject durability-mode substitution");
+    assert!(error.to_string().contains("attempt durability"));
+    assert_eq!(must_not_execute.executions, 0);
+    assert_eq!(must_not_execute.recoveries, 0);
+
+    let mut publication = publication_invocation(
+        &root.0,
+        "operation-session-lifetime-publication",
+        StorageAdminAction::Quiesce,
+    );
+    publication.durability = StorageAdminDurability::SessionLifetime;
+    let encoded = serde_json::to_vec(&publication).expect("encode malformed publication");
+    let error = decode_invocation(&encoded)
+        .expect_err("session-lifetime durability must not reach publication");
+    assert!(error.to_string().contains("valid only for Mount"));
+}
+
+#[test]
+fn exact_non_mount_actions_do_not_require_a_mount_durability_batch() {
+    for (operation_id, action) in [
+        ("operation-exact-quiesce", StorageAdminAction::Quiesce),
+        (
+            "operation-exact-strict-unmount",
+            StorageAdminAction::StrictUnmount,
+        ),
+        ("operation-exact-cleanup", StorageAdminAction::Cleanup),
+    ] {
+        let root = TestRoot::new();
+        let invocation = publication_invocation(&root.0, operation_id, action);
+        let mut lifecycle = FakeLifecycle::returning(StorageAdminExecution::failed(
+            "bounded non-Mount failure",
+            true,
+        ));
+        let receipt = run_storage_admin(&invocation, &mut lifecycle)
+            .expect("exact non-Mount action keeps its ordinary durable path");
+        assert_eq!(receipt.action, action);
+        assert_eq!(receipt.outcome, StorageAdminOutcome::Failed);
+        assert_eq!(lifecycle.executions, 1);
+        assert_eq!(lifecycle.commits, 1);
+    }
+}
+
+#[test]
+fn holder_namespace_snapshot_wire_is_fixed_and_rejects_extra_fields() {
+    let root = TestRoot::new();
+    let storage_admin = publication_invocation(
+        &root.0,
+        "holder-namespace-semantic-snapshot",
+        StorageAdminAction::Quiesce,
+    );
+    let invocation = HolderNamespaceSemanticSnapshotInvocation {
+        format: HOLDER_NAMESPACE_SEMANTIC_SNAPSHOT_FORMAT.to_owned(),
+        semantic: SemanticBuildRequest {
+            schema_version: SCHEMA_VERSION,
+            operation_id: storage_admin.request.operation_id.clone(),
+            allocation_id: storage_admin.request.scope.allocation_id.clone(),
+            sealed_tree: storage_admin.request.scope.workspace_root.clone(),
+            spool_dir: storage_admin
+                .request
+                .scope
+                .control_root
+                .join("runtime-lifecycle/operations/holder-namespace-semantic-snapshot/initial-semantic-spool"),
+            canonical_object_dir: storage_admin
+                .request
+                .scope
+                .control_root
+                .join("runs")
+                .join(storage_admin.request.scope.run_id.as_str())
+                .join("canonical-objects"),
+            attribution: AttributionInput {
+                actor_id: "sandbox-runtime-publication".to_owned(),
+                semantic_operation_id: storage_admin.request.scope.run_id.as_str().to_owned(),
+            },
+        },
+        storage_admin,
+    };
+    let encoded = serde_json::to_vec(&invocation).expect("encode fixed holder snapshot");
+    assert_eq!(
+        decode_holder_namespace_semantic_snapshot_invocation(&encoded)
+            .expect("decode fixed holder snapshot"),
+        invocation
+    );
+
+    let mut substituted = serde_json::to_value(&invocation).expect("encode snapshot value");
+    substituted["semantic"]
+        .as_object_mut()
+        .expect("snapshot semantic object")
+        .insert(
+            "workspace_path".to_owned(),
+            serde_json::json!("/attacker/path"),
+        );
+    assert!(decode_holder_namespace_semantic_snapshot_invocation(
+        &serde_json::to_vec(&substituted).expect("encode malformed snapshot")
+    )
+    .is_err());
+}
+
+#[test]
+fn publication_sequence_has_fixed_shape_order_and_one_exact_authority() {
+    let root = TestRoot::new();
+    let mut invocations = vec![
+        publication_invocation(&root.0, "publication-quiesce", StorageAdminAction::Quiesce),
+        publication_invocation(
+            &root.0,
+            "publication-unmount",
+            StorageAdminAction::StrictUnmount,
+        ),
+        publication_invocation(&root.0, "publication-cleanup", StorageAdminAction::Cleanup),
+    ];
+    let encoded = serde_json::to_vec(&invocations).expect("encode publication sequence");
+    assert_eq!(
+        decode_publication_invocation_sequence(&encoded)
+            .expect("fixed publication sequence")
+            .len(),
+        3
+    );
+    assert!(decode_publication_invocation_sequence(
+        &serde_json::to_vec(&invocations[..2]).expect("encode short sequence")
+    )
+    .is_err());
+
+    invocations[2].trusted_executable_sha256 = "22".repeat(32);
+    let mut checkpoint_called = false;
+    let error = run_platform_publication_sequence(&invocations, |_| {
+        checkpoint_called = true;
+        Ok(())
+    })
+    .expect_err("mixed helper authority must be rejected before platform preparation");
+    assert!(error.to_string().contains("one exact authority"));
+    assert!(!checkpoint_called);
+}
+
+#[test]
+fn publication_sequence_rejects_mismatched_mount_authority_before_preparation() {
+    let root = TestRoot::new();
+    let mut invocations = vec![
+        publication_invocation(&root.0, "publication-quiesce", StorageAdminAction::Quiesce),
+        publication_invocation(
+            &root.0,
+            "publication-unmount",
+            StorageAdminAction::StrictUnmount,
+        ),
+        publication_invocation(&root.0, "publication-cleanup", StorageAdminAction::Cleanup),
+    ];
+    invocations[2]
+        .mount_receipt_binding
+        .as_mut()
+        .expect("publication action has a mount binding")
+        .attestation_sha256 = "33".repeat(32);
+
+    let error = run_platform_publication_sequence(&invocations, |_| Ok(()))
+        .expect_err("mixed mount authority must be rejected before platform preparation");
+    assert!(error.to_string().contains("one exact authority"));
 }
 
 #[test]

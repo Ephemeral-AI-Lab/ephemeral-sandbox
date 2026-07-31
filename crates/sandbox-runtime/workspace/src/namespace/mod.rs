@@ -11,6 +11,7 @@ use sandbox_runtime_namespace_execution::{ExecutionCaps, NamespaceExecutionEngin
 use crate::session::WorkspaceManagerError;
 
 const MOUNT_MAX_ACTIVE: usize = 64;
+const HOLDER_SUPERVISOR_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(1);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum NamespaceNetwork {
@@ -122,7 +123,7 @@ impl NamespaceRuntime {
             )),
             obs,
             holder_supervisor: Arc::new(holder::HolderSupervisor::new(
-                std::time::Duration::from_millis(50),
+                HOLDER_SUPERVISOR_POLL_INTERVAL,
                 128,
             )),
         }

@@ -1,11 +1,16 @@
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::os::unix::fs::{FileExt, FileTypeExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::sync_channel;
 
 use rustix::fs::SeekFrom;
+use sandbox_runtime_mpla_poc::config::{MAX_DATA_WORKERS, SEMANTIC_SCAN_TRANSFER_BYTES};
+use sandbox_runtime_mpla_poc::semantic::allocation::is_fully_allocated;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -21,6 +26,20 @@ const RUN_MAGIC: &[u8; 8] = b"MPLAORU1";
 const QUEUE_MAGIC: &[u8; 8] = b"MPLAOQU1";
 const OPAQUE_XATTRS: [&[u8]; 2] = [b"trusted.overlay.opaque", b"user.overlay.opaque"];
 const OVERLAY_INTERNAL_XATTRS: [&[u8]; 2] = [b"trusted.overlay.uuid", b"user.overlay.uuid"];
+
+#[derive(Clone, Copy)]
+struct ChunkDigest {
+    offset: u64,
+    length: u32,
+    sha256: [u8; 32],
+}
+
+struct ChunkBatch {
+    start: u64,
+    end: u64,
+    bytes_read: u64,
+    chunks: Vec<ChunkDigest>,
+}
 
 pub fn scan(
     tree: &Path,
@@ -82,12 +101,14 @@ fn scan_inner(
     materialize(&sorted, record_stream)?;
     let (root_id, attribution_root_id, record_stream_sha256, record_count) =
         calculate_roots(record_stream, actor_id, semantic_operation_id)?;
+    let root_record_debug = find_root_record_debug(record_stream)?;
     Ok(OracleSummary {
         semantic_format: "mpla-poc-semantic-v1".to_owned(),
         root_id,
         attribution_root_id,
         record_stream_sha256,
         record_stream_path: record_stream.display().to_string(),
+        root_record_debug,
         entry_count: record_count,
         record_count,
         bytes_read,
@@ -99,10 +120,49 @@ fn scan_inner(
             .saturating_add(hardlink_stats.bytes_written),
         peak_open_data_fds: 6,
         peak_managed_bytes: u64::try_from(
-            2 * SORT_MEMORY_BYTES + SCAN_WINDOW_BYTES + MAX_XATTR_TRANSIENT_BYTES,
+            2 * SORT_MEMORY_BYTES
+                + usize::from(MAX_DATA_WORKERS) * SEMANTIC_SCAN_TRANSFER_BYTES
+                + MAX_XATTR_TRANSIENT_BYTES,
         )
         .unwrap_or(u64::MAX),
     })
+}
+
+fn find_root_record_debug(record_stream: &Path) -> OracleResult<String> {
+    let mut reader = BufReader::new(
+        File::open(record_stream)
+            .map_err(|error| format!("open oracle record stream for diagnosis: {error}"))?,
+    );
+    loop {
+        let mut length = [0_u8; 4];
+        let mut offset = 0;
+        while offset < length.len() {
+            let read = reader
+                .read(&mut length[offset..])
+                .map_err(|error| format!("read oracle record length for diagnosis: {error}"))?;
+            if read == 0 {
+                return if offset == 0 {
+                    Err("oracle stream omitted root node record".to_owned())
+                } else {
+                    Err("oracle stream ended within a record length".to_owned())
+                };
+            }
+            offset += read;
+        }
+        let length = usize::try_from(u32::from_be_bytes(length))
+            .map_err(|_| "oracle diagnostic record length overflow".to_owned())?;
+        if length == 0 || length > MAX_RECORD_BYTES {
+            return Err("oracle diagnostic record exceeds fixed bound".to_owned());
+        }
+        let mut bytes = vec![0_u8; length];
+        reader
+            .read_exact(&mut bytes)
+            .map_err(|error| format!("read oracle record for diagnosis: {error}"))?;
+        let record = Record::decode(&bytes)?;
+        if matches!(&record, Record::Node(node) if node.path.is_empty()) {
+            return Ok(format!("{record:?}"));
+        }
+    }
 }
 
 fn traverse(
@@ -268,6 +328,30 @@ fn scan_regular(
     let mut semantic = Sha256::new();
     semantic.update(b"mpla-poc-semantic-v1/regular-content\0");
     semantic.update(logical_size.to_be_bytes());
+    if logical_size > 0
+        && is_fully_allocated(&file, path, logical_size).map_err(|error| {
+            format!("oracle inspect file allocation {}: {error}", path.display())
+        })?
+    {
+        emit_extent(
+            records,
+            &mut semantic,
+            relative,
+            0,
+            logical_size,
+            ExtentKind::Data,
+        )?;
+        let bytes_read = read_data_extent_parallel(
+            &file,
+            path,
+            relative,
+            0,
+            logical_size,
+            records,
+            &mut semantic,
+        )?;
+        return Ok((bytes_read, semantic.finalize().into()));
+    }
     let mut cursor = 0_u64;
     let mut bytes_read = 0_u64;
     while cursor < logical_size {
@@ -317,36 +401,199 @@ fn scan_regular(
             data_end - data_start,
             ExtentKind::Data,
         )?;
-        let mut offset = data_start;
-        let mut buffer = vec![0_u8; SCAN_WINDOW_BYTES];
-        while offset < data_end {
-            let wanted = usize::try_from((data_end - offset).min(buffer.len() as u64))
-                .map_err(|_| "oracle chunk length overflow".to_owned())?;
-            read_file_at(&file, &mut buffer[..wanted], offset, path)?;
-            let mut chunk = Sha256::new();
-            chunk.update(b"mpla-poc-semantic-v1/chunk-bytes\0");
-            chunk.update(&buffer[..wanted]);
-            let chunk_sha256 = chunk.finalize().into();
-            push_record(
-                records,
-                Record::Chunk {
-                    path: relative.to_vec(),
-                    offset,
-                    length: u32::try_from(wanted)
-                        .map_err(|_| "oracle chunk length exceeds u32".to_owned())?,
-                    sha256: chunk_sha256,
-                },
-            )?;
-            semantic.update(b"chunk\0");
-            semantic.update(offset.to_be_bytes());
-            semantic.update(u64::try_from(wanted).unwrap_or(u64::MAX).to_be_bytes());
-            semantic.update(chunk_sha256);
-            offset = offset.saturating_add(u64::try_from(wanted).unwrap_or(u64::MAX));
-            bytes_read = bytes_read.saturating_add(u64::try_from(wanted).unwrap_or(u64::MAX));
-        }
+        bytes_read = bytes_read.saturating_add(read_data_extent_parallel(
+            &file,
+            path,
+            relative,
+            data_start,
+            data_end,
+            records,
+            &mut semantic,
+        )?);
         cursor = data_end;
     }
     Ok((bytes_read, semantic.finalize().into()))
+}
+
+fn read_data_extent_parallel(
+    file: &File,
+    path: &Path,
+    relative: &[u8],
+    start: u64,
+    end: u64,
+    records: &mut DiskSorter,
+    semantic: &mut Sha256,
+) -> OracleResult<u64> {
+    let transfer = u64::try_from(SEMANTIC_SCAN_TRANSFER_BYTES)
+        .map_err(|_| "oracle semantic transfer size overflows u64".to_owned())?;
+    let spans = (end - start).div_ceil(transfer);
+    let worker_count = usize::try_from(spans)
+        .unwrap_or(usize::from(MAX_DATA_WORKERS))
+        .min(usize::from(MAX_DATA_WORKERS))
+        .max(1);
+    if worker_count == 1 {
+        let batch = read_chunk_batch(file, path, start, end)?;
+        return emit_chunk_batch(batch, records, semantic, relative);
+    }
+
+    let mut worker_files = Vec::with_capacity(worker_count);
+    for _ in 0..worker_count {
+        worker_files.push(
+            file.try_clone()
+                .map_err(|error| format!("duplicate oracle file {}: {error}", path.display()))?,
+        );
+    }
+    let (sender, receiver) = sync_channel(worker_count.saturating_mul(2));
+    let next_offset = AtomicU64::new(start);
+    let cancelled = AtomicBool::new(false);
+    let mut first_error = None;
+    let mut pending = BTreeMap::new();
+    let mut expected_offset = start;
+    let mut bytes_read = 0_u64;
+
+    std::thread::scope(|scope| {
+        let mut workers = Vec::with_capacity(worker_count);
+        for worker_file in worker_files {
+            let sender = sender.clone();
+            let next_offset = &next_offset;
+            let cancelled = &cancelled;
+            workers.push(scope.spawn(move || {
+                while !cancelled.load(Ordering::Acquire) {
+                    let offset = match next_offset.fetch_update(
+                        Ordering::AcqRel,
+                        Ordering::Acquire,
+                        |current| {
+                            if current >= end {
+                                None
+                            } else {
+                                Some(current.saturating_add(transfer).min(end))
+                            }
+                        },
+                    ) {
+                        Ok(offset) => offset,
+                        Err(_) => return,
+                    };
+                    let job_end = offset.saturating_add(transfer).min(end);
+                    let result = read_chunk_batch(&worker_file, path, offset, job_end);
+                    if result.is_err() {
+                        cancelled.store(true, Ordering::Release);
+                    }
+                    if sender.send(result).is_err() {
+                        return;
+                    }
+                    if cancelled.load(Ordering::Acquire) {
+                        return;
+                    }
+                }
+            }));
+        }
+        drop(sender);
+        while let Ok(result) = receiver.recv() {
+            match result {
+                Ok(batch) if first_error.is_none() => {
+                    let batch_start = batch.start;
+                    if pending.insert(batch_start, batch).is_some() {
+                        first_error =
+                            Some("oracle parallel scan produced duplicate offsets".to_owned());
+                        cancelled.store(true, Ordering::Release);
+                        continue;
+                    }
+                    while let Some(batch) = pending.remove(&expected_offset) {
+                        let batch_end = batch.end;
+                        match emit_chunk_batch(batch, records, semantic, relative) {
+                            Ok(read) => {
+                                bytes_read = bytes_read.saturating_add(read);
+                                expected_offset = batch_end;
+                            }
+                            Err(error) => {
+                                first_error = Some(error);
+                                cancelled.store(true, Ordering::Release);
+                                break;
+                            }
+                        }
+                    }
+                }
+                Ok(_) => {}
+                Err(error) if first_error.is_none() => {
+                    first_error = Some(error);
+                    cancelled.store(true, Ordering::Release);
+                }
+                Err(_) => {}
+            }
+        }
+        for worker in workers {
+            if worker.join().is_err() && first_error.is_none() {
+                first_error = Some("oracle parallel scan worker panicked".to_owned());
+            }
+        }
+    });
+    if let Some(error) = first_error {
+        return Err(error);
+    }
+    if expected_offset != end || !pending.is_empty() {
+        return Err("oracle parallel scan did not complete its data extent".to_owned());
+    }
+    Ok(bytes_read)
+}
+
+fn read_chunk_batch(file: &File, path: &Path, start: u64, end: u64) -> OracleResult<ChunkBatch> {
+    let mut buffer = vec![0_u8; SEMANTIC_SCAN_TRANSFER_BYTES];
+    let mut chunks = Vec::with_capacity(SEMANTIC_SCAN_TRANSFER_BYTES / SCAN_WINDOW_BYTES);
+    let mut offset = start;
+    while offset < end {
+        let wanted = usize::try_from((end - offset).min(buffer.len() as u64))
+            .map_err(|_| "oracle transfer length overflow".to_owned())?;
+        read_file_at(file, &mut buffer[..wanted], offset, path)?;
+        let mut chunk_offset = 0_usize;
+        while chunk_offset < wanted {
+            let length = (wanted - chunk_offset).min(SCAN_WINDOW_BYTES);
+            let chunk_end = chunk_offset
+                .checked_add(length)
+                .ok_or_else(|| "oracle chunk end overflow".to_owned())?;
+            let mut chunk = Sha256::new();
+            chunk.update(b"mpla-poc-semantic-v1/chunk-bytes\0");
+            chunk.update(&buffer[chunk_offset..chunk_end]);
+            chunks.push(ChunkDigest {
+                offset: offset.saturating_add(u64::try_from(chunk_offset).unwrap_or(u64::MAX)),
+                length: u32::try_from(length)
+                    .map_err(|_| "oracle chunk length exceeds u32".to_owned())?,
+                sha256: chunk.finalize().into(),
+            });
+            chunk_offset = chunk_end;
+        }
+        offset = offset.saturating_add(u64::try_from(wanted).unwrap_or(u64::MAX));
+    }
+    Ok(ChunkBatch {
+        start,
+        end,
+        bytes_read: end - start,
+        chunks,
+    })
+}
+
+fn emit_chunk_batch(
+    batch: ChunkBatch,
+    records: &mut DiskSorter,
+    semantic: &mut Sha256,
+    relative: &[u8],
+) -> OracleResult<u64> {
+    let bytes_read = batch.bytes_read;
+    for chunk in batch.chunks {
+        push_record(
+            records,
+            Record::Chunk {
+                path: relative.to_vec(),
+                offset: chunk.offset,
+                length: chunk.length,
+                sha256: chunk.sha256,
+            },
+        )?;
+        semantic.update(b"chunk\0");
+        semantic.update(chunk.offset.to_be_bytes());
+        semantic.update(u64::from(chunk.length).to_be_bytes());
+        semantic.update(chunk.sha256);
+    }
+    Ok(bytes_read)
 }
 
 fn emit_extent(

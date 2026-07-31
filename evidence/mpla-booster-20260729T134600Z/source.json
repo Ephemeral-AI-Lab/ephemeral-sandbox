@@ -1,0 +1,378 @@
+{
+  "commit": "11f793ad96754e612ca6615835c11d78cf443a83",
+  "porcelain": " M Cargo.lock\n M config/materialization-lifecycle-benchmark.yml\n M config/mpla-poc-m3.yml\n M crates/sandbox-cli/src/projection/runtime.rs\n M crates/sandbox-cli/tests/fixtures/runtime-help.txt\n M crates/sandbox-cli/tests/runtime.rs\n M crates/sandbox-config/src/configs/runtime.rs\n M crates/sandbox-config/tests/unit/configs/runtime.rs\n M crates/sandbox-daemon/src/serve.rs\n M crates/sandbox-manager/src/router/forward.rs\n M crates/sandbox-operations/catalog/src/runtime.rs\n M crates/sandbox-operations/catalog/src/runtime/workspace_session.rs\n M crates/sandbox-operations/catalog/tests/integrity.rs\n M crates/sandbox-operations/catalog/tests/runtime.rs\n M crates/sandbox-runtime/mpla-poc/Cargo.toml\n M crates/sandbox-runtime/mpla-poc/src/activation.rs\n M crates/sandbox-runtime/mpla-poc/src/bin/mpla-poc-oracle/oracle_record.rs\n M crates/sandbox-runtime/mpla-poc/src/bin/mpla-poc-oracle/oracle_scan.rs\n M crates/sandbox-runtime/mpla-poc/src/bin/mpla-poc.rs\n M crates/sandbox-runtime/mpla-poc/src/bin/mpla-speed-poc-v1.rs\n M crates/sandbox-runtime/mpla-poc/src/bin/mpla-storage-admin-v1.rs\n M crates/sandbox-runtime/mpla-poc/src/controls.rs\n M crates/sandbox-runtime/mpla-poc/src/lib.rs\n M crates/sandbox-runtime/mpla-poc/src/locator.rs\n M crates/sandbox-runtime/mpla-poc/src/owner.rs\n M crates/sandbox-runtime/mpla-poc/src/ref_store.rs\n M crates/sandbox-runtime/mpla-poc/src/semantic/mod.rs\n M crates/sandbox-runtime/mpla-poc/src/semantic/scan.rs\n M crates/sandbox-runtime/mpla-poc/src/semantic/trie.rs\n M crates/sandbox-runtime/mpla-poc/src/session.rs\n M crates/sandbox-runtime/mpla-poc/src/storage_admin.rs\n M crates/sandbox-runtime/mpla-poc/tests/activation_projection.rs\n M crates/sandbox-runtime/mpla-poc/tests/cases/heavy_lead.rs\n M crates/sandbox-runtime/mpla-poc/tests/cases/smoke.rs\n M crates/sandbox-runtime/mpla-poc/tests/controls.rs\n M crates/sandbox-runtime/mpla-poc/tests/m1_semantic_integration.rs\n M crates/sandbox-runtime/mpla-poc/tests/storage_admin_security.rs\n M crates/sandbox-runtime/operation/Cargo.toml\n M crates/sandbox-runtime/operation/src/command/service.rs\n M crates/sandbox-runtime/operation/src/command/service/exec_command.rs\n M crates/sandbox-runtime/operation/src/operations/registry/workspace_session_operations.rs\n M crates/sandbox-runtime/operation/src/workspace_session/mod.rs\n M crates/sandbox-runtime/operation/src/workspace_session/service.rs\n M crates/sandbox-runtime/operation/src/workspace_session/service/impls/admission.rs\n M crates/sandbox-runtime/operation/src/workspace_session/service/impls/create_mpla_workspace_session.rs\n M crates/sandbox-runtime/operation/src/workspace_session/service/impls/destroy_session.rs\n M crates/sandbox-runtime/operation/src/workspace_session/service/impls/mod.rs\n M crates/sandbox-runtime/operation/src/workspace_session/service/model.rs\n M crates/sandbox-runtime/operation/tests/workspace_session.rs\n M crates/sandbox-runtime/workspace/src/model.rs\n M crates/sandbox-runtime/workspace/src/namespace/mod.rs\n M crates/sandbox-runtime/workspace/src/service/impls/create_workspace.rs\n?? bin/__pycache__/\n?? bin/run-mpla-booster-scorecard\n?? bin/test_run_mpla_booster_scorecard.py\n?? crates/sandbox-runtime/mpla-poc/src/atomic_cgroup_process.rs\n?? crates/sandbox-runtime/mpla-poc/src/bin/mpla_hv07_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/src/bin/mpla_poc_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/src/bin/mpla_publication_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/src/bin/mpla_speed_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/src/bin/mpla_stream_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/src/external_publication.rs\n?? crates/sandbox-runtime/mpla-poc/src/publication_qualification.rs\n?? crates/sandbox-runtime/mpla-poc/tests/external_publication.rs\n?? crates/sandbox-runtime/mpla-poc/tests/hv07_campaign.rs\n?? crates/sandbox-runtime/mpla-poc/tests/mpla_poc_scorecard.rs\n?? crates/sandbox-runtime/mpla-poc/tests/publication_qualification.rs\n?? crates/sandbox-runtime/mpla-poc/tests/scorecard_oracle_validation.rs\n?? crates/sandbox-runtime/operation/src/command/service/security_profile.rs\n?? crates/sandbox-runtime/operation/src/workspace_session/service/impls/mpla_lifecycle.rs\n?? crates/sandbox-runtime/operation/src/workspace_session/service/impls/mpla_storage_admin.rs\n?? crates/sandbox-runtime/operation/src/workspace_session/service/mpla_policy.rs\n?? crates/sandbox-runtime/operation/tests/command_security_profile.rs\n?? crates/sandbox-runtime/operation/tests/mpla_policy.rs\n?? evidence/\n",
+  "porcelain_sha256": "468c906ede3ff33a95a7d9db77c11711ed18898c503624ff6f6616cb5c5bbf18",
+  "tracked_diff_bytes": 268236,
+  "tracked_diff_sha256": "dc136d415b8283223629b3924cd1729d172c8eaa1c6c6513a692f2a4977907b3",
+  "tree": "bf0943f5677d549d8cba8c42230adf0381a56ac1",
+  "worktree_files": {
+    "Cargo.lock": {
+      "bytes": 70667,
+      "sha256": "0c7669de984598109fa65d27fcef6ec70ed97b4567c75916b898cd61943251fc"
+    },
+    "bin/__pycache__/run-mpla-booster-scorecardcpython-314.pyc": {
+      "bytes": 60213,
+      "sha256": "df381e5ad9fb32b31feaa01719d7bd0e3d089d8683146d2a5154d4d7ae06fdd6"
+    },
+    "bin/__pycache__/test_run_mpla_booster_scorecard.cpython-314.pyc": {
+      "bytes": 14373,
+      "sha256": "ce54061d0ee17e426b0ce2c5b236190a87a74d23f1d288bae1c7d0ab623f0124"
+    },
+    "bin/run-mpla-booster-scorecard": {
+      "bytes": 47602,
+      "sha256": "6459f4e94478f3c468c8b3e98786914db5ab941b66aa741275460a4192c21b30"
+    },
+    "bin/test_run_mpla_booster_scorecard.py": {
+      "bytes": 9646,
+      "sha256": "2e688e7235f71061029764f1a061d5ab4fcb9a2dabd250e99894adcabc3d1776"
+    },
+    "config/materialization-lifecycle-benchmark.yml": {
+      "bytes": 2442,
+      "sha256": "6a25e59ca595a66782718517fcd40f91f75ae8991927acfa7473ac4ff01cbe03"
+    },
+    "config/mpla-poc-m3.yml": {
+      "bytes": 2495,
+      "sha256": "f14ef119a7976bd8f69b148a6d31edd79519df445f39ea01a9cb237c5a38caae"
+    },
+    "crates/sandbox-cli/src/projection/runtime.rs": {
+      "bytes": 12537,
+      "sha256": "c4458441da6b158a8015230b74f073d3127cf4d73ee46e44c6a3695d43751571"
+    },
+    "crates/sandbox-cli/tests/fixtures/runtime-help.txt": {
+      "bytes": 1906,
+      "sha256": "aa8aa6614888be77cb9c1b1e1c8d8c7c507e893a6380cc5b9cd2d4685ec1085b"
+    },
+    "crates/sandbox-cli/tests/runtime.rs": {
+      "bytes": 24348,
+      "sha256": "d070d13420d11b8f8869f7b3ba5a7d32e7e5e05f3339bdd730901bf7a944bf81"
+    },
+    "crates/sandbox-config/src/configs/runtime.rs": {
+      "bytes": 14929,
+      "sha256": "22cb32cde0024b973f2aa0b08b2da1e818d254914756ac1c71b9b6c523a4d45f"
+    },
+    "crates/sandbox-config/tests/unit/configs/runtime.rs": {
+      "bytes": 12687,
+      "sha256": "72a8359f5fe4894e0c5aaf58a40284a4595db07e7deda2b0377c1b72b503f03e"
+    },
+    "crates/sandbox-daemon/src/serve.rs": {
+      "bytes": 20930,
+      "sha256": "c68335ea97c1af08dcfde912cab6778d26abc4c432776adf04169aeb24d49d71"
+    },
+    "crates/sandbox-manager/src/router/forward.rs": {
+      "bytes": 6829,
+      "sha256": "9dab06a5ce2fdb7b0c4472ec6a5bf5a5360ee319249fe93407fce04e5119fdc5"
+    },
+    "crates/sandbox-operations/catalog/src/runtime.rs": {
+      "bytes": 4811,
+      "sha256": "b7f122c6864bdffd724e7281577793a0f64e2a7b9e2692d68fb093b31968ab8c"
+    },
+    "crates/sandbox-operations/catalog/src/runtime/workspace_session.rs": {
+      "bytes": 12394,
+      "sha256": "c8c5f7b0a93606f8d4f73cfff9c0e6acf407e2e4a5961991c1bccb522244850f"
+    },
+    "crates/sandbox-operations/catalog/tests/integrity.rs": {
+      "bytes": 12914,
+      "sha256": "376ec45ad11a5e2b8d72b7a8d8b9ca520c28c8d77e106a6778c807845e10cdce"
+    },
+    "crates/sandbox-operations/catalog/tests/runtime.rs": {
+      "bytes": 7548,
+      "sha256": "57c45363ac9d7f032b584d06f4cb6bbff511dd23d0992f91b971c810ece341f8"
+    },
+    "crates/sandbox-runtime/mpla-poc/Cargo.toml": {
+      "bytes": 797,
+      "sha256": "a00054a4226fa1d27efaaa17406952011ebf9120b0a96bedafc3e6218092e912"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/activation.rs": {
+      "bytes": 14730,
+      "sha256": "c47f8a4de8f04f638953caf46294b77a816e13f5d8e9d69e1c8de35639a0aa69"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/atomic_cgroup_process.rs": {
+      "bytes": 6977,
+      "sha256": "016a69541ee937c9fff350836e691907cca64163e9e45c3c6d07ec27ed5d4a58"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla-poc-oracle/oracle_record.rs": {
+      "bytes": 26405,
+      "sha256": "0f21191134d9f76342fb5de0c17b5c6da8f77ec83f6d78acef805d5aea2ad2c5"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla-poc-oracle/oracle_scan.rs": {
+      "bytes": 42977,
+      "sha256": "37fdcda51fea62236019271ea1a9d46bd9918de3e0a05ee2529866d8a057315d"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla-poc.rs": {
+      "bytes": 19933,
+      "sha256": "a24c35492534c95f540819ae04365e2d6a1b057519c3eee45762d61384db0e71"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla-speed-poc-v1.rs": {
+      "bytes": 71998,
+      "sha256": "62e3e98514bb85c0cef0f9c412176544fcdc0efd6707f0d1e137c2979500846c"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla-storage-admin-v1.rs": {
+      "bytes": 3210,
+      "sha256": "d0ac570e4c39434996f360f86e28890161ccd2028a9cf7af48574c8a9bcdfa94"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla_hv07_scorecard.rs": {
+      "bytes": 4860,
+      "sha256": "9e3a8d5da484cb6d76b69534dad1b364bb1dc49500d48de57a762ebec86a35a6"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla_poc_scorecard.rs": {
+      "bytes": 44208,
+      "sha256": "ee13ff856a88ce0676efffaf3134d0c0a31fd3306ff1ccac1189a836c95762b0"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla_publication_scorecard.rs": {
+      "bytes": 31882,
+      "sha256": "d0d49e2803d685ed92531f45974afc3cdd58e54c15a2700debe463736ce21f8f"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla_speed_scorecard.rs": {
+      "bytes": 45497,
+      "sha256": "a96019c986c2c60e2b71bfd3f94f4f41c5f94fb99fd4b3639ef068e54954fbbf"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/bin/mpla_stream_scorecard.rs": {
+      "bytes": 17202,
+      "sha256": "dbe85bbdba2ecf8e8fd126bf34a68b1d5e60734cf46aa9e51a612d61acd330e6"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/controls.rs": {
+      "bytes": 35214,
+      "sha256": "992e30ac22dcda57ca11933c4a873c6c35dc85287e1215901800e632a41bc0d0"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/external_publication.rs": {
+      "bytes": 20872,
+      "sha256": "d1b1276210fa83e0d9660ec23c2222b2df7de0fd5e1c8ac95250378170589b77"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/lib.rs": {
+      "bytes": 4870,
+      "sha256": "fdcda3bcb67bb7004508627ecb966059ee3d89e4de3424c7267a977d924340e3"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/locator.rs": {
+      "bytes": 37449,
+      "sha256": "fdcb8fa9b9f705073d97013c70fd66b5a334c1e55808e43277cb6fd694d39148"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/owner.rs": {
+      "bytes": 37464,
+      "sha256": "3dcb4e67e59d8615ad1251deaaa52fcb3be267275eeebf74fb13150ba28b481e"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/publication_qualification.rs": {
+      "bytes": 6335,
+      "sha256": "e3286ffc7b99b948e9be92ee3fa62a1c7b5079105aeea24147ab218c63f128dc"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/ref_store.rs": {
+      "bytes": 29645,
+      "sha256": "14e6350e2bfd2022cecde85d7b150c843c69c2f849edfba2ae2aa6f4f2c0bd1f"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/semantic/mod.rs": {
+      "bytes": 46536,
+      "sha256": "3affe831c462e973f5f22befa796e94494e432cdcf8addd30cdf4a6ccf1e86b8"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/semantic/scan.rs": {
+      "bytes": 32055,
+      "sha256": "fe940afd9e3dfdceb93f73ee75e31ac5b2354e0dd7eed04999f3ec1e8f091eb6"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/semantic/trie.rs": {
+      "bytes": 54098,
+      "sha256": "612b7f8d926c866b7265b84628d600707e51e8f2a3d7fd8d80e3b2cf3a47c17a"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/session.rs": {
+      "bytes": 22956,
+      "sha256": "8854e2cb284ef6926eb49f5921fcd808ec9a31ff4fc6c121d4254022d8a94b59"
+    },
+    "crates/sandbox-runtime/mpla-poc/src/storage_admin.rs": {
+      "bytes": 148766,
+      "sha256": "e784681c90929ce137c0e0d3f01d19b86d153989be07f204a8791dfb9be30038"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/activation_projection.rs": {
+      "bytes": 4329,
+      "sha256": "431f8ff7e87dd23b2b043326a773063e98e810e75a9710c2ea3f0ed45ff97690"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/cases/heavy_lead.rs": {
+      "bytes": 144646,
+      "sha256": "3c8d8a6bef7546d26ab900c6a09188214ac481315d06262c742dea946813f72b"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/cases/smoke.rs": {
+      "bytes": 148280,
+      "sha256": "3158bcb050c3d7d9bca34c01386a1dabb839c35db6ad6031b03bd88eff4119a4"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/controls.rs": {
+      "bytes": 11510,
+      "sha256": "59be77221f31d5acbbd24bc3bd1d7d5d49a3777413d345d0a32346b6cfaf1d3c"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/external_publication.rs": {
+      "bytes": 14449,
+      "sha256": "189091dd6e73ee70aa0ba599711c3c9c6e5b44ab9713441894945c97e992c12d"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/hv07_campaign.rs": {
+      "bytes": 534,
+      "sha256": "36bf1eccd87f8d9b7d8989a83fd149ee181217f98873b0513f5e3fdca2bba49b"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/m1_semantic_integration.rs": {
+      "bytes": 13816,
+      "sha256": "e23d71773b736f61a7bbae69790c8d9281eaecae6e570fc57dc7cb968842d74e"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/mpla_poc_scorecard.rs": {
+      "bytes": 8876,
+      "sha256": "7abdb47d1479dbdfb32581a91ff577443b6b27c1f60ee2bebe8caaa410970fa3"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/publication_qualification.rs": {
+      "bytes": 9825,
+      "sha256": "d76848a718c26986c6b1fc0c1745a0fcad4fcb5d62b7038e72bab3e5343a4fc0"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/scorecard_oracle_validation.rs": {
+      "bytes": 4123,
+      "sha256": "e68cfc5718cf0b38929e173f3cdd7c8aad856d9bd2a34caf653a797683381cea"
+    },
+    "crates/sandbox-runtime/mpla-poc/tests/storage_admin_security.rs": {
+      "bytes": 48635,
+      "sha256": "02a005cb913fa41605840d4825ba23fee12a848ce82051e15482d5a323f2a595"
+    },
+    "crates/sandbox-runtime/operation/Cargo.toml": {
+      "bytes": 913,
+      "sha256": "38a19f15e14d070e3ee46454c9c90b2d6053e2dbe241d71e2f9531957bb33946"
+    },
+    "crates/sandbox-runtime/operation/src/command/service.rs": {
+      "bytes": 314,
+      "sha256": "4135ad7b6aa14d3f191c92c9b042f2861171ee370e7ce54356df47db1e523d73"
+    },
+    "crates/sandbox-runtime/operation/src/command/service/exec_command.rs": {
+      "bytes": 13066,
+      "sha256": "7b821619f5c98e7df0e4d05144f3fd66e7553e03f22b2d46ec7cd255e47fa5d0"
+    },
+    "crates/sandbox-runtime/operation/src/command/service/security_profile.rs": {
+      "bytes": 3081,
+      "sha256": "c4413c402ca772048112e91209e93666a45e20fc46cbc857bbe95533d1ba9853"
+    },
+    "crates/sandbox-runtime/operation/src/operations/registry/workspace_session_operations.rs": {
+      "bytes": 28865,
+      "sha256": "8bc374dee448fb359d191fca0a94fa6331b551935840c887b225084c05b4300e"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/mod.rs": {
+      "bytes": 853,
+      "sha256": "3f2a79533db1e220932d0bc9b0e54838176a1cf7211fc6553ccf1cf316e19de3"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service.rs": {
+      "bytes": 957,
+      "sha256": "a8c60e8341170fe8115d7aca3a37116bf2567ded26d8eca69beb0041768b9f51"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/impls/admission.rs": {
+      "bytes": 30943,
+      "sha256": "d934ec11074866813d55f6177cd43d82b2a306f103f8ed573729537021e8aacf"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/impls/create_mpla_workspace_session.rs": {
+      "bytes": 10993,
+      "sha256": "c3a4f07a86606aa8ee585e1de5b406a0a39c95dac2742701bd5eff0529fb8b2c"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/impls/destroy_session.rs": {
+      "bytes": 22581,
+      "sha256": "6c421c1d68230e99faeee27c5d7c22ceed4ee08e59bb4f6457278f8831d68167"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/impls/mod.rs": {
+      "bytes": 489,
+      "sha256": "8901c7a05aff71ecb92a3e79cb338c709591265c643382da1db6de3791715c63"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/impls/mpla_lifecycle.rs": {
+      "bytes": 84161,
+      "sha256": "e0b4133c5a7665b11cdcae3500b24230cb11d10f1f6336dd741330d0bbf32fe8"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/impls/mpla_storage_admin.rs": {
+      "bytes": 37543,
+      "sha256": "f3da9004806fe712bb0c100ffe548523fdeee27f8aba4ce5000bc9ea6ad66f42"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/model.rs": {
+      "bytes": 13519,
+      "sha256": "ff5a7b4586ed7113a531496f7e4ac5ae56f59949f28f4124d0dce4fd64447a2f"
+    },
+    "crates/sandbox-runtime/operation/src/workspace_session/service/mpla_policy.rs": {
+      "bytes": 585,
+      "sha256": "827afb7b0313c8cf29040c40da357c1db6775023e2ea998a06c8aee5d3af84ab"
+    },
+    "crates/sandbox-runtime/operation/tests/command_security_profile.rs": {
+      "bytes": 3383,
+      "sha256": "edb8c1dda1e2b49dab0aa3bbc1cc536788dbd57cafd8175064e3f65dacbddf1c"
+    },
+    "crates/sandbox-runtime/operation/tests/mpla_policy.rs": {
+      "bytes": 1358,
+      "sha256": "4b182c5cb38ee76c620e4a132f074cb44358aaf97de0705a73dc939bec1c1e9b"
+    },
+    "crates/sandbox-runtime/operation/tests/workspace_session.rs": {
+      "bytes": 61421,
+      "sha256": "ff5e9ee9820f5ae4848d75aaf1de1379c15dbf732fa2305eb99180410bf45126"
+    },
+    "crates/sandbox-runtime/workspace/src/model.rs": {
+      "bytes": 18432,
+      "sha256": "9e18b17173a8e8712cc2989160629e96483f0c0ef3312c72379994ec1e3cdab2"
+    },
+    "crates/sandbox-runtime/workspace/src/namespace/mod.rs": {
+      "bytes": 4315,
+      "sha256": "67ce061c352320e7693dca6be9866dd364a2561c3e45bcf76c6caa72b1d648ac"
+    },
+    "crates/sandbox-runtime/workspace/src/service/impls/create_workspace.rs": {
+      "bytes": 5656,
+      "sha256": "1030609f984b4b3d458e2ae902d83621804f4ade295520a2ae8c16bef41f13d1"
+    },
+    "evidence/mpla-booster-20260729T133510Z/cases/HV-07/error.json": {
+      "bytes": 213,
+      "sha256": "5ed7d23d24bd72c26477ebaed41eba97a4fe918539070e4ab883a1bbd4a85c9e"
+    },
+    "evidence/mpla-booster-20260729T133510Z/command-ledger.jsonl": {
+      "bytes": 8090,
+      "sha256": "8f777fa2d2b395bd9d6fb7cdbd37dd667a3cb48ba283b79f1040fd4938cd6e9f"
+    },
+    "evidence/mpla-booster-20260729T133510Z/environment.json": {
+      "bytes": 553,
+      "sha256": "057c9a077b1b08d81d0a92d875d6d6b9d8f9e8cba2a8beba3a8b5c33cdd1a2af"
+    },
+    "evidence/mpla-booster-20260729T133510Z/source.json": {
+      "bytes": 18345,
+      "sha256": "d358a121d48673c69096a6fdd6e12c1d9e5656cee6822cfc6f311fb323298730"
+    },
+    "evidence/mpla-booster-20260729T133510Z/staged-artifacts.json": {
+      "bytes": 1285,
+      "sha256": "c2c2dc85c9474f8037a0293d6a7ae4aa9222bf26f1b5a81915b6b8a0eea29e57"
+    },
+    "evidence/mpla-booster-20260729T134200Z/cases/HV-07/error.json": {
+      "bytes": 84,
+      "sha256": "fe152ff028770c8f33ec0705e6679428b50c86b48a05ffba2c1e9a4ac9c19adc"
+    },
+    "evidence/mpla-booster-20260729T134200Z/cleanup.json": {
+      "bytes": 13489,
+      "sha256": "fc883279c914a904b98350e72dd8c595b8af8cad1e6e553210fdbf751097cffc"
+    },
+    "evidence/mpla-booster-20260729T134200Z/command-ledger.jsonl": {
+      "bytes": 1300,
+      "sha256": "b4d1315d66da0d9d16480b5c4f44345487dc12f7ebead0f183f9529f6d5ffb33"
+    },
+    "evidence/mpla-booster-20260729T134200Z/correctness.json": {
+      "bytes": 2073,
+      "sha256": "3599540ce4c2d7db94e1ea41ee59f65f872e4d645dd450fc81418a0b62c8ca7f"
+    },
+    "evidence/mpla-booster-20260729T134200Z/decision.json": {
+      "bytes": 146,
+      "sha256": "e9f8de03455ba664dfb24453b789d953fc43c52286ac544dcef3edb379de202b"
+    },
+    "evidence/mpla-booster-20260729T134200Z/environment.json": {
+      "bytes": 553,
+      "sha256": "a856ecdc0160879366bfcd35cbf399f8001c1d69296a8cf6c2b90924b92e0aca"
+    },
+    "evidence/mpla-booster-20260729T134200Z/manifest.sha256": {
+      "bytes": 905,
+      "sha256": "43c17e685a1be64c15cf0f0296a59b35f7b7d1bd837002122283aedb48225a01"
+    },
+    "evidence/mpla-booster-20260729T134200Z/report.md": {
+      "bytes": 167,
+      "sha256": "0ac0ba0575b4dda97f525ba8d90ad0a7d8620b62bafb500a34126db22d06f77a"
+    },
+    "evidence/mpla-booster-20260729T134200Z/resources.json": {
+      "bytes": 261,
+      "sha256": "e08b802c36f54c09803217d7ded9ee087436bf8f08df63b34ef8c51e3e95e138"
+    },
+    "evidence/mpla-booster-20260729T134200Z/scorecard.json": {
+      "bytes": 2605,
+      "sha256": "0de881f9b6fa1d4fb424b89b1e933c2313baad40bc81a6993173513794e87613"
+    },
+    "evidence/mpla-booster-20260729T134200Z/security-profile.json": {
+      "bytes": 552,
+      "sha256": "6629268c06b969655abfb1022cca71ae0e1d3ca2d114d72c7a1354394d718b2c"
+    },
+    "evidence/mpla-booster-20260729T134200Z/source.json": {
+      "bytes": 19248,
+      "sha256": "66261f25988c003186666c0d4f9c7de0ce3bef3192261f3e06f93ac202873ff2"
+    }
+  }
+}

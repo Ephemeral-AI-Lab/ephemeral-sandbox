@@ -485,6 +485,10 @@ pub struct ExternalOverlayLayout {
     pub workspace_root: PathBuf,
     pub upperdir: PathBuf,
     pub workdir: PathBuf,
+    /// An external MPLA overlay always supplies its exact lower stack.  It
+    /// must never inherit the ordinary LayerStack snapshot selected for a
+    /// non-MPLA workspace.
+    pub lower_dirs_newest_first: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

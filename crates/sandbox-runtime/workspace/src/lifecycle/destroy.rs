@@ -450,6 +450,20 @@ impl ManagerTeardownExecutor<'_> {
         if !self.transaction.scratch_released {
             return Err("deferred until workspace scratch is released".to_owned());
         }
+        if self.transaction.handle.external_overlay_authority {
+            if self.transaction.handle.candidate_admission.is_some()
+                || self.transaction.handle.parked_lease_id.is_some()
+            {
+                return Err(
+                    "external MPLA workspace unexpectedly owns an ordinary workspace lease"
+                        .to_owned(),
+                );
+            }
+            self.transaction.candidate_lease_released = true;
+            self.transaction.lease_released = true;
+            self.transaction.parked_lease_released = true;
+            return Ok(());
+        }
         let Some(layer_stack_root) = self.manager.layer_stack_root.as_deref() else {
             return Err("layer stack root is not bound to workspace manager".to_owned());
         };

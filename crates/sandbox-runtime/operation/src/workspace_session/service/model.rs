@@ -2,7 +2,9 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 use sandbox_runtime_mpla_poc::{
-    AllocationHandle, MutableLease, OperationId, PreparedExternalSession, RunId,
+    AllocationHandle, AllocationId, CanonicalRootPair, ExactProjectionReceipt,
+    ExternalStationaryPublicationReceipt, MutableLease, OperationId, PairedRefValue,
+    PreparedExternalSession, RunId, SemanticBuildReceipt,
 };
 use sandbox_runtime_namespace_execution::NamespaceExecutionId;
 
@@ -114,6 +116,137 @@ pub struct PublishWorkspaceSessionResult {
     pub evicted_upperdir_bytes: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MplaLifecycleReceipt {
+    pub operation_id: String,
+    pub committed: bool,
+    pub idempotent_replay: bool,
+    pub selected_ref: String,
+    pub service_elapsed_ns: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActivateMplaWorkspaceSessionResult {
+    pub workspace_session_id: WorkspaceSessionId,
+    pub fresh_allocation_id: AllocationId,
+    pub run_id: String,
+    pub branch: String,
+    pub projection: ExactProjectionReceipt,
+    pub lifecycle: MplaLifecycleReceipt,
+    pub timings: MplaActivationTimings,
+    pub service_elapsed_ns: u64,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MplaActivationTimings {
+    pub admission_elapsed_ns: u64,
+    pub projection_elapsed_ns: u64,
+    pub session_create_elapsed_ns: u64,
+    pub session_identity_elapsed_ns: u64,
+    pub allocation_create_elapsed_ns: u64,
+    pub allocation_lease_elapsed_ns: u64,
+    pub projection_metadata_elapsed_ns: u64,
+    pub external_session_prepare_elapsed_ns: u64,
+    pub durability_commit_elapsed_ns: u64,
+    pub workspace_create_elapsed_ns: u64,
+    pub launch_material_elapsed_ns: u64,
+    pub cgroup_prepare_elapsed_ns: u64,
+    pub session_register_elapsed_ns: u64,
+    pub session_commit_elapsed_ns: u64,
+    pub storage_mount_elapsed_ns: u64,
+    pub outcome_persist_elapsed_ns: u64,
+    pub response_elapsed_ns: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ForkMplaWorkspaceSessionResult {
+    pub run_id: String,
+    pub source_branch: String,
+    pub branch: String,
+    pub lifecycle: MplaLifecycleReceipt,
+    pub service_elapsed_ns: u64,
+}
+
+/// Receipt for attaching the fixed, immutable scorecard fixture to a fresh
+/// sandbox-local MPLA run. The attach itself never creates an upper or copies
+/// payload bytes; a later activation obtains the ordinary fresh upper.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AttachMplaPreparedFixtureResult {
+    pub run_id: String,
+    pub fixture_profile: String,
+    pub attached_branches: Vec<String>,
+    pub cached_allocation_count: u64,
+    pub payload_bytes_copied: u64,
+    pub service_elapsed_ns: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RollbackMplaWorkspaceSessionResult {
+    pub workspace_session_id: WorkspaceSessionId,
+    pub fresh_allocation_id: AllocationId,
+    pub run_id: String,
+    pub branch: String,
+    pub target_branch: String,
+    pub projection: ExactProjectionReceipt,
+    pub lifecycle: MplaLifecycleReceipt,
+    pub service_elapsed_ns: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublishMplaWorkspaceSessionResult {
+    pub workspace_session_id: WorkspaceSessionId,
+    pub run_id: String,
+    pub branch: String,
+    pub lifecycle: MplaLifecycleReceipt,
+    pub affected_path_count: u64,
+    pub roots: CanonicalRootPair,
+    pub semantic: Option<SemanticBuildReceipt>,
+    pub stationary: Option<ExternalStationaryPublicationReceipt>,
+    pub affected_payload_bytes_read: u64,
+    pub affected_input_bytes: u64,
+    pub semantic_affected_record_count: Option<u64>,
+    pub prior_node_bytes_read: u64,
+    pub immutable_payload_bytes_read: u64,
+    pub semantic_root_record_debug: Option<String>,
+    pub destroyed: bool,
+    pub evicted_upperdir_bytes: u64,
+    pub pre_storage_elapsed_ns: u64,
+    pub storage_sequence_elapsed_ns: u64,
+    pub storage_helper_to_unmount_elapsed_ns: u64,
+    pub storage_stable_callback_elapsed_ns: u64,
+    pub storage_helper_cleanup_elapsed_ns: u64,
+    pub storage_helper_input_encode_elapsed_ns: u64,
+    pub storage_helper_launch_elapsed_ns: u64,
+    pub storage_helper_cgroup_placement_elapsed_ns: u64,
+    pub storage_helper_request_write_elapsed_ns: u64,
+    pub storage_helper_response_wait_elapsed_ns: u64,
+    pub storage_helper_unmount_response_decode_elapsed_ns: u64,
+    pub storage_helper_cgroup_release_elapsed_ns: u64,
+    pub storage_helper_input_decode_elapsed_ns: u64,
+    pub storage_helper_validation_elapsed_ns: u64,
+    pub storage_helper_process_preparation_elapsed_ns: u64,
+    pub storage_quiesce_lifecycle_elapsed_ns: u64,
+    pub storage_quiesce_operation_elapsed_ns: u64,
+    pub storage_strict_unmount_lifecycle_elapsed_ns: u64,
+    pub storage_strict_unmount_operation_elapsed_ns: u64,
+    pub semantic_adoption_elapsed_ns: u64,
+    pub stationary_adoption_elapsed_ns: u64,
+    pub semantic_build_elapsed_ns: u64,
+    pub ref_commit_elapsed_ns: u64,
+    pub session_destroy_elapsed_ns: u64,
+    pub outcome_persist_elapsed_ns: u64,
+    pub matched_publication_span: Option<sandbox_runtime_mpla_poc::MonotonicSpan>,
+    pub service_elapsed_ns: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SquashMplaBranchResult {
+    pub run_id: String,
+    pub branch: String,
+    pub lifecycle: MplaLifecycleReceipt,
+    pub service_elapsed_ns: u64,
+}
+
 /// Lifecycle phase of a session's finalization. `FinalizeFailed` and a session
 /// stuck in `Finalizing` are destroyable through `guarded_destroy` only.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -161,6 +294,8 @@ pub(crate) struct MplaWorkspaceBinding {
     pub(crate) lease: MutableLease,
     pub(crate) lease_operation_id: OperationId,
     pub(crate) prepared: PreparedExternalSession,
+    pub(crate) selected_ref: Option<PairedRefValue>,
+    pub(crate) lower_dirs_newest_first: Vec<PathBuf>,
     pub(crate) mount_scope: Option<sandbox_runtime_mpla_poc::StorageAdminScope>,
     pub(crate) mount_receipt_binding:
         Option<sandbox_runtime_mpla_poc::storage_admin::StorageAdminMountReceiptBinding>,

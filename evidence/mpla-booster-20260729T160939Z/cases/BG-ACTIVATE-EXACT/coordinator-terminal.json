@@ -1,0 +1,13 @@
+{
+  "command_session_id": "namespace_execution_1",
+  "command_total_time_seconds": 269.892576291,
+  "end_offset": 1,
+  "exit_code": 2,
+  "original_token_count": 67,
+  "output": "MPLA_SCORECARD_ERROR {\"error\":\"independent publication oracle failed with Some(2): stdout= stderr=mpla-poc-oracle: stat oracle tree /eos/layer-stack/mpla-poc/payload/allocations/65/65f36c0c-317a-475d-9ff5-2bc8b3a506da/upper: No such file or directory (os error 2)\\n\"}",
+  "start_offset": 0,
+  "status": "error",
+  "total_lines": 1,
+  "wall_time_seconds": 272.533080209,
+  "workspace_session_id": "00000118c6cec064823d22"
+}

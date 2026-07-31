@@ -1,0 +1,17 @@
+{
+  "exact_profile": false,
+  "failure_reason": "qualification receipt lacks one or more exact helper or public denial proofs",
+  "kind": "mpla_booster_security_profile_v1",
+  "observed_storage_admin_profiles": [],
+  "ordinary_workload_cap_sys_admin_denial": false,
+  "ordinary_workload_mount_umount_denial": false,
+  "positive_mount_unmount_probe": false,
+  "public_wrong_namespace_binding_denial": false,
+  "public_wrong_profile_selection_denial": false,
+  "required_storage_admin_profiles": [
+    "mpla-storage-admin-v1",
+    "mpla-storage-admin-overlayfs-dac-override-qualification-v1"
+  ],
+  "schema_version": 1,
+  "status": "FAIL"
+}

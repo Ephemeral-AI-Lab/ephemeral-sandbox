@@ -22,6 +22,9 @@ const HARD_MAX_CONTROL_LOGICAL_BYTES: u64 = 10 * 1024 * 1024 * 1024;
 const HARD_MAX_CONTROL_PATH_BYTES: u64 = 64 * 1024;
 const SOURCE_MANIFEST_DOMAIN: &[u8] = b"EOS-MPLA-CONTROL-SOURCE-V1\0";
 const CATALOG_BINDING_DOMAIN: &[u8] = b"EOS-MPLA-CATALOG-BINDING-V1\0";
+pub const MATCHED_PUBLICATION_START_BOUNDARY: &str =
+    "immediately before closing publication admission";
+pub const MATCHED_PUBLICATION_STOP_BOUNDARY: &str = "durable hidden root and closed session";
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ControlCollectionLimits {
@@ -141,12 +144,30 @@ pub enum MonotonicClock {
     Monotonic,
 }
 
+#[derive(Debug)]
+pub struct MonotonicTimer {
+    clock: MonotonicClock,
+    started_ns: u64,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MonotonicSpan {
     pub clock: MonotonicClock,
     pub started_ns: u64,
     pub finished_ns: u64,
     pub elapsed_ns: u64,
+}
+
+impl MonotonicTimer {
+    pub fn start() -> PocResult<Self> {
+        let (clock, started_ns) = monotonic_now_ns()?;
+        Ok(Self { clock, started_ns })
+    }
+
+    pub fn finish(self) -> PocResult<MonotonicSpan> {
+        let (_, finished_ns) = monotonic_now_ns()?;
+        monotonic_span(self.clock, self.started_ns, finished_ns)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -419,14 +440,14 @@ pub fn run_current_i2_closing(
     let coverage = coverage_for(ControlIntent::ClosingPublication, &request.catalog_binding);
     let stack = LayerStack::open(request.state_root.clone())?;
     let started_unix_ms = unix_time_ms()?;
-    let (clock, started_ns) = monotonic_now_ns()?;
+    let timer = MonotonicTimer::start()?;
     let outcome = stack.publish_hidden_validation(HiddenValidationPublication {
         publication_id: request.publication_id,
         changes: changes.changes.clone(),
         source_layer_dir: changes.profile.source_root.clone(),
         public_root_hash: request.public_root_hash.clone(),
     })?;
-    let (_, finished_ns) = monotonic_now_ns()?;
+    let span = timer.finish()?;
     if !outcome.matched {
         return Err(PocError::Integrity(
             "current-I2 hidden publication did not match its source".to_owned(),
@@ -441,7 +462,7 @@ pub fn run_current_i2_closing(
         boundary: request.boundary.clone(),
         verdict,
         started_unix_ms,
-        span: monotonic_span(clock, started_ns, finished_ns)?,
+        span,
         source: Some(changes.profile.clone()),
         publication: Some(ControlPublicationOutcome {
             correlation_id: outcome.correlation_id,

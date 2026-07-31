@@ -27,7 +27,10 @@ fn config_prd_manager_docker_section_deserializes_and_validates() {
     assert_eq!(standard.pids_max, 256);
     assert_eq!(standard.daemon_runtime_profile, "standard");
     assert!(standard.separate_workload_cgroup);
-    assert_eq!(standard.workload_memory_max_bytes(), 384 * 1024 * 1024);
+    assert_eq!(
+        standard.resolved_workload_memory_max_bytes(),
+        384 * 1024 * 1024
+    );
     assert_eq!(standard.control_plane_pids_reserve(), 32);
     assert_eq!(standard.workload_pids_max(), 224);
     assert!(docker.resource_profiles.contains_key("build-heavy"));
@@ -62,6 +65,33 @@ fn named_resource_profile_selection_and_limits_are_validated() {
         .expect("standard profile")
         .pids_max = 8;
     assert_invalid(&docker, "manager.docker.resource_profiles");
+}
+
+#[test]
+fn workload_memory_override_preserves_control_plane_headroom() {
+    let mut docker = prd_docker();
+    docker.resource_profile = "build-heavy".to_owned();
+    let profile = docker
+        .resource_profiles
+        .get_mut("build-heavy")
+        .expect("build-heavy profile");
+    profile.workload_memory_high_bytes = Some(96 * 1024 * 1024);
+    profile.workload_memory_max_bytes = Some(128 * 1024 * 1024);
+
+    docker
+        .validate()
+        .expect("a bounded child workload is valid beneath a larger daemon envelope");
+    let profile = docker
+        .selected_resource_profile()
+        .expect("selected build-heavy profile");
+    assert_eq!(
+        profile.resolved_workload_memory_high_bytes(),
+        96 * 1024 * 1024
+    );
+    assert_eq!(
+        profile.resolved_workload_memory_max_bytes(),
+        128 * 1024 * 1024
+    );
 }
 
 #[test]
@@ -188,6 +218,22 @@ fn config_prd_manager_docker_injects_proxy_container_env() {
 #[test]
 fn container_env_defaults_to_empty() {
     assert!(DockerRuntimeConfig::default().container_env.is_empty());
+}
+
+#[test]
+fn materialized_shared_base_requires_a_dedicated_writable_fixture_volume() {
+    let mut docker = prd_docker();
+    docker.materialize_shared_base_into_persistent_volume = true;
+    assert_invalid(
+        &docker,
+        "manager.docker.materialize_shared_base_into_persistent_volume",
+    );
+
+    docker.sandbox_owned_workspace_volumes = false;
+    assert_invalid(
+        &docker,
+        "manager.docker.materialize_shared_base_into_persistent_volume",
+    );
 }
 
 #[test]

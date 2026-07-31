@@ -159,6 +159,15 @@ fn object_store_installs_loads_and_reuses_exact_typed_bytes(
         loaded_chunk.encoded_len(),
         b"stage03-object".len() + object_store::RECORD_HEADER_BYTES
     );
+    let mut reusable_chunk =
+        Vec::with_capacity(object_store::RECORD_HEADER_BYTES + object_store::MAX_CHUNK_BYTES);
+    let reusable_capacity = reusable_chunk.capacity();
+    store.load_authenticated_chunk_into(installed.id(), &mut Sha256Digest, &mut reusable_chunk)?;
+    assert_eq!(
+        &reusable_chunk[object_store::RECORD_HEADER_BYTES..],
+        b"stage03-object"
+    );
+    assert_eq!(reusable_chunk.capacity(), reusable_capacity);
 
     let existing = store.install(&record, &mut Sha256Digest)?;
     assert_eq!(existing.disposition(), InstallDisposition::AlreadyPresent);
@@ -245,6 +254,116 @@ fn object_store_failpoints_never_expose_partial_objects_and_retry_exactly(
         );
         assert_eq!(temp_entries(retry.path()), 0);
     }
+    Ok(())
+}
+
+#[test]
+fn batched_object_store_installs_unreferenced_cas_before_one_commit_barrier(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let root = TestRoot::new("object-batch")?;
+    let store = LooseObjectStore::new_commit_batch(root.path().to_path_buf())?;
+    let record = chunk();
+    let installed = store.install(&record, &mut Sha256Digest)?;
+    let final_path = store.object_path(installed.kind(), installed.id());
+
+    assert_eq!(installed.path(), final_path);
+    assert!(installed.path().is_file());
+    assert_eq!(
+        store.load(installed.kind(), installed.id(), &mut Sha256Digest)?,
+        record
+    );
+
+    store.commit_batch()?;
+    let ordinary = LooseObjectStore::new(root.path().to_path_buf())?;
+    assert_eq!(
+        ordinary.load(installed.kind(), installed.id(), &mut Sha256Digest)?,
+        record
+    );
+    Ok(())
+}
+
+#[test]
+fn unreferenced_batched_object_corruption_fails_closed() -> Result<(), Box<dyn std::error::Error>> {
+    let root = TestRoot::new("object-batch-corrupt")?;
+    let store = LooseObjectStore::new_commit_batch(root.path().to_path_buf())?;
+    let installed = store.install(&chunk(), &mut Sha256Digest)?;
+    std::fs::write(installed.path(), b"corrupt")?;
+
+    let ordinary = LooseObjectStore::new(root.path().to_path_buf())?;
+    let error = ordinary
+        .load(installed.kind(), installed.id(), &mut Sha256Digest)
+        .expect_err("corrupt unreferenced object must fail authentication");
+    assert_eq!(error.kind(), Some(ErrorKind::ObjectCollisionOrCorruption));
+    Ok(())
+}
+
+#[test]
+fn batched_persistent_pages_read_direct_cas_records_before_commit(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let root = TestRoot::new("object-batch-pages")?;
+    let store = LooseObjectStore::new_commit_batch(root.path().to_path_buf())?;
+    let mut pages = PersistentPages::new(&store);
+    let tree = pages.build_tree(Vec::<TreeEntryV3>::new())?;
+    let directory =
+        pages.install_file_node(&FileNodeV3::directory(MetadataV3::directory(0o755), tree))?;
+    let content = pages.install_root(directory)?;
+
+    assert_eq!(pages.root_directory(content)?, tree);
+    assert!(store
+        .object_path(RecordKindV3::Root, content.digest())
+        .exists());
+    Ok(())
+}
+
+#[test]
+fn batched_native_file_cache_is_content_addressed_and_readable_after_commit(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let root = TestRoot::new("native-file-cache")?;
+    let source = root.path().join("source.bin");
+    let expected = b"immutable native acceleration payload";
+    std::fs::write(&source, expected)?;
+    let file_node = FileNodeId::new(Digest32::new([0x5a; 32]));
+    let store = LooseObjectStore::new_commit_batch(root.path().to_path_buf())?;
+
+    let installed =
+        store.install_native_file(file_node, &source, u64::try_from(expected.len())?)?;
+    assert_eq!(
+        installed,
+        root.path()
+            .join("native-files-v1")
+            .join("5a")
+            .join("5a".repeat(32))
+    );
+    store.commit_batch()?;
+
+    let ordinary = LooseObjectStore::new(root.path().to_path_buf())?;
+    let mut opened = ordinary
+        .open_native_file(file_node, u64::try_from(expected.len())?)?
+        .ok_or("committed native file cache was absent")?;
+    let mut actual = Vec::new();
+    opened.read_to_end(&mut actual)?;
+    assert_eq!(actual, expected);
+    Ok(())
+}
+
+#[test]
+fn malformed_native_file_cache_fails_closed() -> Result<(), Box<dyn std::error::Error>> {
+    let root = TestRoot::new("native-file-cache-corrupt")?;
+    let source = root.path().join("source.bin");
+    let expected = b"immutable native acceleration payload";
+    std::fs::write(&source, expected)?;
+    let file_node = FileNodeId::new(Digest32::new([0xa5; 32]));
+    let store = LooseObjectStore::new_commit_batch(root.path().to_path_buf())?;
+    let installed =
+        store.install_native_file(file_node, &source, u64::try_from(expected.len())?)?;
+    store.commit_batch()?;
+    std::fs::write(&installed, b"partial")?;
+
+    let ordinary = LooseObjectStore::new(root.path().to_path_buf())?;
+    let error = ordinary
+        .open_native_file(file_node, u64::try_from(expected.len())?)
+        .expect_err("partial native cache must not be used");
+    assert!(matches!(error, ObjectStoreError::InvalidBatch(_)));
     Ok(())
 }
 

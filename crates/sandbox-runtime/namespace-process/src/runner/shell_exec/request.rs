@@ -23,6 +23,10 @@ const HOST_KEYS: &[&str] = &[
     "https_proxy",
     "no_proxy",
     "all_proxy",
+    // The scorecard coordinator accepts this only as a strict allowlisted
+    // host.docker.internal scorecard listener.  It lets isolated builder and
+    // consumer gateways retain their own authenticated public boundary.
+    "MPLA_RUNTIME_GATEWAY_SOCKET",
 ];
 
 pub(crate) fn shell_argv(request: &NamespaceRunnerRequest) -> Result<Vec<String>, RunnerError> {

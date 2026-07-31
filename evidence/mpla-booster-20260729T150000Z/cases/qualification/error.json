@@ -1,0 +1,4 @@
+{
+  "error": "create_candidate_sandbox exited 1: {\"error\":{\"kind\":\"internal_error\",\"message\":\"sandbox runtime failed: failed to load daemon runtime config: failed to deserialize config section runtime: mpla_storage_admin.profile: unknown variant `overlayfs_dac_override_qualification`, expected `production`\",\"details\":{}}}\n",
+  "type": "CampaignError"
+}

@@ -58,6 +58,7 @@ pub(crate) struct ContainerSpec {
     pub(crate) labels: HashMap<String, String>,
     pub(crate) binds: Vec<String>,
     pub(crate) volumes: Vec<VolumeSpec>,
+    pub(crate) persistent_volumes: Vec<PersistentVolumeSpec>,
     pub(crate) daemon_port: u16,
     pub(crate) daemon_http_port: u16,
     pub(crate) privileged: bool,
@@ -73,6 +74,13 @@ pub(crate) struct VolumeSpec {
     pub(crate) name: String,
     pub(crate) target: String,
     pub(crate) labels: HashMap<String, String>,
+}
+
+pub(crate) struct PersistentVolumeSpec {
+    pub(crate) name: String,
+    pub(crate) target: String,
+    pub(crate) labels: HashMap<String, String>,
+    pub(crate) readonly: bool,
 }
 
 /// Cumulative counters obtained from Docker's read-only container stats API.
@@ -221,11 +229,18 @@ impl DockerEngine {
             for volume in &spec.volumes {
                 create_volume(&docker, volume).await?;
             }
+            for volume in &spec.persistent_volumes {
+                ensure_persistent_volume(&docker, volume).await?;
+            }
             let mut binds = spec
                 .volumes
                 .iter()
                 .map(|volume| format!("{}:{}", volume.name, volume.target))
                 .collect::<Vec<_>>();
+            binds.extend(spec.persistent_volumes.iter().map(|volume| {
+                let mode = if volume.readonly { ":ro" } else { "" };
+                format!("{}:{}{mode}", volume.name, volume.target)
+            }));
             binds.extend(spec.binds);
             let host_config = HostConfig {
                 binds: Some(binds),
@@ -637,9 +652,32 @@ fn deprivileged_security_opt(privileged: bool) -> Option<Vec<String>> {
 }
 
 async fn create_volume(docker: &Docker, volume: &VolumeSpec) -> Result<(), DockerError> {
+    create_named_volume(docker, &volume.name, &volume.labels).await
+}
+
+async fn ensure_persistent_volume(
+    docker: &Docker,
+    volume: &PersistentVolumeSpec,
+) -> Result<(), DockerError> {
+    match create_named_volume(docker, &volume.name, &volume.labels).await {
+        Ok(()) => Ok(()),
+        Err(DockerError::Api(error))
+            if error.contains("409") || error.contains("already exists") =>
+        {
+            Ok(())
+        }
+        Err(error) => Err(error),
+    }
+}
+
+async fn create_named_volume(
+    docker: &Docker,
+    name: &str,
+    labels: &HashMap<String, String>,
+) -> Result<(), DockerError> {
     let options = CreateVolumeOptions {
-        name: volume.name.clone(),
-        labels: volume.labels.clone(),
+        name: name.to_owned(),
+        labels: labels.clone(),
         ..Default::default()
     };
     docker

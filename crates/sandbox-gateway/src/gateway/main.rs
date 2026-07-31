@@ -192,6 +192,7 @@ fn build_docker_services(
     services.export_caps = export_caps;
     services.snapshot_limits = snapshot_limits;
     services.workspace_roots = workspace_roots;
+    services.shared_base_target = runtime_config.workspace.layer_stack_root.join("base");
     services.start_resource_sampler();
     Ok(Arc::new(services))
 }

@@ -171,10 +171,11 @@ fn publish(
     }
     let changed_paths = changed_paths.finish()?;
 
-    let store = LooseObjectStore::new(stack.storage_root.clone())?;
+    let store = LooseObjectStore::new_commit_batch(stack.storage_root.clone())?;
     let mut pages = PersistentPages::new(&store);
     let target = build_target(&mut pages, base, publication, &changes, request_digest)?;
     let matched = target_matches(&mut pages, target, publication, &changes)?;
+    store.commit_batch()?;
     journal.prepare(opened.id, target, Some(changed_path_digest), 0, &mut digest)?;
     let outcome = journal.commit_success(opened.id, &mut refs, now, &mut digest, |_| Ok(()))?;
     drop(changed_paths);
@@ -372,21 +373,49 @@ fn regular_file(
                     .map_err(|_| "chunk installation failed")?,
             )
         };
-        segments.push(SegmentDescriptor {
-            offset,
-            length,
-            kind,
-        });
+        append_canonical_segment(
+            &mut segments,
+            SegmentDescriptor {
+                offset,
+                length,
+                kind,
+            },
+        )?;
         offset = offset.checked_add(length).ok_or("file length overflow")?;
         Ok::<(), &'static str>(())
     })?;
     let segment_root = pages.build_segments(segments)?;
-    Ok(pages.install_file_node(&FileNodeV3::regular(
+    let file = pages.install_file_node(&FileNodeV3::regular(
         MetadataV3::directory(0o644),
         stats.input_bytes,
         segment_root,
         None,
-    ))?)
+    ))?;
+    pages
+        .object_store()
+        .install_native_file(file, source, stats.input_bytes)?;
+    Ok(file)
+}
+
+fn append_canonical_segment(
+    segments: &mut Vec<SegmentDescriptor>,
+    descriptor: SegmentDescriptor,
+) -> Result<(), &'static str> {
+    if matches!(descriptor.kind, SegmentKind::Zero | SegmentKind::Hole) {
+        if let Some(previous) = segments.last_mut() {
+            let contiguous =
+                previous.offset.checked_add(previous.length) == Some(descriptor.offset);
+            if previous.kind == descriptor.kind && contiguous {
+                previous.length = previous
+                    .length
+                    .checked_add(descriptor.length)
+                    .ok_or("sparse segment length overflow")?;
+                return Ok(());
+            }
+        }
+    }
+    segments.push(descriptor);
+    Ok(())
 }
 
 fn mutate_path(
@@ -524,4 +553,170 @@ fn hex(bytes: &[u8]) -> String {
         output.push(DIGITS[usize::from(byte & 0x0f)] as char);
     }
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    #[cfg(target_os = "linux")]
+    use std::time::Duration;
+
+    use super::*;
+    #[cfg(target_os = "linux")]
+    use crate::service::{
+        lookup_hidden_candidate_generation, materialize_hidden_candidate,
+        CandidateMaterializationDisposition,
+    };
+    use crate::LayerPath;
+
+    static NEXT_PUBLICATION_TEST: AtomicU64 = AtomicU64::new(0);
+
+    struct PublicationFixture {
+        root: PathBuf,
+    }
+
+    impl PublicationFixture {
+        fn new(label: &str) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+            let root = std::env::temp_dir().join(format!(
+                "layerstack-candidate-publication-{label}-{}-{}",
+                std::process::id(),
+                NEXT_PUBLICATION_TEST.fetch_add(1, Ordering::Relaxed),
+            ));
+            let _ = std::fs::remove_dir_all(&root);
+            std::fs::create_dir_all(&root)?;
+            Ok(Self { root })
+        }
+
+        fn source_dir(&self) -> PathBuf {
+            self.root.join("source")
+        }
+
+        fn storage_root(&self) -> PathBuf {
+            self.root.join("storage")
+        }
+    }
+
+    impl Drop for PublicationFixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[test]
+    fn hidden_validation_coalesces_adjacent_zero_chunks(
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let fixture = PublicationFixture::new("zero-chunks")?;
+        let source_dir = fixture.source_dir();
+        std::fs::create_dir_all(&source_dir)?;
+        let source = source_dir.join("zeros.bin");
+        let size = seqcdc::MAX_CHUNK_BYTES + 1;
+        std::fs::write(&source, vec![0_u8; size])?;
+
+        let stack = LayerStack::open(fixture.storage_root())?;
+        let outcome = stack.publish_hidden_validation(HiddenValidationPublication {
+            publication_id: *b"EOS-S04-ZERO-001",
+            changes: vec![LayerChange::WriteFile {
+                path: LayerPath::parse("zeros.bin")?,
+                source_path: source,
+                size: u64::try_from(size)?,
+            }],
+            source_layer_dir: source_dir,
+            public_root_hash: "zero-segment-canonicalization-v1".to_owned(),
+        })?;
+
+        assert!(outcome.matched);
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn native_cache_seeds_an_independent_verified_carrier(
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let fixture = PublicationFixture::new("native-cache-isolation")?;
+        let source_dir = fixture.source_dir();
+        std::fs::create_dir_all(&source_dir)?;
+        let payload = b"verified native cache payload".repeat(4096);
+        let source = source_dir.join("payload.bin");
+        std::fs::write(&source, &payload)?;
+        let stack = LayerStack::open(fixture.storage_root())?;
+        let outcome = stack.publish_hidden_validation(HiddenValidationPublication {
+            publication_id: *b"EOS-S04-NATIVE01",
+            changes: vec![LayerChange::WriteFile {
+                path: LayerPath::parse("payload.bin")?,
+                source_path: source,
+                size: u64::try_from(payload.len())?,
+            }],
+            source_layer_dir: source_dir,
+            public_root_hash: "native-cache-isolation-v1".to_owned(),
+        })?;
+        assert!(outcome.matched);
+
+        let (root, _) = stack
+            .hidden_validation_target()?
+            .ok_or("hidden publication target was absent")?;
+        let store = LooseObjectStore::new(fixture.storage_root())?;
+        let mut pages = PersistentPages::new(&store);
+        let file = pages
+            .lookup_path(root, b"payload.bin")?
+            .ok_or("published payload file was absent")?;
+        let native = store.native_file_path(file);
+        assert_eq!(std::fs::read(&native)?, payload);
+
+        let built = materialize_hidden_candidate(&fixture.storage_root(), Duration::from_secs(20))?;
+        assert_eq!(
+            built.disposition,
+            CandidateMaterializationDisposition::Built
+        );
+        let carrier = built.selection.carrier_path.join("payload.bin");
+        assert_eq!(std::fs::read(&carrier)?, payload);
+        std::fs::write(&carrier, vec![0x3c; payload.len()])?;
+        assert_eq!(
+            std::fs::read(&native)?,
+            payload,
+            "consumer carrier mutation must not alter the content-addressed cache"
+        );
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn corrupt_native_cache_fails_materialization_closed(
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let fixture = PublicationFixture::new("native-cache-corrupt")?;
+        let source_dir = fixture.source_dir();
+        std::fs::create_dir_all(&source_dir)?;
+        let payload = b"authenticated publication payload".repeat(4096);
+        let source = source_dir.join("payload.bin");
+        std::fs::write(&source, &payload)?;
+        let stack = LayerStack::open(fixture.storage_root())?;
+        let outcome = stack.publish_hidden_validation(HiddenValidationPublication {
+            publication_id: *b"EOS-S04-NATIVE02",
+            changes: vec![LayerChange::WriteFile {
+                path: LayerPath::parse("payload.bin")?,
+                source_path: source,
+                size: u64::try_from(payload.len())?,
+            }],
+            source_layer_dir: source_dir,
+            public_root_hash: "native-cache-corruption-v1".to_owned(),
+        })?;
+        assert!(outcome.matched);
+
+        let (root, _) = stack
+            .hidden_validation_target()?
+            .ok_or("hidden publication target was absent")?;
+        let store = LooseObjectStore::new(fixture.storage_root())?;
+        let mut pages = PersistentPages::new(&store);
+        let file = pages
+            .lookup_path(root, b"payload.bin")?
+            .ok_or("published payload file was absent")?;
+        let native = store.native_file_path(file);
+        std::fs::write(&native, vec![0x7e; payload.len()])?;
+
+        let error = materialize_hidden_candidate(&fixture.storage_root(), Duration::from_secs(20))
+            .expect_err("corrupt native cache must fail independent carrier verification");
+        assert!(error.to_string().contains("verification"));
+        assert!(lookup_hidden_candidate_generation(&fixture.storage_root())?.is_none());
+        Ok(())
+    }
 }

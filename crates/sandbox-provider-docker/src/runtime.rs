@@ -14,8 +14,11 @@ use sandbox_manager::{
     SandboxRuntime, SandboxState, SharedBaseMount,
 };
 
-use crate::archive::{build_shared_base_seed_archive, build_shared_base_volume_archive};
-use crate::engine::{ContainerSpec, DockerEngine, DockerError, VolumeSpec};
+use crate::archive::{
+    build_materialized_shared_base_seed_archive, build_shared_base_seed_archive,
+    build_shared_base_volume_archive,
+};
+use crate::engine::{ContainerSpec, DockerEngine, DockerError, PersistentVolumeSpec, VolumeSpec};
 use crate::labels;
 use crate::launch::daemon_launch_argv;
 
@@ -262,9 +265,16 @@ impl SandboxRuntime for DockerSandboxRuntime {
             &limits,
         );
         let image = resolve_image(config, &request.image);
-        let shared_base_volume = self.ensure_shared_base_volume(config, &image, shared_base)?;
         let workspace_paths = runtime_workspace_paths(config)?;
+        let materialize_shared_base =
+            materialize_shared_base_into_persistent_volume(config, shared_base)?;
+        let shared_base_volume = if materialize_shared_base {
+            None
+        } else {
+            Some(self.ensure_shared_base_volume(config, &image, shared_base)?)
+        };
         let volumes = runtime_volumes(config, &id, &workspace_paths);
+        let persistent_volumes = persistent_volumes(config);
         let volume_names = volumes
             .iter()
             .map(|volume| volume.name.clone())
@@ -276,8 +286,12 @@ impl SandboxRuntime for DockerSandboxRuntime {
             cmd,
             env: container_env(config),
             labels,
-            binds: vec![shared_base_volume_bind(&shared_base_volume, shared_base)],
+            binds: shared_base_volume
+                .as_deref()
+                .map(|volume| vec![shared_base_volume_bind(volume, shared_base)])
+                .unwrap_or_default(),
             volumes,
+            persistent_volumes,
             daemon_port: config.daemon_port,
             daemon_http_port: config.daemon_http_port,
             privileged: config.privileged,
@@ -289,11 +303,20 @@ impl SandboxRuntime for DockerSandboxRuntime {
             pids_max: limits.pids_max,
         };
         self.engine.create_container(spec).map_err(runtime_failed)?;
-        let archive = build_shared_base_seed_archive(
-            &workspace_paths.layer_stack_root,
-            &config.container_workspace_root,
-            &shared_base.root_hash,
-        )
+        let archive = (if materialize_shared_base {
+            build_materialized_shared_base_seed_archive(
+                &workspace_paths.layer_stack_root,
+                &config.container_workspace_root,
+                &shared_base.root_hash,
+                &shared_base.source,
+            )
+        } else {
+            build_shared_base_seed_archive(
+                &workspace_paths.layer_stack_root,
+                &config.container_workspace_root,
+                &shared_base.root_hash,
+            )
+        })
         .map_err(|error| ManagerError::RuntimeFailed {
             message: format!("failed to build shared base seed archive: {error}"),
         });
@@ -327,7 +350,7 @@ impl SandboxRuntime for DockerSandboxRuntime {
         self.engine
             .remove_container(record.id.as_str().to_owned())
             .map_err(runtime_failed)?;
-        for volume_name in runtime_volume_names(&record.id) {
+        for volume_name in runtime_volume_names(self.engine.config(), &record.id) {
             self.engine
                 .remove_volume(volume_name)
                 .map_err(runtime_failed)?;
@@ -340,14 +363,20 @@ fn configured_resource_limits(config: &DockerRuntimeConfig) -> Option<DockerReso
     let profile = config.selected_resource_profile()?;
     let memory_max_bytes = config.memory_bytes.unwrap_or(profile.memory_max_bytes);
     let memory_high_bytes = profile.memory_high_bytes.min(memory_max_bytes);
+    let workload_memory_high_bytes = profile
+        .resolved_workload_memory_high_bytes()
+        .min(memory_max_bytes);
+    let workload_memory_max_bytes = profile
+        .resolved_workload_memory_max_bytes()
+        .min(memory_max_bytes);
     Some(DockerResourceLimits {
         profile_name: config.resource_profile.clone(),
         nano_cpus: config.nano_cpus.unwrap_or(profile.nano_cpus),
         memory_high_bytes,
         memory_max_bytes,
         pids_max: profile.pids_max,
-        workload_memory_high_bytes: memory_high_bytes,
-        workload_memory_max_bytes: memory_high_bytes,
+        workload_memory_high_bytes,
+        workload_memory_max_bytes,
         workload_pids_max: profile.workload_pids_max(),
         control_plane_pids_reserve: profile.control_plane_pids_reserve(),
         daemon_runtime_profile: profile.daemon_runtime_profile.clone(),
@@ -395,7 +424,10 @@ fn shared_base_volume_bind(volume_name: &str, shared_base: &SharedBaseMount) -> 
     format!("{}:{}:ro", volume_name, shared_base.target.display())
 }
 
-fn runtime_volume_names(id: &SandboxId) -> Vec<String> {
+fn runtime_volume_names(config: &DockerRuntimeConfig, id: &SandboxId) -> Vec<String> {
+    if !config.sandbox_owned_workspace_volumes {
+        return Vec::new();
+    }
     vec![
         layer_stack_volume_name(id),
         workspace_scratch_volume_name(id),
@@ -407,6 +439,9 @@ fn runtime_volumes(
     id: &SandboxId,
     paths: &RuntimeWorkspacePaths,
 ) -> Vec<VolumeSpec> {
+    if !config.sandbox_owned_workspace_volumes {
+        return Vec::new();
+    }
     let labels = build_volume_labels(config, id);
     vec![
         VolumeSpec {
@@ -420,6 +455,48 @@ fn runtime_volumes(
             labels,
         },
     ]
+}
+
+fn persistent_volumes(config: &DockerRuntimeConfig) -> Vec<PersistentVolumeSpec> {
+    config
+        .persistent_volume_mounts
+        .iter()
+        .map(|volume| PersistentVolumeSpec {
+            name: volume.name.clone(),
+            target: volume.target.to_string_lossy().into_owned(),
+            labels: HashMap::from([
+                ("eos.persistent_volume".to_owned(), "true".to_owned()),
+                (
+                    "eos.gateway_instance".to_owned(),
+                    config.gateway_instance_id.clone(),
+                ),
+            ]),
+            readonly: volume.readonly,
+        })
+        .collect()
+}
+
+fn materialize_shared_base_into_persistent_volume(
+    config: &DockerRuntimeConfig,
+    shared_base: &SharedBaseMount,
+) -> Result<bool, ManagerError> {
+    if !config.materialize_shared_base_into_persistent_volume {
+        return Ok(false);
+    }
+    let writable_volume = config
+        .persistent_volume_mounts
+        .iter()
+        .any(|volume| !volume.readonly && shared_base.target.starts_with(&volume.target));
+    if writable_volume {
+        Ok(true)
+    } else {
+        Err(ManagerError::RuntimeFailed {
+            message: format!(
+                "materialized shared base target {} is not below a configured writable persistent volume",
+                shared_base.target.display()
+            ),
+        })
+    }
 }
 
 fn container_env(config: &DockerRuntimeConfig) -> Vec<String> {

@@ -65,8 +65,24 @@ pub struct AllocationInventory {
 /// receipt-aware scanning; this inventory remains the physical stability
 /// witness.
 pub fn capture_inventory(allocation: &AllocationHandle) -> PocResult<AllocationInventory> {
+    capture_inventory_with_content(allocation, true)
+}
+
+pub fn capture_metadata_inventory(allocation: &AllocationHandle) -> PocResult<AllocationInventory> {
+    capture_inventory_with_content(allocation, false)
+}
+
+fn capture_inventory_with_content(
+    allocation: &AllocationHandle,
+    include_content_sha256: bool,
+) -> PocResult<AllocationInventory> {
     let mut entries = Vec::new();
-    walk_no_follow(&allocation.upper_dir, &allocation.upper_dir, &mut entries)?;
+    walk_no_follow(
+        &allocation.upper_dir,
+        &allocation.upper_dir,
+        &mut entries,
+        include_content_sha256,
+    )?;
     entries.sort_by(|left, right| {
         raw_path_bytes(&left.relative_path).cmp(&raw_path_bytes(&right.relative_path))
     });
@@ -94,6 +110,21 @@ pub fn capture_stable_pair(
     if before != after {
         return Err(PocError::RecoveryRequired(format!(
             "allocation {} changed between stability inventories",
+            allocation.descriptor.allocation_id
+        )));
+    }
+    Ok((before, after))
+}
+
+pub fn capture_stable_metadata_pair(
+    allocation: &AllocationHandle,
+) -> PocResult<(AllocationInventory, AllocationInventory)> {
+    let before = capture_metadata_inventory(allocation)?;
+    thread::yield_now();
+    let after = capture_metadata_inventory(allocation)?;
+    if before != after {
+        return Err(PocError::RecoveryRequired(format!(
+            "allocation {} changed between metadata stability inventories",
             allocation.descriptor.allocation_id
         )));
     }
@@ -146,7 +177,9 @@ pub fn capture_physical_witness(
                 relative_path.display()
             )));
         }
-        logical_bytes = logical_bytes.saturating_add(metadata.len());
+        if metadata.is_file() {
+            logical_bytes = logical_bytes.saturating_add(metadata.len());
+        }
         allocated_bytes = allocated_bytes.saturating_add(metadata_allocated_bytes(&metadata));
         file_count = file_count.saturating_add(u64::from(metadata.is_file()));
         directory_count = directory_count.saturating_add(u64::from(metadata.is_dir()));
@@ -192,6 +225,7 @@ fn walk_no_follow(
     root: &Path,
     directory: &Path,
     output: &mut Vec<InventoryEntry>,
+    include_content_sha256: bool,
 ) -> PocResult<()> {
     let mut children = fs::read_dir(directory)
         .map_err(|error| PocError::io("read inventory directory", directory, error))?
@@ -221,7 +255,7 @@ fn walk_no_follow(
         } else {
             None
         };
-        let content_sha256 = if metadata.is_file() {
+        let content_sha256 = if include_content_sha256 && metadata.is_file() {
             Some(hash_file(&path)?)
         } else {
             None
@@ -235,7 +269,7 @@ fn walk_no_follow(
             content_sha256,
         )?);
         if metadata.is_dir() {
-            walk_no_follow(root, &path, output)?;
+            walk_no_follow(root, &path, output, include_content_sha256)?;
         }
     }
     Ok(())
@@ -432,7 +466,11 @@ fn summarize_physical(
         allocation_path: allocation.allocation_root.clone(),
         device: metadata_device(&root_metadata),
         representative_inodes,
-        logical_bytes: entries.iter().map(|entry| entry.size).sum(),
+        logical_bytes: entries
+            .iter()
+            .filter(|entry| entry.kind == InventoryEntryKind::Regular)
+            .map(|entry| entry.size)
+            .sum(),
         allocated_bytes: entries.iter().map(|entry| entry.allocated_bytes).sum(),
         inode_count: u64::try_from(entries.len())
             .map_err(|_| PocError::Integrity("inventory count does not fit u64".to_owned()))?,

@@ -3,7 +3,7 @@
 //! The gateway loads this section only under `--backend docker`; it stays an
 //! optional root section so existing daemon configs continue to load.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use serde::Deserialize;
@@ -151,6 +151,10 @@ pub struct DockerResourceProfile {
     pub nano_cpus: i64,
     pub memory_high_bytes: i64,
     pub memory_max_bytes: i64,
+    #[serde(default)]
+    pub workload_memory_high_bytes: Option<i64>,
+    #[serde(default)]
+    pub workload_memory_max_bytes: Option<i64>,
     pub pids_max: i64,
     pub daemon_runtime_profile: String,
     pub separate_workload_cgroup: bool,
@@ -158,8 +162,15 @@ pub struct DockerResourceProfile {
 
 impl DockerResourceProfile {
     #[must_use]
-    pub fn workload_memory_max_bytes(&self) -> i64 {
-        self.memory_high_bytes
+    pub fn resolved_workload_memory_high_bytes(&self) -> i64 {
+        self.workload_memory_high_bytes
+            .unwrap_or(self.memory_high_bytes)
+    }
+
+    #[must_use]
+    pub fn resolved_workload_memory_max_bytes(&self) -> i64 {
+        self.workload_memory_max_bytes
+            .unwrap_or(self.memory_high_bytes)
     }
 
     #[must_use]
@@ -201,6 +212,36 @@ impl DockerResourceProfile {
             return Err(ConfigFieldError::new(
                 FIELD,
                 format!("profile `{name}` memory_high_bytes must not exceed memory_max_bytes"),
+            ));
+        }
+        let workload_memory_high_bytes = self.resolved_workload_memory_high_bytes();
+        let workload_memory_max_bytes = self.resolved_workload_memory_max_bytes();
+        if workload_memory_high_bytes <= 0 {
+            return Err(ConfigFieldError::new(
+                FIELD,
+                format!("profile `{name}` workload_memory_high_bytes must be greater than zero"),
+            ));
+        }
+        if workload_memory_max_bytes <= 0 {
+            return Err(ConfigFieldError::new(
+                FIELD,
+                format!("profile `{name}` workload_memory_max_bytes must be greater than zero"),
+            ));
+        }
+        if workload_memory_high_bytes > workload_memory_max_bytes {
+            return Err(ConfigFieldError::new(
+                FIELD,
+                format!(
+                    "profile `{name}` workload_memory_high_bytes must not exceed workload_memory_max_bytes"
+                ),
+            ));
+        }
+        if workload_memory_max_bytes > self.memory_max_bytes {
+            return Err(ConfigFieldError::new(
+                FIELD,
+                format!(
+                    "profile `{name}` workload_memory_max_bytes must not exceed memory_max_bytes"
+                ),
             ));
         }
         if self.pids_max <= 0 {
@@ -252,6 +293,8 @@ fn default_resource_profiles() -> BTreeMap<String, DockerResourceProfile> {
                 nano_cpus: 1_000_000_000,
                 memory_high_bytes: 384 * 1024 * 1024,
                 memory_max_bytes: 512 * 1024 * 1024,
+                workload_memory_high_bytes: None,
+                workload_memory_max_bytes: None,
                 pids_max: 256,
                 daemon_runtime_profile: STANDARD_RESOURCE_PROFILE.to_owned(),
                 separate_workload_cgroup: true,
@@ -263,6 +306,8 @@ fn default_resource_profiles() -> BTreeMap<String, DockerResourceProfile> {
                 nano_cpus: 4_000_000_000,
                 memory_high_bytes: 3 * 1024 * 1024 * 1024,
                 memory_max_bytes: 4 * 1024 * 1024 * 1024,
+                workload_memory_high_bytes: None,
+                workload_memory_max_bytes: None,
                 pids_max: 1024,
                 daemon_runtime_profile: BUILD_HEAVY_RESOURCE_PROFILE.to_owned(),
                 separate_workload_cgroup: true,
@@ -333,6 +378,48 @@ pub enum DockerCgroupNamespaceMode {
     Host,
 }
 
+/// A server-configured Docker named volume that outlives individual sandboxes.
+///
+/// The volume name and target are policy, not caller input.  This permits an
+/// immutable prepared fixture to be shared without reusing a sandbox-owned
+/// workspace, lease, or writable upper directory.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DockerPersistentVolumeMount {
+    pub name: String,
+    pub target: PathBuf,
+    #[serde(default)]
+    pub readonly: bool,
+}
+
+impl DockerPersistentVolumeMount {
+    fn validate(&self) -> Result<(), ConfigFieldError> {
+        require_non_empty(&self.name, "manager.docker.persistent_volume_mounts")?;
+        if !self
+            .name
+            .as_bytes()
+            .iter()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+        {
+            return Err(ConfigFieldError::new(
+                "manager.docker.persistent_volume_mounts",
+                format!("volume name `{}` contains an unsafe character", self.name),
+            ));
+        }
+        require_unix_absolute(
+            &self.target,
+            "manager.docker.persistent_volume_mounts.target",
+        )?;
+        if self.target == PathBuf::from("/") {
+            return Err(ConfigFieldError::new(
+                "manager.docker.persistent_volume_mounts.target",
+                "must not be the container root",
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Configuration for the Docker-backed sandbox runtime + daemon installer.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -401,6 +488,18 @@ pub struct DockerRuntimeConfig {
     /// runtime uses does not, so declare them here (for example `HTTP_PROXY`)
     /// to give sandboxes the same egress path.
     pub container_env: BTreeMap<String, String>,
+    /// Server-configured named volumes that persist across sandbox cleanup.
+    /// These are never selected by public operation arguments.
+    pub persistent_volume_mounts: Vec<DockerPersistentVolumeMount>,
+    /// Whether each sandbox receives its own lifecycle-owned layer-stack and
+    /// workspace volumes. A dedicated fixture builder may disable these only
+    /// while both roots are supplied by a configured persistent volume.
+    pub sandbox_owned_workspace_volumes: bool,
+    /// Opt in to copying the immutable shared-base tree into a writable
+    /// persistent volume during sandbox creation. This is reserved for the
+    /// trusted fixture builder: nested Docker mounts otherwise make the base
+    /// disappear when that builder sandbox is destroyed.
+    pub materialize_shared_base_into_persistent_volume: bool,
 }
 
 impl Default for DockerRuntimeConfig {
@@ -434,6 +533,9 @@ impl Default for DockerRuntimeConfig {
             memory_bytes: None,
             nano_cpus: None,
             container_env: BTreeMap::new(),
+            persistent_volume_mounts: Vec::new(),
+            sandbox_owned_workspace_volumes: true,
+            materialize_shared_base_into_persistent_volume: false,
         }
     }
 }
@@ -630,6 +732,44 @@ impl DockerRuntimeConfig {
                 return Err(ConfigFieldError::new(
                     "manager.docker.container_env",
                     format!("variable name `{name}` must not contain '='"),
+                ));
+            }
+        }
+        let mut names = BTreeSet::new();
+        let mut targets = BTreeSet::new();
+        for volume in &self.persistent_volume_mounts {
+            volume.validate()?;
+            if !names.insert(volume.name.as_str()) {
+                return Err(ConfigFieldError::new(
+                    "manager.docker.persistent_volume_mounts",
+                    format!("volume `{}` is configured more than once", volume.name),
+                ));
+            }
+            if !targets.insert(volume.target.clone()) {
+                return Err(ConfigFieldError::new(
+                    "manager.docker.persistent_volume_mounts",
+                    format!(
+                        "target `{}` is configured more than once",
+                        volume.target.display()
+                    ),
+                ));
+            }
+        }
+        if self.materialize_shared_base_into_persistent_volume {
+            if self.sandbox_owned_workspace_volumes {
+                return Err(ConfigFieldError::new(
+                    "manager.docker.materialize_shared_base_into_persistent_volume",
+                    "requires sandbox_owned_workspace_volumes=false",
+                ));
+            }
+            if !self
+                .persistent_volume_mounts
+                .iter()
+                .any(|volume| !volume.readonly)
+            {
+                return Err(ConfigFieldError::new(
+                    "manager.docker.materialize_shared_base_into_persistent_volume",
+                    "requires at least one writable persistent volume",
                 ));
             }
         }

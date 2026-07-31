@@ -1,0 +1,19 @@
+{
+  "exact_profile": true,
+  "failure_reason": null,
+  "kind": "mpla_booster_security_profile_v1",
+  "observed_storage_admin_profiles": [
+    "mpla-storage-admin-overlayfs-dac-override-qualification-v1"
+  ],
+  "ordinary_workload_cap_sys_admin_denial": true,
+  "ordinary_workload_mount_umount_denial": true,
+  "positive_mount_unmount_probe": true,
+  "public_wrong_namespace_binding_denial": true,
+  "public_wrong_profile_selection_denial": true,
+  "required_storage_admin_profiles": [
+    "mpla-storage-admin-v1",
+    "mpla-storage-admin-overlayfs-dac-override-qualification-v1"
+  ],
+  "schema_version": 1,
+  "status": "PASS"
+}

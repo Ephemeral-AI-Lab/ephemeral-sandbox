@@ -50,6 +50,38 @@ const CREATE_WORKSPACE_SESSION_ARGUMENTS: &[ArgumentProjection] = &[ArgumentProj
 const CREATE_MPLA_WORKSPACE_SESSION_ARGUMENTS: &[ArgumentProjection] =
     &[ArgumentProjection::flag("run_id", "--run-id")];
 
+const ATTACH_MPLA_PREPARED_FIXTURE_ARGUMENTS: &[ArgumentProjection] = &[
+    ArgumentProjection::flag("run_id", "--run-id"),
+    ArgumentProjection::flag("fixture_profile", "--fixture-profile"),
+];
+
+const ACTIVATE_WORKSPACE_SESSION_ARGUMENTS: &[ArgumentProjection] = &[
+    ArgumentProjection::flag("run_id", "--run-id"),
+    ArgumentProjection::flag("branch", "--branch"),
+];
+
+const FORK_WORKSPACE_SESSION_ARGUMENTS: &[ArgumentProjection] = &[
+    ArgumentProjection::flag("run_id", "--run-id"),
+    ArgumentProjection::flag("source_branch", "--source-branch"),
+    ArgumentProjection::flag("branch", "--branch"),
+];
+
+const ROLLBACK_WORKSPACE_SESSION_ARGUMENTS: &[ArgumentProjection] = &[
+    ArgumentProjection::flag("run_id", "--run-id"),
+    ArgumentProjection::flag("branch", "--branch"),
+    ArgumentProjection::flag("target_branch", "--target-branch"),
+];
+
+const PUBLISH_MPLA_WORKSPACE_SESSION_ARGUMENTS: &[ArgumentProjection] = &[
+    ArgumentProjection::flag("workspace_session_id", "--workspace-session-id"),
+    ArgumentProjection::flag("branch", "--branch"),
+];
+
+const SQUASH_MPLA_BRANCH_ARGUMENTS: &[ArgumentProjection] = &[
+    ArgumentProjection::flag("run_id", "--run-id"),
+    ArgumentProjection::flag("branch", "--branch"),
+];
+
 const PUBLISH_WORKSPACE_SESSION_ARGUMENTS: &[ArgumentProjection] = &[
     ArgumentProjection::flag("workspace_session_id", "--workspace-session-id"),
     ArgumentProjection::flag("grace_s", "--grace-s"),
@@ -151,6 +183,60 @@ const OPERATIONS: &[OperationProjection] = &[
             "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID create_mpla_workspace_session --run-id mpla-poc-20260728",
         ],
         arguments: CREATE_MPLA_WORKSPACE_SESSION_ARGUMENTS,
+    },
+    OperationProjection {
+        name: "attach_mpla_prepared_fixture",
+        path: &["runtime", "attach_mpla_prepared_fixture"],
+        usage: "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID attach_mpla_prepared_fixture --run-id RUN_ID --fixture-profile PROFILE",
+        examples: &[
+            "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID attach_mpla_prepared_fixture --run-id scorecard-run --fixture-profile s4-chain-v1",
+        ],
+        arguments: ATTACH_MPLA_PREPARED_FIXTURE_ARGUMENTS,
+    },
+    OperationProjection {
+        name: "activate_workspace_session",
+        path: &["runtime", "activate_workspace_session"],
+        usage: "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID activate_workspace_session --run-id RUN_ID --branch BRANCH",
+        examples: &[
+            "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID activate_workspace_session --run-id booster-scorecard-20260729 --branch main",
+        ],
+        arguments: ACTIVATE_WORKSPACE_SESSION_ARGUMENTS,
+    },
+    OperationProjection {
+        name: "fork_workspace_session",
+        path: &["runtime", "fork_workspace_session"],
+        usage: "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID fork_workspace_session --run-id RUN_ID --source-branch SOURCE --branch BRANCH",
+        examples: &[
+            "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID fork_workspace_session --run-id booster-scorecard-20260729 --source-branch main --branch agent-1",
+        ],
+        arguments: FORK_WORKSPACE_SESSION_ARGUMENTS,
+    },
+    OperationProjection {
+        name: "rollback_workspace_session",
+        path: &["runtime", "rollback_workspace_session"],
+        usage: "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID rollback_workspace_session --run-id RUN_ID --branch BRANCH --target-branch TARGET",
+        examples: &[
+            "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID rollback_workspace_session --run-id booster-scorecard-20260729 --branch main --target-branch checkpoint-1",
+        ],
+        arguments: ROLLBACK_WORKSPACE_SESSION_ARGUMENTS,
+    },
+    OperationProjection {
+        name: "publish_mpla_workspace_session",
+        path: &["runtime", "publish_mpla_workspace_session"],
+        usage: "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID publish_mpla_workspace_session --workspace-session-id ID --branch BRANCH",
+        examples: &[
+            "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID publish_mpla_workspace_session --workspace-session-id ws-1 --branch main",
+        ],
+        arguments: PUBLISH_MPLA_WORKSPACE_SESSION_ARGUMENTS,
+    },
+    OperationProjection {
+        name: "squash_mpla_branch",
+        path: &["runtime", "squash_mpla_branch"],
+        usage: "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID squash_mpla_branch --run-id RUN_ID --branch BRANCH",
+        examples: &[
+            "sandbox-runtime-cli --sandbox-id ID --request-id OPERATION_ID squash_mpla_branch --run-id booster-scorecard-20260729 --branch main",
+        ],
+        arguments: SQUASH_MPLA_BRANCH_ARGUMENTS,
     },
     OperationProjection {
         name: "publish_workspace_session",

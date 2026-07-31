@@ -57,6 +57,24 @@ Workspace session
   create_mpla_workspace_session
     Create an unmounted MPLA-backed workspace session.
 
+  attach_mpla_prepared_fixture
+    Attach the fixed immutable MPLA scorecard fixture to a fresh run.
+
+  activate_workspace_session
+    Activate an MPLA branch as a usable workspace session.
+
+  fork_workspace_session
+    Create an inactive metadata-only MPLA branch.
+
+  rollback_workspace_session
+    Roll back an MPLA branch and activate the selected state.
+
+  publish_mpla_workspace_session
+    Publish an MPLA workspace session and close it.
+
+  squash_mpla_branch
+    Logically squash an MPLA branch.
+
   publish_workspace_session
     Publish an explicit workspace session and close it.
 

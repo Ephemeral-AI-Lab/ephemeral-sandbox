@@ -1,0 +1,3 @@
+{
+  "error": "read_scorecard_progress exited 1: {\"error\":{\"kind\":\"not_found\",\"message\":\"file not found: scorecard-publication-progress.jsonl\",\"details\":{\"path\":\"scorecard-publication-progress.jsonl\"}}}\n"
+}

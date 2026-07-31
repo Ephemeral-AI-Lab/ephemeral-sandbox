@@ -13,6 +13,7 @@ use sandbox_runtime_mpla_poc::{
 use sandbox_runtime_mpla_poc::{
     run_current_i2_materialization, ControlApiCoverage, ControlCacheExpectation, ControlIntent,
     CurrentI2MaterializationRequest, ExternalReadinessReceipt, PocError,
+    MATCHED_PUBLICATION_START_BOUNDARY, MATCHED_PUBLICATION_STOP_BOUNDARY,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -239,11 +240,39 @@ fn real_current_i2_closing_cold_and_same_key_controls() -> TestResult {
             publication_id: [7_u8; 16],
             public_root_hash: changes.profile.source_manifest_sha256.clone(),
             catalog_binding: binding.clone(),
-            boundary: matched_boundary(ControlCacheMatch::NotApplicable),
+            boundary: ControlBoundary {
+                candidate_start: MATCHED_PUBLICATION_START_BOUNDARY.to_owned(),
+                candidate_stop: MATCHED_PUBLICATION_STOP_BOUNDARY.to_owned(),
+                current_i2_start: MATCHED_PUBLICATION_START_BOUNDARY.to_owned(),
+                current_i2_stop: MATCHED_PUBLICATION_STOP_BOUNDARY.to_owned(),
+                same_fixture: true,
+                same_intent: true,
+                same_durability: true,
+                same_readiness: true,
+                cache_state: ControlCacheMatch::NotApplicable,
+                unknown_reason: None,
+            },
         },
         &changes,
     )?;
     assert_eq!(closing.verdict, ControlVerdict::Matched);
+    assert_eq!(
+        closing.boundary.candidate_start,
+        MATCHED_PUBLICATION_START_BOUNDARY
+    );
+    assert_eq!(
+        closing.boundary.candidate_stop,
+        MATCHED_PUBLICATION_STOP_BOUNDARY
+    );
+    assert!(closing
+        .publication
+        .as_ref()
+        .is_some_and(|publication| publication.matched));
+    assert!(closing.span.finished_ns >= closing.span.started_ns);
+    assert_eq!(
+        closing.span.elapsed_ns,
+        closing.span.finished_ns - closing.span.started_ns
+    );
     assert_eq!(
         closing.coverage.classification,
         ControlApiCoverage::PublicIntentProgrammaticCurrentI2
@@ -297,9 +326,14 @@ fn real_current_i2_closing_cold_and_same_key_controls() -> TestResult {
     assert_eq!(
         reused
             .materialization
+            .as_ref()
             .expect("same-key receipt contains materialization")
             .disposition,
         "reused"
+    );
+    assert_eq!(
+        reused.coverage.direct_control_api,
+        "service::materialize_hidden_candidate"
     );
     sandbox_runtime_layerstack::reset_process_state_for_tests();
     Ok(())

@@ -1,0 +1,76 @@
+# Dedicated Stage 04.6 M3 consumer configuration for immutable V11 fixtures.
+
+daemon:
+  server:
+    socket_path: /eos/runtime/daemon/runtime.sock
+    pid_path: /eos/runtime/daemon/runtime.pid
+    worker_threads: 4
+    max_blocking_threads: 8
+    blocking_thread_keep_alive_s: 5
+    max_concurrent_connections: 64
+
+runtime:
+  workspace:
+    layer_stack_root: /eos/layer-stack
+    scratch_root: /eos/workspace
+    setup_timeout_s: 30
+    exit_grace_s: 0.25
+    rfc1918_egress: allow
+  namespace_execution:
+    scratch_root: /eos/namespace_execution
+    command_security_profile: mpla_benchmark_qualification
+  layerstack:
+    rollout_mode: legacy
+    autosquash_policies:
+      squash_at_n_layers: 100
+  command:
+    max_active: 32
+  mpla_storage_admin:
+    profile: overlayfs_dac_override_qualification
+
+runner:
+  mount_mask:
+    hidden_paths:
+      - /eos/runtime
+
+observability:
+  resource_stats:
+    enabled: true
+    sample_interval_ms: 2000
+    max_disk_bytes: 4194304
+
+manager:
+  docker:
+    privileged: true
+    daemon_binary_path: dist/sandbox-daemon-linux-arm64
+    daemon_config_yaml_path: config/mpla-poc-m3-phase-profile-v11.yml
+    platform: linux/arm64
+    gateway_instance_id: mpla-poc-m3-phase-profile-v11
+    cgroup_namespace_mode: host
+    resource_profile: build-heavy
+    persistent_volume_mounts:
+      - name: eos-mpla-prepared-s4-phase-profile-v11
+        target: /eos/mpla-fixtures
+        readonly: true
+    resource_profiles:
+      standard:
+        nano_cpus: 1000000000
+        memory_high_bytes: 402653184
+        memory_max_bytes: 536870912
+        pids_max: 256
+        daemon_runtime_profile: standard
+        separate_workload_cgroup: true
+      build-heavy:
+        nano_cpus: 4000000000
+        memory_high_bytes: 3221225472
+        memory_max_bytes: 4294967296
+        workload_memory_high_bytes: 100663296
+        workload_memory_max_bytes: 134217728
+        pids_max: 1024
+        daemon_runtime_profile: build-heavy
+        separate_workload_cgroup: true
+    container_env:
+      MPLA_RUNTIME_GATEWAY_SOCKET: host.docker.internal:7899
+      HTTP_PROXY: http://http.docker.internal:3128
+      HTTPS_PROXY: http://http.docker.internal:3128
+      NO_PROXY: localhost,127.0.0.1,::1

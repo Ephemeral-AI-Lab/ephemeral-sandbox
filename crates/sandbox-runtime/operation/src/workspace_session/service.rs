@@ -3,6 +3,7 @@ mod core;
 mod dispatcher;
 mod impls;
 mod model;
+mod mpla_policy;
 mod recovery;
 mod snapshot;
 
@@ -15,8 +16,11 @@ pub use impls::{
 };
 pub(crate) use model::MplaWorkspaceBinding;
 pub use model::{
-    CreateSessionRequest, FinalizationState, FinalizeOutcome, FinalizePolicy,
+    ActivateMplaWorkspaceSessionResult, AttachMplaPreparedFixtureResult, CreateSessionRequest,
+    FinalizationState, FinalizeOutcome, FinalizePolicy, ForkMplaWorkspaceSessionResult,
     HolderExitDisposition, HolderExitOutcome, HolderLifecycleEvent, HolderLifecycleEventKind,
-    HolderLifecycleSnapshot, PublishFailureStage, PublishWorkspaceSessionResult,
-    WorkspaceSessionHandler, WorkspaceSessionPublishDetails,
+    HolderLifecycleSnapshot, MplaActivationTimings, MplaLifecycleReceipt, PublishFailureStage,
+    PublishMplaWorkspaceSessionResult, PublishWorkspaceSessionResult,
+    RollbackMplaWorkspaceSessionResult, SquashMplaBranchResult, WorkspaceSessionHandler,
+    WorkspaceSessionPublishDetails,
 };

@@ -3,10 +3,18 @@
 //! cloned observers share the `SpanIds` and thread-local context; nested drop
 //! restores the previous parent; `with_context(None)`/unwinding restore.
 
+#[cfg(unix)]
+use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+#[cfg(unix)]
+use std::sync::mpsc;
 use std::sync::Arc;
+#[cfg(unix)]
+use std::time::Duration;
 
+#[cfg(unix)]
+use rustix::fs::{flock, FlockOperation};
 use sandbox_observability_telemetry::record::proc;
 use sandbox_observability_telemetry::{
     Observer, ObserverConfig, RawFilter, Reader, Sink, Span, SpanStatus, TraceContext,
@@ -84,6 +92,46 @@ fn storage_failure_never_fails_business_operation() {
         "ordinary observer calls swallow storage errors and count once per attempt"
     );
     std::fs::remove_file(parent).expect("cleanup blocker");
+}
+
+#[cfg(unix)]
+#[test]
+fn event_does_not_wait_for_a_held_cross_process_lock() {
+    let path = temp_log("held-lock");
+    let lock_path = PathBuf::from(format!("{}.lock", path.display()));
+    std::fs::create_dir_all(path.parent().expect("parent")).expect("create event directory");
+    let lock = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&lock_path)
+        .expect("open cross-process lock");
+    flock(&lock, FlockOperation::LockExclusive).expect("hold cross-process lock");
+
+    let obs = observer(&path, proc::DAEMON, true);
+    let worker_obs = obs.clone();
+    let (sent, received) = mpsc::channel();
+    let worker = std::thread::spawn(move || {
+        worker_obs.with_context(ctx("req", None), || {
+            worker_obs.event("lease.acquired", json!({}));
+        });
+        sent.send(()).expect("return from event");
+    });
+
+    let timely = received.recv_timeout(Duration::from_millis(100));
+    flock(&lock, FlockOperation::Unlock).expect("release cross-process lock");
+    match timely {
+        Ok(()) => {}
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            worker.join().expect("blocked event completes after unlock");
+            panic!("observer event waited for the cross-process lock");
+        }
+        Err(error) => panic!("receive event completion: {error}"),
+    }
+    worker.join().expect("event worker completes");
+    assert_eq!(obs.sink_stats().dropped_storage, 1);
+    let _ = std::fs::remove_dir_all(path.parent().expect("parent"));
 }
 
 #[test]

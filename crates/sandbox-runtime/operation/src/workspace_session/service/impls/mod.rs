@@ -5,6 +5,8 @@ mod destroy_session;
 mod finalize_session;
 mod guarded_destroy;
 mod holder_exit;
+mod mpla_lifecycle;
+mod mpla_storage_admin;
 mod publish_session;
 mod remount_session;
 mod resolve_session;

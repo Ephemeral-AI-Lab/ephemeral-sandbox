@@ -1,0 +1,13 @@
+{
+  "exact_profile": false,
+  "failure_reason": "the scorecard has not yet recorded the exact helper and both public security probes",
+  "kind": "mpla_booster_security_profile_v1",
+  "observed_storage_admin_profiles": [],
+  "ordinary_workload_cap_sys_admin_denial": "NOT_PROVED",
+  "ordinary_workload_mount_umount_denial": "NOT_PROVED",
+  "ordinary_workload_profile_selection_denial": "NOT_PROVED",
+  "positive_mount_unmount_probe": "NOT_PROVED",
+  "required_storage_admin_profile": "mpla-storage-admin-v1",
+  "schema_version": 1,
+  "status": "FAIL"
+}

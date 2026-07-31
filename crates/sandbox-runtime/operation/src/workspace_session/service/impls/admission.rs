@@ -212,44 +212,39 @@ impl WorkspaceSessionService {
     ) -> Result<R, WorkspaceSessionError> {
         let gate = self.session_gate(workspace_session_id);
         let _admission = gate.lock().unwrap_or_else(PoisonError::into_inner);
-        let (handler, binding) = {
-            let sessions = self.lock_sessions()?;
-            let Some(session) = sessions.get(workspace_session_id) else {
-                drop(sessions);
-                self.discard_resurrected_gate(workspace_session_id, &gate);
-                return Err(WorkspaceSessionError::not_found(workspace_session_id));
-            };
-            if !self.workspace().holder_is_live(&session.handle) {
-                return Err(WorkspaceSessionError::HolderExited {
-                    workspace_session_id: workspace_session_id.clone(),
-                    reason: self
-                        .workspace()
-                        .holder_exit_reason(&session.handle)
-                        .unwrap_or_else(|| "exit-status:unknown".to_owned()),
-                    cleanup_state: session.finalization_state,
-                });
-            }
-            if session.finalization_state != FinalizationState::Active {
-                return Err(WorkspaceSessionError::not_found(workspace_session_id));
-            }
-            let binding = session.mpla_binding.clone().ok_or_else(|| {
-                WorkspaceSessionError::MplaLifecycle {
-                    workspace_session_id: workspace_session_id.clone(),
-                    reason: "storage-admin is available only for dedicated MPLA sessions"
-                        .to_owned(),
-                }
-            })?;
-            if !mpla_action_allowed(binding.phase, action) {
-                return Err(WorkspaceSessionError::MplaLifecycle {
-                    workspace_session_id: workspace_session_id.clone(),
-                    reason: format!(
-                        "storage action {action:?} is not allowed from MPLA phase {}",
-                        binding.phase.as_str()
-                    ),
-                });
-            }
-            (session.handler(), binding)
-        };
+        let result = self.with_mpla_storage_action_under_gate(
+            workspace_session_id,
+            action,
+            FinalizationState::Active,
+            f,
+        );
+        if matches!(&result, Err(WorkspaceSessionError::NotFound { .. })) {
+            self.discard_resurrected_gate(workspace_session_id, &gate);
+        }
+        result
+    }
+
+    /// Run one storage-admin action when the caller already holds this
+    /// session's admission gate. `required_finalization_state` makes the
+    /// caller's ownership phase explicit: the public storage-admin wrapper
+    /// preserves its `Active`-only contract, while dedicated publication may
+    /// advance Quiesce/StrictUnmount/Cleanup after fencing the session as
+    /// `Finalizing`.
+    pub(crate) fn with_mpla_storage_action_under_gate<R>(
+        &self,
+        workspace_session_id: &WorkspaceSessionId,
+        action: StorageAdminAction,
+        required_finalization_state: FinalizationState,
+        f: impl FnOnce(
+            &WorkspaceSessionHandler,
+            &MplaWorkspaceBinding,
+        ) -> Result<(R, StorageAdminReceipt), String>,
+    ) -> Result<R, WorkspaceSessionError> {
+        let (handler, binding) = self.mpla_storage_action_context_under_gate(
+            workspace_session_id,
+            action,
+            required_finalization_state,
+        )?;
         let (result, receipt) =
             f(&handler, &binding).map_err(|reason| WorkspaceSessionError::MplaLifecycle {
                 workspace_session_id: workspace_session_id.clone(),
@@ -374,6 +369,54 @@ impl WorkspaceSessionService {
         }
         current.phase = mpla_phase_after(action);
         Ok(result)
+    }
+
+    /// Snapshot the server-owned authority needed to prepare a storage action
+    /// while the caller already owns the session admission gate. The snapshot
+    /// does not advance lifecycle state; only a validated receipt may do that
+    /// through `with_mpla_storage_action_under_gate`.
+    pub(crate) fn mpla_storage_action_context_under_gate(
+        &self,
+        workspace_session_id: &WorkspaceSessionId,
+        action: StorageAdminAction,
+        required_finalization_state: FinalizationState,
+    ) -> Result<(WorkspaceSessionHandler, MplaWorkspaceBinding), WorkspaceSessionError> {
+        let sessions = self.lock_sessions()?;
+        let Some(session) = sessions.get(workspace_session_id) else {
+            return Err(WorkspaceSessionError::not_found(workspace_session_id));
+        };
+        if !self.workspace().holder_is_live(&session.handle) {
+            return Err(WorkspaceSessionError::HolderExited {
+                workspace_session_id: workspace_session_id.clone(),
+                reason: self
+                    .workspace()
+                    .holder_exit_reason(&session.handle)
+                    .unwrap_or_else(|| "exit-status:unknown".to_owned()),
+                cleanup_state: session.finalization_state,
+            });
+        }
+        if session.finalization_state != required_finalization_state {
+            return Err(WorkspaceSessionError::not_found(workspace_session_id));
+        }
+        let binding =
+            session
+                .mpla_binding
+                .clone()
+                .ok_or_else(|| WorkspaceSessionError::MplaLifecycle {
+                    workspace_session_id: workspace_session_id.clone(),
+                    reason: "storage-admin is available only for dedicated MPLA sessions"
+                        .to_owned(),
+                })?;
+        if !mpla_action_allowed(binding.phase, action) {
+            return Err(WorkspaceSessionError::MplaLifecycle {
+                workspace_session_id: workspace_session_id.clone(),
+                reason: format!(
+                    "storage action {action:?} is not allowed from MPLA phase {}",
+                    binding.phase.as_str()
+                ),
+            });
+        }
+        Ok((session.handler(), binding))
     }
 
     /// Return the exact server-derived scope a caller must echo in each typed

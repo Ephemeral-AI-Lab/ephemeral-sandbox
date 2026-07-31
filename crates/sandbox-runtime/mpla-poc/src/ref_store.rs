@@ -1,11 +1,14 @@
+use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions};
-use std::io::Write;
+use std::io::{Read, Write};
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::durable::{fsync_dir, read_json, write_immutable_json, FileLock};
+use crate::durable::{fsync_dir, FileLock};
 use crate::locator::LocatorStore;
 use crate::recovery::reach_real_operation;
 use crate::{
@@ -14,6 +17,12 @@ use crate::{
 };
 
 const REF_FORMAT: &str = "mpla-poc-paired-ref-v1";
+const JOURNAL_FORMAT: &str = "mpla-poc-paired-ref-journal-v1";
+const JOURNAL_MAGIC: [u8; 4] = *b"MPRJ";
+const JOURNAL_FRAME_VERSION: u32 = 1;
+const JOURNAL_HEADER_BYTES: usize = 16;
+const MAX_JOURNAL_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_JOURNAL_RECORD_BYTES: usize = 4 * 1024 * 1024;
 
 #[derive(Clone, Copy)]
 enum TerminalResponse {
@@ -48,6 +57,7 @@ pub struct ResolvedPairedRef {
 #[derive(Clone, Debug)]
 pub struct PairedRefStore {
     root: PathBuf,
+    cache: Arc<Mutex<JournalCache>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -68,17 +78,73 @@ struct RefOutcomeRecord {
     value: PairedRefValue,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct RefJournalRecord {
+    schema_version: u32,
+    format: String,
+    sequence: u64,
+    branch: String,
+    prerequisite: RefPrerequisiteRecord,
+    outcome: RefOutcomeRecord,
+    previous_record_hash: Option<String>,
+    record_hash: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct FileStamp {
+    device: u64,
+    inode: u64,
+    length: u64,
+    modified_seconds: i64,
+    modified_nanoseconds: i64,
+}
+
+#[derive(Debug, Default)]
+struct JournalState {
+    records: Vec<RefJournalRecord>,
+    heads: BTreeMap<String, usize>,
+    operations: BTreeMap<(String, String), usize>,
+    valid_bytes: u64,
+    torn_tail: bool,
+}
+
+#[derive(Debug, Default)]
+struct JournalCache {
+    stamp: Option<FileStamp>,
+    state: JournalState,
+}
+
+static JOURNAL_CACHES: OnceLock<Mutex<BTreeMap<PathBuf, Arc<Mutex<JournalCache>>>>> =
+    OnceLock::new();
+
 impl PairedRefStore {
     pub fn open(root: impl Into<PathBuf>) -> PocResult<Self> {
-        let store = Self { root: root.into() };
-        std::fs::create_dir_all(store.branches_dir()).map_err(|source| {
-            PocError::io(
-                "create paired ref branches directory",
-                store.branches_dir(),
-                source,
-            )
-        })?;
-        fsync_dir(&store.root)?;
+        let mut root = root.into();
+        let journal_path = root.join("JOURNAL");
+        let lock_path = root.join("LOCK");
+        let layout_ready = root.is_dir() && journal_path.is_file() && lock_path.is_file();
+        if !layout_ready {
+            std::fs::create_dir_all(&root)
+                .map_err(|source| PocError::io("create paired ref root", &root, source))?;
+            create_append_file(&journal_path, "create paired ref journal")?;
+            create_append_file(&lock_path, "create paired ref lock")?;
+            fsync_dir(&root)?;
+        }
+        if !root.is_absolute() {
+            root = std::fs::canonicalize(&root)
+                .map_err(|source| PocError::io("canonicalize paired ref root", &root, source))?;
+        }
+        let cache = {
+            let mut caches = JOURNAL_CACHES
+                .get_or_init(|| Mutex::new(BTreeMap::new()))
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            caches
+                .entry(root.clone())
+                .or_insert_with(|| Arc::new(Mutex::new(JournalCache::default())))
+                .clone()
+        };
+        let store = Self { root, cache };
         Ok(store)
     }
 
@@ -87,9 +153,15 @@ impl PairedRefStore {
     }
 
     pub fn read(&self, branch: &str) -> PocResult<Option<PairedRefValue>> {
-        let branch_dir = self.prepare_branch(branch)?;
-        let _lock = FileLock::shared(&branch_dir.join("LOCK"))?;
-        read_head(&branch_dir)
+        validate_path_component(branch, "branch")?;
+        let _lock = FileLock::shared(&self.lock_path())?;
+        let mut cache = self.cache.lock().unwrap_or_else(PoisonError::into_inner);
+        refresh_cache(&self.journal_path(), &mut cache)?;
+        Ok(cache
+            .state
+            .heads
+            .get(branch)
+            .map(|index| cache.state.records[*index].outcome.value.clone()))
     }
 
     pub fn read_resolved(
@@ -97,26 +169,25 @@ impl PairedRefStore {
         branch: &str,
         locator_store: &LocatorStore,
     ) -> PocResult<Option<ResolvedPairedRef>> {
-        let branch_dir = self.prepare_branch(branch)?;
-        let _lock = FileLock::shared(&branch_dir.join("LOCK"))?;
-        let Some(value) = read_head(&branch_dir)? else {
+        validate_path_component(branch, "branch")?;
+        let _lock = FileLock::shared(&self.lock_path())?;
+        let mut cache = self.cache.lock().unwrap_or_else(PoisonError::into_inner);
+        refresh_cache(&self.journal_path(), &mut cache)?;
+        let Some(index) = cache.state.heads.get(branch).copied() else {
             return Ok(None);
         };
-        let prerequisite = read_prerequisite(&branch_dir, value.operation_id.as_str())?;
-        validate_prerequisite(&prerequisite, &prerequisite.candidate, locator_store, false)?;
-        if prerequisite.candidate.roots != value.roots
-            || prerequisite.candidate.locator_generation != value.locator_generation
-            || prerequisite.candidate.operation_id != value.operation_id
-            || prerequisite.candidate.publication_id != value.publication_id
-        {
-            return Err(PocError::RecoveryRequired(
-                "selected paired ref disagrees with its durable prerequisites".to_owned(),
-            ));
-        }
+        let record = &cache.state.records[index];
+        validate_prerequisite(
+            &record.prerequisite,
+            &record.prerequisite.candidate,
+            locator_store,
+            false,
+        )?;
+        validate_record_pair(record)?;
         Ok(Some(ResolvedPairedRef {
-            value,
-            canonical: prerequisite.canonical,
-            locator: prerequisite.locator,
+            value: record.outcome.value.clone(),
+            canonical: record.prerequisite.canonical.clone(),
+            locator: record.prerequisite.locator.clone(),
         }))
     }
 
@@ -171,9 +242,9 @@ impl PairedRefStore {
         faults: &mut NamedFaultInjector,
         terminal_response: TerminalResponse,
     ) -> PocResult<RefCommitOutcome> {
+        validate_path_component(branch, "branch")?;
         validate_candidate(candidate)?;
         validate_canonical(canonical)?;
-        locator_store.validate_generation_receipt(locator)?;
         if locator.generation != candidate.locator_generation {
             return Err(PocError::Integrity(format!(
                 "candidate locator generation {} does not match durability receipt {}",
@@ -181,50 +252,51 @@ impl PairedRefStore {
             )));
         }
 
-        let branch_dir = self.prepare_branch(branch)?;
-        let _lock = FileLock::exclusive(&branch_dir.join("LOCK"))?;
-        let candidate_sha256 = digest_json(candidate)?;
-        if let Some(outcome) = read_outcome(&branch_dir, candidate.operation_id.as_str())? {
-            validate_outcome(&outcome, candidate, &candidate_sha256)?;
-            let current = read_head(&branch_dir)?.ok_or_else(|| {
-                PocError::RecoveryRequired(
-                    "stored paired ref outcome has no durable branch head".to_owned(),
-                )
-            })?;
-            if current != outcome.value {
+        let _lock = FileLock::exclusive(&self.lock_path())?;
+        let mut cache = self.cache.lock().unwrap_or_else(PoisonError::into_inner);
+        refresh_cache(&self.journal_path(), &mut cache)?;
+        repair_torn_tail(&self.journal_path(), &mut cache)?;
+        let operation_key = (
+            branch.to_owned(),
+            candidate.operation_id.as_str().to_owned(),
+        );
+        if let Some(index) = cache.state.operations.get(&operation_key).copied() {
+            let record = &cache.state.records[index];
+            validate_prerequisite(&record.prerequisite, candidate, locator_store, false)?;
+            validate_outcome(
+                &record.outcome,
+                candidate,
+                &record.prerequisite.candidate_sha256,
+            )?;
+            let current = cache
+                .state
+                .heads
+                .get(branch)
+                .map(|head| &cache.state.records[*head].outcome.value)
+                .ok_or_else(|| {
+                    PocError::RecoveryRequired(
+                        "stored paired ref outcome has no durable branch head".to_owned(),
+                    )
+                })?;
+            if current != &record.outcome.value {
                 return Err(PocError::RecoveryRequired(
                     "stored paired ref outcome disagrees with durable branch head".to_owned(),
                 ));
             }
             return Ok(RefCommitOutcome::Committed(RefCommitReceipt {
-                value: current,
+                value: record.outcome.value.clone(),
                 idempotent_replay: true,
                 parent_directory_synced: true,
-                outcome_path: outcome_path(&branch_dir, candidate.operation_id.as_str()),
+                outcome_path: self.journal_path(),
             }));
         }
 
-        if let Some(current) = read_head(&branch_dir)? {
-            if current.operation_id == candidate.operation_id {
-                validate_matching_head(&current, candidate)?;
-                fsync_dir(&branch_dir)?;
-                let prerequisite = read_prerequisite(&branch_dir, candidate.operation_id.as_str())?;
-                validate_prerequisite(&prerequisite, candidate, locator_store, false)?;
-                let outcome = RefOutcomeRecord {
-                    schema_version: SCHEMA_VERSION,
-                    format: REF_FORMAT.to_owned(),
-                    candidate_sha256,
-                    value: current.clone(),
-                };
-                let outcome_path = outcome_path(&branch_dir, candidate.operation_id.as_str());
-                write_immutable_json(&outcome_path, &outcome)?;
-                return Ok(RefCommitOutcome::Committed(RefCommitReceipt {
-                    value: current,
-                    idempotent_replay: true,
-                    parent_directory_synced: true,
-                    outcome_path,
-                }));
-            }
+        let current = cache
+            .state
+            .heads
+            .get(branch)
+            .map(|index| &cache.state.records[*index].outcome.value);
+        if let Some(current) = current {
             if current.sequence != candidate.expected_sequence {
                 return Ok(RefCommitOutcome::ExpectedParent {
                     expected: candidate.expected_sequence,
@@ -239,6 +311,7 @@ impl PairedRefStore {
         }
 
         locator_store.validate_receipt(locator)?;
+        let candidate_sha256 = digest_json(candidate)?;
         let prerequisite = RefPrerequisiteRecord {
             schema_version: SCHEMA_VERSION,
             format: REF_FORMAT.to_owned(),
@@ -247,9 +320,6 @@ impl PairedRefStore {
             canonical: canonical.clone(),
             locator: locator.clone(),
         };
-        let prerequisite_path = prerequisite_path(&branch_dir, candidate.operation_id.as_str());
-        write_immutable_json(&prerequisite_path, &prerequisite)?;
-
         let mut value = PairedRefValue {
             schema_version: SCHEMA_VERSION,
             operation_id: candidate.operation_id.clone(),
@@ -260,24 +330,58 @@ impl PairedRefStore {
             checksum_sha256: String::new(),
         };
         value.checksum_sha256 = paired_ref_checksum(&value)?;
-        reach_real_operation(
-            faults,
-            NamedFaultPoint::RefBeforeTemp,
-            &candidate.operation_id,
-            [prerequisite_path.clone()],
-            None,
-            true,
-        )?;
-        replace_head(&branch_dir, &value, &candidate.operation_id, faults)?;
-
         let outcome = RefOutcomeRecord {
             schema_version: SCHEMA_VERSION,
             format: REF_FORMAT.to_owned(),
             candidate_sha256,
             value: value.clone(),
         };
-        let outcome_path = outcome_path(&branch_dir, candidate.operation_id.as_str());
-        write_immutable_json(&outcome_path, &outcome)?;
+        let sequence = u64::try_from(cache.state.records.len())
+            .map_err(|_| PocError::Integrity("paired ref journal sequence overflow".to_owned()))?
+            .checked_add(1)
+            .ok_or_else(|| {
+                PocError::Integrity("paired ref journal sequence overflow".to_owned())
+            })?;
+        let mut record = RefJournalRecord {
+            schema_version: SCHEMA_VERSION,
+            format: JOURNAL_FORMAT.to_owned(),
+            sequence,
+            branch: branch.to_owned(),
+            prerequisite,
+            outcome,
+            previous_record_hash: cache
+                .state
+                .records
+                .last()
+                .map(|record| record.record_hash.clone()),
+            record_hash: String::new(),
+        };
+        record.record_hash = journal_record_hash(&record)?;
+        reach_real_operation(
+            faults,
+            NamedFaultPoint::RefBeforeTemp,
+            &candidate.operation_id,
+            [self.journal_path()],
+            None,
+            true,
+        )?;
+        let stamp = append_record(&self.journal_path(), &record)?;
+        apply_record(&mut cache.state, record);
+        cache.stamp = Some(stamp);
+        for point in [
+            NamedFaultPoint::RefAfterTempFsync,
+            NamedFaultPoint::RefAfterReplace,
+            NamedFaultPoint::RefAfterParentFsync,
+        ] {
+            reach_real_operation(
+                faults,
+                point,
+                &candidate.operation_id,
+                [self.journal_path()],
+                None,
+                true,
+            )?;
+        }
         let response_point = match terminal_response {
             TerminalResponse::Publish => NamedFaultPoint::ResponseLossPublish,
             TerminalResponse::Rollback => NamedFaultPoint::ResponseLossRollback,
@@ -286,7 +390,7 @@ impl PairedRefStore {
             faults,
             response_point,
             &candidate.operation_id,
-            [outcome_path.clone(), branch_dir.join("HEAD")],
+            [self.journal_path()],
             None,
             true,
         )?;
@@ -294,7 +398,7 @@ impl PairedRefStore {
             value,
             idempotent_replay: false,
             parent_directory_synced: true,
-            outcome_path,
+            outcome_path: self.journal_path(),
         }))
     }
 
@@ -304,145 +408,261 @@ impl PairedRefStore {
         operation_id: &str,
         locator_store: &LocatorStore,
     ) -> PocResult<Option<RefCommitReceipt>> {
+        validate_path_component(branch, "branch")?;
         validate_path_component(operation_id, "operation ID")?;
-        let branch_dir = self.prepare_branch(branch)?;
-        let _lock = FileLock::exclusive(&branch_dir.join("LOCK"))?;
-        let Some(value) = read_head(&branch_dir)? else {
+        let _lock = FileLock::exclusive(&self.lock_path())?;
+        let mut cache = self.cache.lock().unwrap_or_else(PoisonError::into_inner);
+        refresh_cache(&self.journal_path(), &mut cache)?;
+        repair_torn_tail(&self.journal_path(), &mut cache)?;
+        let Some(index) = cache.state.heads.get(branch).copied() else {
             return Ok(None);
         };
-        if value.operation_id.as_str() != operation_id {
+        let record = &cache.state.records[index];
+        if record.outcome.value.operation_id.as_str() != operation_id {
             return Ok(None);
         }
-        let prerequisite = read_prerequisite(&branch_dir, operation_id)?;
-        validate_prerequisite(&prerequisite, &prerequisite.candidate, locator_store, false)?;
-        validate_matching_head(&value, &prerequisite.candidate)?;
-        fsync_dir(&branch_dir)?;
-        let outcome_path = outcome_path(&branch_dir, operation_id);
-        let candidate_sha256 = digest_json(&prerequisite.candidate)?;
-        if let Some(outcome) = read_outcome(&branch_dir, operation_id)? {
-            validate_outcome(&outcome, &prerequisite.candidate, &candidate_sha256)?;
-        } else {
-            write_immutable_json(
-                &outcome_path,
-                &RefOutcomeRecord {
-                    schema_version: SCHEMA_VERSION,
-                    format: REF_FORMAT.to_owned(),
-                    candidate_sha256,
-                    value: value.clone(),
-                },
-            )?;
-        }
+        validate_prerequisite(
+            &record.prerequisite,
+            &record.prerequisite.candidate,
+            locator_store,
+            false,
+        )?;
+        validate_outcome(
+            &record.outcome,
+            &record.prerequisite.candidate,
+            &record.prerequisite.candidate_sha256,
+        )?;
         Ok(Some(RefCommitReceipt {
-            value,
+            value: record.outcome.value.clone(),
             idempotent_replay: true,
             parent_directory_synced: true,
-            outcome_path,
+            outcome_path: self.journal_path(),
         }))
     }
 
-    fn prepare_branch(&self, branch: &str) -> PocResult<PathBuf> {
-        validate_path_component(branch, "branch")?;
-        let branch_dir = self.branches_dir().join(branch);
-        std::fs::create_dir_all(branch_dir.join("prerequisites")).map_err(|source| {
-            PocError::io(
-                "create paired ref prerequisite directory",
-                branch_dir.join("prerequisites"),
-                source,
-            )
-        })?;
-        std::fs::create_dir_all(branch_dir.join("outcomes")).map_err(|source| {
-            PocError::io(
-                "create paired ref outcome directory",
-                branch_dir.join("outcomes"),
-                source,
-            )
-        })?;
-        create_lock_file(&branch_dir.join("LOCK"))?;
-        fsync_dir(&branch_dir)?;
-        fsync_dir(&self.branches_dir())?;
-        Ok(branch_dir)
+    fn journal_path(&self) -> PathBuf {
+        self.root.join("JOURNAL")
     }
 
-    fn branches_dir(&self) -> PathBuf {
-        self.root.join("branches")
+    fn lock_path(&self) -> PathBuf {
+        self.root.join("LOCK")
     }
 }
 
-fn replace_head(
-    branch_dir: &Path,
-    value: &PairedRefValue,
-    operation_id: &crate::OperationId,
-    faults: &mut NamedFaultInjector,
-) -> PocResult<()> {
-    validate_path_component(operation_id.as_str(), "operation ID")?;
-    let temporary = branch_dir.join(format!(".HEAD.{operation_id}.tmp"));
-    let bytes = encoded_json(value)?;
-    let mut file = OpenOptions::new()
-        .create(true)
-        .truncate(true)
+fn refresh_cache(path: &Path, cache: &mut JournalCache) -> PocResult<()> {
+    let stamp = file_stamp(path)?;
+    if cache.stamp == Some(stamp) {
+        return Ok(());
+    }
+    cache.state = read_journal(path)?;
+    cache.stamp = Some(stamp);
+    Ok(())
+}
+
+fn repair_torn_tail(path: &Path, cache: &mut JournalCache) -> PocResult<()> {
+    if !cache.state.torn_tail {
+        return Ok(());
+    }
+    let file = OpenOptions::new()
         .write(true)
-        .open(&temporary)
-        .map_err(|source| PocError::io("create paired ref temporary", &temporary, source))?;
-    file.write_all(&bytes)
-        .map_err(|source| PocError::io("write paired ref temporary", &temporary, source))?;
-    file.sync_all()
-        .map_err(|source| PocError::io("fsync paired ref temporary", &temporary, source))?;
-    reach_real_operation(
-        faults,
-        NamedFaultPoint::RefAfterTempFsync,
-        operation_id,
-        [temporary.clone()],
-        None,
-        true,
-    )?;
-    drop(file);
-    std::fs::rename(&temporary, branch_dir.join("HEAD"))
-        .map_err(|source| PocError::io("replace paired ref", branch_dir.join("HEAD"), source))?;
-    reach_real_operation(
-        faults,
-        NamedFaultPoint::RefAfterReplace,
-        operation_id,
-        [branch_dir.join("HEAD")],
-        None,
-        true,
-    )?;
-    fsync_dir(branch_dir)?;
-    reach_real_operation(
-        faults,
-        NamedFaultPoint::RefAfterParentFsync,
-        operation_id,
-        [branch_dir.join("HEAD")],
-        None,
-        true,
-    )
+        .open(path)
+        .map_err(|source| PocError::io("open paired ref journal for repair", path, source))?;
+    file.set_len(cache.state.valid_bytes)
+        .map_err(|source| PocError::io("truncate paired ref journal torn tail", path, source))?;
+    file.sync_data()
+        .map_err(|source| PocError::io("fdatasync repaired paired ref journal", path, source))?;
+    cache.state.torn_tail = false;
+    cache.stamp = Some(file_stamp(path)?);
+    Ok(())
 }
 
-fn read_head(branch_dir: &Path) -> PocResult<Option<PairedRefValue>> {
-    let path = branch_dir.join("HEAD");
-    if !path.exists() {
-        return Ok(None);
+fn append_record(path: &Path, record: &RefJournalRecord) -> PocResult<FileStamp> {
+    let payload = serde_json::to_vec(record)?;
+    if payload.len() > MAX_JOURNAL_RECORD_BYTES {
+        return Err(PocError::Integrity(
+            "paired ref journal record exceeds framing limit".to_owned(),
+        ));
     }
-    let value: PairedRefValue = read_json(&path)?;
-    validate_paired_ref(&value)?;
-    Ok(Some(value))
+    let length = u64::try_from(payload.len())
+        .map_err(|_| PocError::Integrity("paired ref journal record length overflow".to_owned()))?;
+    let mut frame = Vec::with_capacity(JOURNAL_HEADER_BYTES + payload.len());
+    frame.extend_from_slice(&JOURNAL_MAGIC);
+    frame.extend_from_slice(&JOURNAL_FRAME_VERSION.to_le_bytes());
+    frame.extend_from_slice(&length.to_le_bytes());
+    frame.extend_from_slice(&payload);
+    let mut file = OpenOptions::new()
+        .append(true)
+        .open(path)
+        .map_err(|source| PocError::io("open paired ref journal for append", path, source))?;
+    file.write_all(&frame)
+        .map_err(|source| PocError::io("append paired ref journal record", path, source))?;
+    file.sync_data()
+        .map_err(|source| PocError::io("fdatasync paired ref journal", path, source))?;
+    let metadata = file
+        .metadata()
+        .map_err(|source| PocError::io("stat appended paired ref journal", path, source))?;
+    Ok(stamp_from_metadata(&metadata))
 }
 
-fn read_prerequisite(branch_dir: &Path, operation_id: &str) -> PocResult<RefPrerequisiteRecord> {
-    let path = prerequisite_path(branch_dir, operation_id);
-    if !path.exists() {
-        return Err(PocError::RecoveryRequired(format!(
-            "paired ref prerequisite is absent for operation {operation_id}"
+fn read_journal(path: &Path) -> PocResult<JournalState> {
+    let mut file =
+        File::open(path).map_err(|source| PocError::io("open paired ref journal", path, source))?;
+    let length = file
+        .metadata()
+        .map_err(|source| PocError::io("stat paired ref journal", path, source))?
+        .len();
+    if length > MAX_JOURNAL_BYTES {
+        return Err(PocError::Integrity(format!(
+            "paired ref journal exceeds {MAX_JOURNAL_BYTES} bytes"
         )));
     }
-    read_json(&path)
+    let mut bytes = Vec::with_capacity(
+        usize::try_from(length)
+            .map_err(|_| PocError::Integrity("paired ref journal length overflow".to_owned()))?,
+    );
+    file.read_to_end(&mut bytes)
+        .map_err(|source| PocError::io("read paired ref journal", path, source))?;
+    let mut state = JournalState::default();
+    let mut offset = 0_usize;
+    while offset < bytes.len() {
+        if bytes.len() - offset < JOURNAL_HEADER_BYTES {
+            break;
+        }
+        if bytes[offset..offset + 4] != JOURNAL_MAGIC {
+            return Err(PocError::Integrity(format!(
+                "paired ref journal frame magic mismatch at byte {offset}"
+            )));
+        }
+        let version = u32::from_le_bytes(
+            bytes[offset + 4..offset + 8]
+                .try_into()
+                .map_err(|_| PocError::Integrity("paired ref journal version frame".to_owned()))?,
+        );
+        if version != JOURNAL_FRAME_VERSION {
+            return Err(PocError::Integrity(format!(
+                "unsupported paired ref journal frame version {version}"
+            )));
+        }
+        let payload_length = u64::from_le_bytes(
+            bytes[offset + 8..offset + 16]
+                .try_into()
+                .map_err(|_| PocError::Integrity("paired ref journal length frame".to_owned()))?,
+        );
+        let payload_length = usize::try_from(payload_length).map_err(|_| {
+            PocError::Integrity("paired ref journal frame length overflow".to_owned())
+        })?;
+        if payload_length > MAX_JOURNAL_RECORD_BYTES {
+            return Err(PocError::Integrity(format!(
+                "paired ref journal frame exceeds {MAX_JOURNAL_RECORD_BYTES} bytes"
+            )));
+        }
+        let payload_start = offset + JOURNAL_HEADER_BYTES;
+        let Some(payload_end) = payload_start.checked_add(payload_length) else {
+            return Err(PocError::Integrity(
+                "paired ref journal frame length overflow".to_owned(),
+            ));
+        };
+        if payload_end > bytes.len() {
+            break;
+        }
+        let record: RefJournalRecord = serde_json::from_slice(&bytes[payload_start..payload_end])?;
+        validate_journal_record(&record, &state)?;
+        apply_record(&mut state, record);
+        offset = payload_end;
+    }
+    state.valid_bytes = u64::try_from(offset)
+        .map_err(|_| PocError::Integrity("paired ref journal offset overflow".to_owned()))?;
+    state.torn_tail = offset != bytes.len();
+    Ok(state)
 }
 
-fn read_outcome(branch_dir: &Path, operation_id: &str) -> PocResult<Option<RefOutcomeRecord>> {
-    let path = outcome_path(branch_dir, operation_id);
-    if !path.exists() {
-        return Ok(None);
+fn validate_journal_record(record: &RefJournalRecord, state: &JournalState) -> PocResult<()> {
+    if record.schema_version != SCHEMA_VERSION || record.format != JOURNAL_FORMAT {
+        return Err(PocError::Integrity(
+            "unsupported paired ref journal record".to_owned(),
+        ));
     }
-    read_json(&path).map(Some)
+    let expected_sequence = u64::try_from(state.records.len())
+        .map_err(|_| PocError::Integrity("paired ref journal sequence overflow".to_owned()))?
+        .checked_add(1)
+        .ok_or_else(|| PocError::Integrity("paired ref journal sequence overflow".to_owned()))?;
+    if record.sequence != expected_sequence
+        || record.previous_record_hash
+            != state
+                .records
+                .last()
+                .map(|previous| previous.record_hash.clone())
+        || record.record_hash != journal_record_hash(record)?
+    {
+        return Err(PocError::Integrity(
+            "paired ref journal chain is invalid".to_owned(),
+        ));
+    }
+    validate_path_component(&record.branch, "branch")?;
+    validate_prerequisite_record(&record.prerequisite)?;
+    validate_outcome(
+        &record.outcome,
+        &record.prerequisite.candidate,
+        &record.prerequisite.candidate_sha256,
+    )?;
+    let expected_parent = state
+        .heads
+        .get(&record.branch)
+        .map_or(RefSequence::ZERO, |index| {
+            state.records[*index].outcome.value.sequence
+        });
+    if record.prerequisite.candidate.expected_sequence != expected_parent {
+        return Err(PocError::Integrity(
+            "paired ref journal expected parent is not the selected branch head".to_owned(),
+        ));
+    }
+    let operation_key = (
+        record.branch.clone(),
+        record
+            .prerequisite
+            .candidate
+            .operation_id
+            .as_str()
+            .to_owned(),
+    );
+    if state.operations.contains_key(&operation_key) {
+        return Err(PocError::Integrity(
+            "paired ref journal repeats a stable operation ID".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn apply_record(state: &mut JournalState, record: RefJournalRecord) {
+    let index = state.records.len();
+    state.heads.insert(record.branch.clone(), index);
+    state.operations.insert(
+        (
+            record.branch.clone(),
+            record
+                .prerequisite
+                .candidate
+                .operation_id
+                .as_str()
+                .to_owned(),
+        ),
+        index,
+    );
+    state.records.push(record);
+}
+
+fn validate_record_pair(record: &RefJournalRecord) -> PocResult<()> {
+    if record.prerequisite.candidate.roots != record.outcome.value.roots
+        || record.prerequisite.candidate.locator_generation
+            != record.outcome.value.locator_generation
+        || record.prerequisite.candidate.operation_id != record.outcome.value.operation_id
+        || record.prerequisite.candidate.publication_id != record.outcome.value.publication_id
+    {
+        return Err(PocError::RecoveryRequired(
+            "selected paired ref disagrees with its durable prerequisites".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_candidate(candidate: &LocatorRefCandidate) -> PocResult<()> {
@@ -476,20 +696,19 @@ fn validate_canonical(receipt: &CanonicalDurabilityReceipt) -> PocResult<()> {
             "canonical object set digest is invalid".to_owned(),
         ));
     }
-    let file = File::open(&receipt.root_manifest).map_err(|source| {
+    let metadata = std::fs::metadata(&receipt.root_manifest).map_err(|source| {
         PocError::io(
-            "open canonical root manifest",
+            "stat canonical root manifest",
             &receipt.root_manifest,
             source,
         )
     })?;
-    file.sync_all().map_err(|source| {
-        PocError::io(
-            "fsync canonical root manifest",
-            &receipt.root_manifest,
-            source,
-        )
-    })
+    if !metadata.is_file() {
+        return Err(PocError::Integrity(
+            "canonical root manifest is not a regular file".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_prerequisite(
@@ -498,14 +717,8 @@ fn validate_prerequisite(
     locator_store: &LocatorStore,
     require_selected: bool,
 ) -> PocResult<()> {
-    if prerequisite.schema_version != SCHEMA_VERSION || prerequisite.format != REF_FORMAT {
-        return Err(PocError::Integrity(
-            "unsupported paired ref prerequisite".to_owned(),
-        ));
-    }
-    if prerequisite.candidate != *candidate
-        || prerequisite.candidate_sha256 != digest_json(candidate)?
-    {
+    validate_prerequisite_record(prerequisite)?;
+    if prerequisite.candidate != *candidate {
         return Err(PocError::Integrity(
             "stable operation ID was reused for another paired ref candidate".to_owned(),
         ));
@@ -516,6 +729,21 @@ fn validate_prerequisite(
     } else {
         locator_store.validate_generation_receipt(&prerequisite.locator)
     }
+}
+
+fn validate_prerequisite_record(prerequisite: &RefPrerequisiteRecord) -> PocResult<()> {
+    if prerequisite.schema_version != SCHEMA_VERSION || prerequisite.format != REF_FORMAT {
+        return Err(PocError::Integrity(
+            "unsupported paired ref prerequisite".to_owned(),
+        ));
+    }
+    validate_candidate(&prerequisite.candidate)?;
+    if prerequisite.candidate_sha256 != digest_json(&prerequisite.candidate)? {
+        return Err(PocError::Integrity(
+            "paired ref prerequisite candidate digest mismatch".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_outcome(
@@ -574,16 +802,10 @@ fn paired_ref_checksum(value: &PairedRefValue) -> PocResult<String> {
     digest_json(&expected)
 }
 
-fn prerequisite_path(branch_dir: &Path, operation_id: &str) -> PathBuf {
-    branch_dir
-        .join("prerequisites")
-        .join(format!("{operation_id}.json"))
-}
-
-fn outcome_path(branch_dir: &Path, operation_id: &str) -> PathBuf {
-    branch_dir
-        .join("outcomes")
-        .join(format!("{operation_id}.json"))
+fn journal_record_hash(record: &RefJournalRecord) -> PocResult<String> {
+    let mut expected = record.clone();
+    expected.record_hash.clear();
+    digest_json(&expected)
 }
 
 fn digest_json<T: Serialize>(value: &T) -> PocResult<String> {
@@ -592,19 +814,29 @@ fn digest_json<T: Serialize>(value: &T) -> PocResult<String> {
     Ok(format!("{digest:x}"))
 }
 
-fn encoded_json<T: Serialize>(value: &T) -> PocResult<Vec<u8>> {
-    let mut bytes = serde_json::to_vec(value)?;
-    bytes.push(b'\n');
-    Ok(bytes)
-}
-
-fn create_lock_file(path: &Path) -> PocResult<()> {
+fn create_append_file(path: &Path, action: &'static str) -> PocResult<()> {
     File::options()
         .create(true)
         .append(true)
         .open(path)
         .map(|_| ())
-        .map_err(|source| PocError::io("create paired ref lock", path, source))
+        .map_err(|source| PocError::io(action, path, source))
+}
+
+fn file_stamp(path: &Path) -> PocResult<FileStamp> {
+    let metadata = std::fs::metadata(path)
+        .map_err(|source| PocError::io("stat paired ref journal", path, source))?;
+    Ok(stamp_from_metadata(&metadata))
+}
+
+fn stamp_from_metadata(metadata: &std::fs::Metadata) -> FileStamp {
+    FileStamp {
+        device: metadata.dev(),
+        inode: metadata.ino(),
+        length: metadata.len(),
+        modified_seconds: metadata.mtime(),
+        modified_nanoseconds: metadata.mtime_nsec(),
+    }
 }
 
 fn validate_path_component(value: &str, label: &str) -> PocResult<()> {
