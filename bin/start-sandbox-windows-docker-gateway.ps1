@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$GatewaySocket = $(if ($env:SANDBOX_GATEWAY_SOCKET) { $env:SANDBOX_GATEWAY_SOCKET } else { "127.0.0.1:7878" }),
+    [string]$GatewaySocket = $(if ($env:SANDBOX_GATEWAY_SOCKET) { $env:SANDBOX_GATEWAY_SOCKET } else { "npipe://./pipe/ephemeral-sandbox-gateway" }),
     [string]$ConfigYaml = $(if ($env:SANDBOX_GATEWAY_CONFIG_YAML) { $env:SANDBOX_GATEWAY_CONFIG_YAML } else { "" }),
     [string]$PidFile = $(if ($env:SANDBOX_GATEWAY_PID_FILE) { $env:SANDBOX_GATEWAY_PID_FILE } else { Join-Path $env:TEMP "eos-gateway-windows.pid" }),
     [string]$LogPath = $(if ($env:SANDBOX_GATEWAY_LOG) { $env:SANDBOX_GATEWAY_LOG } else { Join-Path $env:TEMP "eos-gateway-windows.log" })
@@ -100,7 +100,7 @@ $gatewayArgs = @(
     "serve",
     "--backend", "docker",
     "--config-yaml", $ConfigYaml,
-    "--gateway-socket", $GatewaySocket,
+    "--gateway-endpoint", $GatewaySocket,
     "--auth-token", $authToken,
     "--pid-file", $PidFile
 )
@@ -130,7 +130,7 @@ for ($i = 0; $i -lt 30; $i++) {
 
 Write-Host "sandbox-gateway starting in background via pid $($process.Id)"
 Write-Host "pid file: $PidFile"
-Write-Host "address: $GatewaySocket"
+Write-Host "endpoint: $GatewaySocket"
 Write-Host "auth token file: $tokenPath"
 Write-Host "log: $LogPath"
 Write-Host "error log: $errorLogPath"

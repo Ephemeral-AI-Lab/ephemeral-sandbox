@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
 pub use sandbox_config::configs::gateway::{
-    GatewayConfig, DEFAULT_GATEWAY_PID, DEFAULT_GATEWAY_SOCKET, DEFAULT_MAX_CONCURRENT_CONNECTIONS,
-    SANDBOX_GATEWAY_AUTH_TOKEN_ENV, SANDBOX_GATEWAY_SOCKET_ENV,
+    GatewayConfig, GatewayEndpoint, GatewayEndpointParseError, DEFAULT_GATEWAY_PID,
+    DEFAULT_GATEWAY_SOCKET, DEFAULT_MAX_CONCURRENT_CONNECTIONS, SANDBOX_GATEWAY_AUTH_TOKEN_ENV,
+    SANDBOX_GATEWAY_SOCKET_ENV,
 };
 
 /// CLI-flag overrides for the gateway server; `None` means the flag was not

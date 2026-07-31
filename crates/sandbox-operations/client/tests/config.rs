@@ -2,8 +2,8 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 
 use sandbox_operation_client::{
-    GatewayConfig, GatewayConfigOverrides, DEFAULT_GATEWAY_SOCKET, SANDBOX_GATEWAY_AUTH_TOKEN_ENV,
-    SANDBOX_GATEWAY_SOCKET_ENV,
+    GatewayConfig, GatewayConfigOverrides, GatewayEndpoint, DEFAULT_GATEWAY_SOCKET,
+    SANDBOX_GATEWAY_AUTH_TOKEN_ENV, SANDBOX_GATEWAY_SOCKET_ENV,
 };
 
 #[test]
@@ -14,23 +14,27 @@ fn config_precedence_is_override_environment_default() {
         default_config.gateway_socket_path,
         PathBuf::from(DEFAULT_GATEWAY_SOCKET)
     );
+    assert_eq!(
+        default_config.gateway_endpoint,
+        GatewayEndpoint::parse(DEFAULT_GATEWAY_SOCKET).expect("default endpoint")
+    );
 
     let env_config =
         GatewayConfig::discover_with(GatewayConfigOverrides::default(), |key| match key {
-            SANDBOX_GATEWAY_SOCKET_ENV => Some(OsString::from("/env/gateway.sock")),
+            SANDBOX_GATEWAY_SOCKET_ENV => Some(OsString::from("unix:///env/gateway.sock")),
             SANDBOX_GATEWAY_AUTH_TOKEN_ENV => Some(OsString::from("env-token")),
             _ => None,
         })
         .expect("environment config discovers");
     assert_eq!(
         env_config.gateway_socket_path,
-        PathBuf::from("/env/gateway.sock")
+        PathBuf::from("unix:///env/gateway.sock")
     );
     assert_eq!(env_config.gateway_auth_token.as_deref(), Some("env-token"));
 
     let override_config = GatewayConfig::discover_with(
         GatewayConfigOverrides {
-            gateway_socket_path: Some(PathBuf::from("/override/gateway.sock")),
+            gateway_socket_path: Some(PathBuf::from("npipe://./pipe/override/gateway")),
             gateway_auth_token: Some("override-token".to_owned()),
         },
         |_| None,
@@ -38,7 +42,7 @@ fn config_precedence_is_override_environment_default() {
     .expect("overrides discover");
     assert_eq!(
         override_config.gateway_socket_path,
-        PathBuf::from("/override/gateway.sock")
+        PathBuf::from("npipe://./pipe/override/gateway")
     );
     assert_eq!(
         override_config.gateway_auth_token.as_deref(),

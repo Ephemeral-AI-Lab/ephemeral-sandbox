@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 use std::path::{Path, PathBuf};
 #[cfg(unix)]
 use std::process::{Child, Command};
