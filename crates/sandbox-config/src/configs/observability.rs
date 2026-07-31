@@ -18,7 +18,7 @@ const MAX_MAX_DISK_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_MAX_LINE_BYTES: usize = 16 * 1024;
 const MIN_RESOURCE_DISK_BYTES: u64 = 128 * 1024;
 const MAX_RESOURCE_DISK_BYTES: u64 = 4 * 1024 * 1024;
-const MIN_RESOURCE_SAMPLE_INTERVAL_MS: u64 = 250;
+const MIN_RESOURCE_SAMPLE_INTERVAL_MS: u64 = 100;
 const MAX_RESOURCE_SAMPLE_INTERVAL_MS: u64 = 600_000;
 const MIN_DIAGNOSTIC_ARTIFACT_BYTES: usize = 4 * 1024;
 pub const MAX_DIAGNOSTIC_ARTIFACT_BYTES: usize = 1024 * 1024;
@@ -141,7 +141,7 @@ impl ObservabilityConfig {
         {
             return Err(ConfigFieldError::new(
                 "observability.resource_stats.sample_interval_ms",
-                "must be between 250 and 600000",
+                "must be between 100 and 600000",
             ));
         }
         if !(MIN_RESOURCE_DISK_BYTES..=MAX_RESOURCE_DISK_BYTES)

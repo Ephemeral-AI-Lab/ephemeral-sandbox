@@ -30,7 +30,7 @@ runner:
 observability:
   resource_stats:
     enabled: true
-    sample_interval_ms: 250
+    sample_interval_ms: 100
     max_disk_bytes: 1048576
 
 manager:
