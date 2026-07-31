@@ -95,7 +95,8 @@ The UI lives in the separate
 [Ephemeral Sandbox Console](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-console)
 repository. Start the gateway above, then point the console at:
 
-- socket: `127.0.0.1:7878`
+- Windows CLI/MCP endpoint: `npipe://./pipe/ephemeral-sandbox-gateway`
+- console socket after explicitly starting the gateway on TCP: `127.0.0.1:7878`
 - Linux/macOS token: `$HOME/.ephemeral-sandbox/gateway.token`
 - Windows token: `$HOME\.ephemeral-sandbox\gateway.token`
 

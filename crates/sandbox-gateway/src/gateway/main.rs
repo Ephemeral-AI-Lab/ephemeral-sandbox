@@ -42,7 +42,11 @@ enum Backend {
 
 #[derive(Debug, Args)]
 struct ServeCommand {
-    #[arg(long = "gateway-socket", value_name = "HOST:PORT")]
+    #[arg(
+        long = "gateway-endpoint",
+        visible_alias = "gateway-socket",
+        value_name = "ENDPOINT"
+    )]
     gateway_socket: Option<String>,
 
     #[arg(long = "auth-token", value_name = "TOKEN")]

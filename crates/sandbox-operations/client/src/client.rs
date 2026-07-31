@@ -4,16 +4,17 @@ use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 
-use crate::MAX_REQUEST_BYTES;
+use crate::{GatewayEndpoint, GatewayEndpointParseError, MAX_REQUEST_BYTES};
 
 #[derive(Debug)]
 pub struct GatewayClient {
-    addr: String,
+    endpoint: Result<GatewayEndpoint, GatewayEndpointParseError>,
     auth_token: Option<String>,
 }
 
 #[derive(Debug)]
 pub enum GatewayClientError {
+    Endpoint(GatewayEndpointParseError),
     Transport(std::io::Error),
     Protocol(String),
     Json(serde_json::Error),
@@ -21,9 +22,17 @@ pub enum GatewayClientError {
 
 impl GatewayClient {
     #[must_use]
-    pub fn new(addr: impl Into<String>, auth_token: Option<String>) -> Self {
+    pub fn new(endpoint: impl Into<String>, auth_token: Option<String>) -> Self {
         Self {
-            addr: addr.into(),
+            endpoint: GatewayEndpoint::parse(&endpoint.into()),
+            auth_token,
+        }
+    }
+
+    #[must_use]
+    pub const fn from_endpoint(endpoint: GatewayEndpoint, auth_token: Option<String>) -> Self {
+        Self {
+            endpoint: Ok(endpoint),
             auth_token,
         }
     }
@@ -42,7 +51,11 @@ impl GatewayClient {
         F: FnMut(&str),
     {
         let request_line = request_line(request, self.auth_token.as_deref(), stream_logs)?;
-        let mut stream = TcpStream::connect(self.addr.as_str())
+        let endpoint = self
+            .endpoint
+            .as_ref()
+            .map_err(|error| GatewayClientError::Endpoint(error.clone()))?;
+        let mut stream = connect(endpoint)
             .await
             .map_err(GatewayClientError::Transport)?;
         stream
@@ -65,7 +78,7 @@ impl GatewayClientError {
     #[must_use]
     pub const fn kind(&self) -> &'static str {
         match self {
-            Self::Transport(_) => "connection_error",
+            Self::Endpoint(_) | Self::Transport(_) => "connection_error",
             Self::Protocol(_) | Self::Json(_) => "protocol_error",
         }
     }
@@ -74,6 +87,7 @@ impl GatewayClientError {
 impl std::fmt::Display for GatewayClientError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Endpoint(error) => write!(formatter, "invalid gateway endpoint: {error}"),
             Self::Transport(error) => write!(formatter, "gateway connection failed: {error}"),
             Self::Protocol(message) => formatter.write_str(message),
             Self::Json(error) => write!(formatter, "gateway response json failed: {error}"),
@@ -82,6 +96,54 @@ impl std::fmt::Display for GatewayClientError {
 }
 
 impl std::error::Error for GatewayClientError {}
+
+trait GatewayIo: AsyncRead + tokio::io::AsyncWrite + Unpin + Send {}
+
+impl<T> GatewayIo for T where T: AsyncRead + tokio::io::AsyncWrite + Unpin + Send {}
+
+type GatewayStream = Box<dyn GatewayIo>;
+
+async fn connect(endpoint: &GatewayEndpoint) -> std::io::Result<GatewayStream> {
+    match endpoint {
+        GatewayEndpoint::Tcp(address) => TcpStream::connect(address)
+            .await
+            .map(|stream| Box::new(stream) as GatewayStream),
+        GatewayEndpoint::WindowsNamedPipe(path) => connect_windows_named_pipe(path).await,
+        GatewayEndpoint::UnixSocket(path) => connect_unix_socket(path).await,
+    }
+}
+
+#[cfg(windows)]
+async fn connect_windows_named_pipe(path: &str) -> std::io::Result<GatewayStream> {
+    use tokio::net::windows::named_pipe::ClientOptions;
+
+    ClientOptions::new()
+        .open(path)
+        .map(|stream| Box::new(stream) as GatewayStream)
+}
+
+#[cfg(not(windows))]
+async fn connect_windows_named_pipe(_path: &str) -> std::io::Result<GatewayStream> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "Windows named-pipe gateway endpoints are unavailable on this platform",
+    ))
+}
+
+#[cfg(unix)]
+async fn connect_unix_socket(path: &std::path::Path) -> std::io::Result<GatewayStream> {
+    tokio::net::UnixStream::connect(path)
+        .await
+        .map(|stream| Box::new(stream) as GatewayStream)
+}
+
+#[cfg(not(unix))]
+async fn connect_unix_socket(_path: &std::path::Path) -> std::io::Result<GatewayStream> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "Unix-domain gateway endpoints are unavailable on this platform",
+    ))
+}
 
 fn request_line(
     request: &OperationRequest,

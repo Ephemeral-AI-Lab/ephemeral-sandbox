@@ -25,10 +25,7 @@ pub async fn run(
     gateway: GatewayConfig,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let catalog = selected_catalog(set)?;
-    let client = GatewayClient::new(
-        gateway.gateway_socket_path.to_string_lossy().into_owned(),
-        gateway.gateway_auth_token,
-    );
+    let client = GatewayClient::from_endpoint(gateway.gateway_endpoint, gateway.gateway_auth_token);
     let server = SandboxMcpServer::new(set, catalog, client)?;
     let service = server.serve(rmcp::transport::stdio()).await?;
     service.waiting().await?;

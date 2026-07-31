@@ -104,7 +104,7 @@ Use the gateway from another PowerShell window:
 ```powershell
 $env:SANDBOX_GATEWAY_AUTH_TOKEN = Get-Content "$HOME\.ephemeral-sandbox\gateway.token"
 $env:SANDBOX_IMAGE = "alpine:3.20"
-.\bin\sandbox-manager-cli.exe --gateway-socket 127.0.0.1:7878 --gateway-auth-token $env:SANDBOX_GATEWAY_AUTH_TOKEN list_docker_images
+.\bin\sandbox-manager-cli.exe --gateway-endpoint npipe://./pipe/ephemeral-sandbox-gateway --gateway-auth-token $env:SANDBOX_GATEWAY_AUTH_TOKEN list_docker_images
 ```
 '@ | Set-Content -LiteralPath (Join-Path $stageDir "INSTALL.md") -Encoding UTF8
 

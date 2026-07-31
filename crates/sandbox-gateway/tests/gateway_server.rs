@@ -16,6 +16,10 @@ use sandbox_protocol::{error as wire_error, ProtocolLimits};
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
+#[cfg(unix)]
+use tokio::net::UnixStream;
+#[cfg(windows)]
+use tokio::{net::windows::named_pipe::ClientOptions, sync::Barrier, task::JoinSet};
 use tokio_util::sync::CancellationToken;
 
 type TestResult = Result<(), Box<dyn std::error::Error + Send + Sync>>;
@@ -253,6 +257,139 @@ async fn gateway_binds_tcp_writes_pid_file_and_cleans_up() -> TestResult {
     Ok(())
 }
 
+#[cfg(windows)]
+#[tokio::test]
+async fn gateway_named_pipe_accepts_concurrent_clients_without_retries() -> TestResult {
+    let root = unique_temp_dir("sandbox-gateway-pipe-test")?;
+    let pid_path = root.join("gateway.pid");
+    let sequence = TEMP_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let pipe_name = format!("ephemeral-sandbox-test-{}-{sequence}", std::process::id());
+    let endpoint = format!("npipe://./pipe/{pipe_name}");
+    let native_path = format!(r"\\.\pipe\{pipe_name}");
+    let shutdown = CancellationToken::new();
+    let (services, _store, _daemon_client) = services();
+    let server = SandboxGatewayServer::with_shutdown(
+        GatewayConfig::new(endpoint, pid_path.clone(), 8, Some("pipe-token".to_owned())),
+        SandboxManagerRouter::new(services),
+        shutdown.clone(),
+    );
+    let handle = tokio::spawn(server.serve());
+
+    wait_for_path(&pid_path).await?;
+    let barrier = Arc::new(Barrier::new(6));
+    let mut clients = JoinSet::new();
+    for request_id in 0..5 {
+        let barrier = Arc::clone(&barrier);
+        let native_path = native_path.clone();
+        clients.spawn(async move {
+            barrier.wait().await;
+            let mut stream = ClientOptions::new().open(native_path)?;
+            let request = json!({
+                "op": "list_sandboxes",
+                "request_id": format!("pipe-{request_id}"),
+                "scope": OperationScope::System,
+                "args": {},
+                "_sandbox_gateway_auth_token": "pipe-token",
+            });
+            let mut raw = serde_json::to_vec(&request)?;
+            raw.push(b'\n');
+            stream.write_all(&raw).await?;
+            let mut response = String::new();
+            BufReader::new(stream).read_line(&mut response).await?;
+            Ok::<Value, Box<dyn std::error::Error + Send + Sync>>(serde_json::from_str(&response)?)
+        });
+    }
+    barrier.wait().await;
+
+    while let Some(result) = clients.join_next().await {
+        let response = result??;
+        assert_eq!(response["sandboxes"], json!([]));
+    }
+
+    shutdown.cancel();
+    handle.await??;
+    assert!(!pid_path.exists());
+    let _ = std::fs::remove_dir_all(root);
+    Ok(())
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn gateway_unix_socket_is_owner_only_and_removed_on_shutdown() -> TestResult {
+    use std::os::unix::fs::PermissionsExt;
+
+    let root = unique_temp_dir("sandbox-gateway-unix-test")?;
+    let pid_path = root.join("gateway.pid");
+    let socket_path = root.join("gateway.sock");
+    let endpoint = format!("unix://{}", socket_path.display());
+    let shutdown = CancellationToken::new();
+    let (services, _store, _daemon_client) = services();
+    let server = SandboxGatewayServer::with_shutdown(
+        GatewayConfig::new(endpoint, pid_path.clone(), 8, Some("unix-token".to_owned())),
+        SandboxManagerRouter::new(services),
+        shutdown.clone(),
+    );
+    let handle = tokio::spawn(server.serve());
+
+    wait_for_path(&pid_path).await?;
+    assert_eq!(
+        std::fs::metadata(&socket_path)?.permissions().mode() & 0o777,
+        0o600
+    );
+    let mut stream = UnixStream::connect(&socket_path).await?;
+    let request = json!({
+        "op": "list_sandboxes",
+        "request_id": "unix-1",
+        "scope": OperationScope::System,
+        "args": {},
+        "_sandbox_gateway_auth_token": "unix-token",
+    });
+    let mut raw = serde_json::to_vec(&request)?;
+    raw.push(b'\n');
+    stream.write_all(&raw).await?;
+    let mut response = String::new();
+    BufReader::new(stream).read_line(&mut response).await?;
+    assert_eq!(
+        serde_json::from_str::<Value>(&response)?["sandboxes"],
+        json!([])
+    );
+
+    shutdown.cancel();
+    handle.await??;
+    assert!(!pid_path.exists());
+    assert!(!socket_path.exists());
+    let _ = std::fs::remove_dir_all(root);
+    Ok(())
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn gateway_unix_socket_refuses_to_replace_existing_path() -> TestResult {
+    let root = unique_temp_dir("sandbox-gateway-unix-stale-test")?;
+    let socket_path = root.join("gateway.sock");
+    std::fs::write(&socket_path, b"preserve")?;
+    let (services, _store, _daemon_client) = services();
+    let server = server(
+        services,
+        format!("unix://{}", socket_path.display()),
+        root.join("gateway.pid"),
+        8,
+        CancellationToken::new(),
+    );
+
+    let error = server
+        .serve()
+        .await
+        .expect_err("existing path must prevent Unix socket bind");
+    assert!(
+        error.to_string().contains("already exists"),
+        "unexpected error: {error}"
+    );
+    assert_eq!(std::fs::read(&socket_path)?, b"preserve");
+    let _ = std::fs::remove_dir_all(root);
+    Ok(())
+}
+
 #[tokio::test]
 async fn gateway_connection_decodes_request_and_writes_response() -> TestResult {
     let (services, _store, _daemon_client) = services();
@@ -303,9 +440,11 @@ async fn gateway_streams_create_sandbox_progress_before_final_response() -> Test
     assert!(responses
         .iter()
         .any(|response| response.contains("building shared workspace base")));
-    assert!(responses.iter().any(
-        |response| response.contains(&format!("creating runtime sandbox for {workspace_root}"))
-    ));
+    let expected_runtime_progress =
+        serde_json::to_string(&format!("creating runtime sandbox for {workspace_root}"))?;
+    assert!(responses
+        .iter()
+        .any(|response| response.contains(&expected_runtime_progress)));
     let final_response = serde_json::from_str::<Value>(responses.last().expect("final response"))?;
     assert_eq!(final_response["id"], "container-1");
     assert_eq!(

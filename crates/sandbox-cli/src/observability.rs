@@ -24,7 +24,12 @@ const HELP_OP: &str = "help";
 #[derive(Debug, Parser)]
 #[command(name = "sandbox-observability-cli", disable_help_subcommand = true)]
 struct Cli {
-    #[arg(long = "gateway-socket", value_name = "HOST:PORT", global = true)]
+    #[arg(
+        long = "gateway-endpoint",
+        visible_alias = "gateway-socket",
+        value_name = "URI",
+        global = true
+    )]
     gateway_socket_path: Option<PathBuf>,
 
     #[arg(long = "gateway-auth-token", value_name = "TOKEN", global = true)]
@@ -136,8 +141,8 @@ where
     WErr: Write,
 {
     let config = discover_config(overrides, stderr).ok()?;
-    Some(GatewayClient::new(
-        config.gateway_socket_path.to_string_lossy().into_owned(),
-        config.gateway_auth_token.clone(),
+    Some(GatewayClient::from_endpoint(
+        config.gateway_endpoint,
+        config.gateway_auth_token,
     ))
 }

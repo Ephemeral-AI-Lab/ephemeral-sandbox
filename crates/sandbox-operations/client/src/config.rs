@@ -3,13 +3,19 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+use crate::GatewayEndpoint;
+
 pub const SANDBOX_GATEWAY_SOCKET_ENV: &str = "SANDBOX_GATEWAY_SOCKET";
 pub const SANDBOX_GATEWAY_AUTH_TOKEN_ENV: &str = "SANDBOX_GATEWAY_AUTH_TOKEN";
+#[cfg(windows)]
+pub const DEFAULT_GATEWAY_SOCKET: &str = "npipe://./pipe/ephemeral-sandbox-gateway";
+#[cfg(not(windows))]
 pub const DEFAULT_GATEWAY_SOCKET: &str = "127.0.0.1:7878";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GatewayConfig {
     pub gateway_socket_path: PathBuf,
+    pub gateway_endpoint: GatewayEndpoint,
     pub gateway_auth_token: Option<String>,
 }
 
@@ -63,6 +69,8 @@ impl GatewayConfig {
         if gateway_socket_path.as_os_str().is_empty() {
             return Err(config_error("gateway socket path must be non-empty"));
         }
+        let gateway_endpoint = GatewayEndpoint::parse(&gateway_socket_path.to_string_lossy())
+            .map_err(|error| config_error(format!("invalid gateway endpoint: {error}")))?;
 
         let gateway_auth_token = overrides
             .gateway_auth_token
@@ -72,6 +80,7 @@ impl GatewayConfig {
 
         Ok(Self {
             gateway_socket_path,
+            gateway_endpoint,
             gateway_auth_token,
         })
     }
