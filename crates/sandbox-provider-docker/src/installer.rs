@@ -5,7 +5,10 @@
 use std::collections::HashSet;
 use std::io::{BufRead as _, BufReader, Write as _};
 use std::net::{Shutdown, TcpStream};
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
+
+use bytes::Bytes;
 
 use crate::archive::build_install_archive;
 use crate::engine::{DockerEngine, DockerError};
@@ -22,6 +25,13 @@ const READINESS_IO_TIMEOUT: Duration = Duration::from_millis(250);
 /// Docker-backed daemon installer.
 pub struct DockerSandboxDaemonInstaller {
     engine: DockerEngine,
+    install_archive: Mutex<Option<CachedInstallArchive>>,
+}
+
+struct CachedInstallArchive {
+    daemon_binary: Vec<u8>,
+    config_yaml: Vec<u8>,
+    archive: Bytes,
 }
 
 impl DockerSandboxDaemonInstaller {
@@ -30,12 +40,11 @@ impl DockerSandboxDaemonInstaller {
     pub fn new(config: DockerRuntimeConfig) -> Self {
         Self {
             engine: DockerEngine::new(config),
+            install_archive: Mutex::new(None),
         }
     }
-}
 
-impl SandboxDaemonInstaller for DockerSandboxDaemonInstaller {
-    fn install_daemon(&self, record: &SandboxRecord) -> Result<(), ManagerError> {
+    fn install_archive(&self) -> Result<Bytes, ManagerError> {
         let config = self.engine.config();
         let daemon_binary = std::fs::read(&config.daemon_binary_path).map_err(|error| {
             daemon_install_failed(format!(
@@ -49,6 +58,14 @@ impl SandboxDaemonInstaller for DockerSandboxDaemonInstaller {
                 config.daemon_config_yaml_path.display()
             ))
         })?;
+        let mut cached = self.install_archive.lock().map_err(|_| {
+            daemon_install_failed("daemon install archive cache lock poisoned".to_owned())
+        })?;
+        if let Some(cached) = cached.as_ref() {
+            if cached.daemon_binary == daemon_binary && cached.config_yaml == config_yaml {
+                return Ok(cached.archive.clone());
+            }
+        }
         let archive = build_install_archive(
             &config.container_daemon_binary_path,
             &daemon_binary,
@@ -56,6 +73,18 @@ impl SandboxDaemonInstaller for DockerSandboxDaemonInstaller {
             &config_yaml,
         )
         .map_err(|error| daemon_install_failed(format!("build install archive: {error}")))?;
+        *cached = Some(CachedInstallArchive {
+            daemon_binary,
+            config_yaml,
+            archive: archive.clone(),
+        });
+        Ok(archive)
+    }
+}
+
+impl SandboxDaemonInstaller for DockerSandboxDaemonInstaller {
+    fn install_daemon(&self, record: &SandboxRecord) -> Result<(), ManagerError> {
+        let archive = self.install_archive()?;
         self.engine
             .upload_archive(
                 record.id.as_str().to_owned(),
