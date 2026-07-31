@@ -38,6 +38,7 @@ const SUPERVISOR_QUEUE_CAPACITY: usize = 64;
 const HOLDER_PROBE_REPLY_TIMEOUT: Duration = Duration::from_millis(250);
 const HOLDER_FINALIZATION_REPLY_TIMEOUT: Duration = Duration::from_millis(1_500);
 const KILL_REAP_TIMEOUT: Duration = Duration::from_secs(1);
+const TERMINATION_POLL_INTERVAL: Duration = Duration::from_millis(5);
 const WAIT_REAP_RETRY_BACKOFF: Duration = Duration::from_millis(50);
 const WAIT_ERROR_LIMIT: u8 = 3;
 #[cfg(target_os = "linux")]
@@ -806,7 +807,7 @@ fn supervisor_loop(
                 Err(_) => break,
             }
         } else {
-            match rx.recv_timeout(poll_interval) {
+            match rx.recv_timeout(supervisor_poll_interval(&records, poll_interval)) {
                 Ok(command) => handle_supervisor_command(command, &mut records, &log),
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => {
@@ -816,6 +817,17 @@ fn supervisor_loop(
             }
         }
         poll_holder_records(&mut records, &log);
+    }
+}
+
+fn supervisor_poll_interval(
+    records: &HashMap<RegistrationKey, HolderRecord>,
+    idle_interval: Duration,
+) -> Duration {
+    if records.values().any(|record| record.termination.is_some()) {
+        idle_interval.min(TERMINATION_POLL_INTERVAL)
+    } else {
+        idle_interval
     }
 }
 

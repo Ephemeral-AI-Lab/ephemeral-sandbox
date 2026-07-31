@@ -916,6 +916,35 @@ fn long_destroy_grace_does_not_delay_peer_exit_detection() {
 }
 
 #[test]
+fn active_termination_accelerates_polling_without_changing_idle_cadence() {
+    let idle_interval = Duration::from_millis(200);
+    let supervisor = HolderSupervisor::new(idle_interval, 8);
+    let process = Arc::new(FakeProcessState::default());
+    *process
+        .delayed_exit_after_signal
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(Duration::from_millis(10));
+    let registration = registered(&supervisor, "workspace-termination-aware-poll", &process);
+    wait_for_count(&process.try_wait_calls, 1, Duration::from_secs(1));
+    let idle_poll_count = process.try_wait_calls.load(Ordering::SeqCst);
+
+    std::thread::sleep(Duration::from_millis(50));
+    assert_eq!(
+        process.try_wait_calls.load(Ordering::SeqCst),
+        idle_poll_count
+    );
+
+    let started = Instant::now();
+    supervisor
+        .terminate(&registration, Duration::from_secs(1))
+        .expect("termination observes the delayed exit");
+
+    assert!(started.elapsed() < Duration::from_millis(150));
+    assert_eq!(process.signals.load(Ordering::SeqCst), 1);
+    assert_eq!(process.reaps.load(Ordering::SeqCst), 1);
+}
+
+#[test]
 fn pid_parent_start_time_and_executable_mismatches_refuse_signal() {
     let mutations: [fn(&mut HolderIdentity); 4] = [
         |identity| identity.pid += 1,
