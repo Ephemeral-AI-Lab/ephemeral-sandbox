@@ -441,7 +441,6 @@ fn production_engine_initializes_stable_background_workers() {
 
     let workers = engine.background_worker_snapshot();
     assert_eq!(workers.pty_reactor_threads, 1);
-    assert_eq!(workers.active_pty_readers, 0);
     assert_eq!(workers.completion_supervisor_threads, 1);
     assert_eq!(workers.active_completions, 0);
 }

@@ -1530,6 +1530,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "rustix 0.38.44",
  "sandbox-config",
  "sandbox-observability-query",
  "sandbox-observability-telemetry",
