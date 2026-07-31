@@ -1,10 +1,9 @@
 <div align="center">
 
 
-# Ephemeral Sandbox: Agent Infrastructure for Coding-Agent Swarms
+# Ephemeral Sandbox
 
-**Raise the concurrency ceiling for agent swarms with isolated workspace
-sessions inside one shared sandbox.**
+**Open-source agent sandbox infrastructure for parallel coding agents.**
 
 [Website](https://ephemeral-sandbox.com/) ·
 [Docs](https://ephemeral-sandbox.com/docs) ·
@@ -24,10 +23,10 @@ sessions inside one shared sandbox.**
 
 ## What is Ephemeral Sandbox?
 
-Ephemeral Sandbox is open-source sandbox and agent infrastructure for running
-many parallel coding agents against the same codebase. Each agent works through
-an isolated workspace session inside one shared sandbox, then publishes a safe,
-reviewable change set.
+Ephemeral Sandbox is open-source agent infrastructure for running parallel
+coding agents against the same codebase. Each agent works through an isolated
+workspace session inside one shared sandbox, then publishes a reviewable change
+set.
 
 As agent sandbox infrastructure for a multi-agent system, Ephemeral Sandbox
 gives every coding agent an isolated workspace session without duplicating the
@@ -39,7 +38,7 @@ live in the separate
 [Ephemeral Sandbox Console](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-console)
 repository.
 
-## Why Ephemeral Sandbox?
+## Why use an ephemeral sandbox for coding agents?
 
 - **Work in parallel.** Run multiple coding agents at the same time.
 - **Stay isolated.** Give every agent a private writable workspace session over
@@ -48,6 +47,11 @@ repository.
   each coding agent keeps its own workspace session.
 - **Publish with confidence.** Inspect activity and change provenance before
   publishing a complete resolved change set.
+
+Ephemeral Sandbox provides workspace isolation for cooperating coding agents.
+It is not a hardened microVM boundary for mutually untrusted tenants. Read the
+[agent sandbox security model](https://ephemeral-sandbox.com/agent-sandbox-security)
+before choosing a deployment boundary.
 
 ## Quick start
 
@@ -138,6 +142,14 @@ For the deeper design, see the
 
 - [Documentation](https://ephemeral-sandbox.com/docs)
   covers the overview, CLI, MCP, and architecture.
+- Learn [what an ephemeral sandbox is](https://ephemeral-sandbox.com/what-is-an-ephemeral-sandbox),
+  how an [agent sandbox](https://ephemeral-sandbox.com/agent-sandbox) works,
+  and how the pieces fit together as
+  [agent infrastructure](https://ephemeral-sandbox.com/agent-infrastructure).
+- See the
+  [multi-agent coding workspace model](https://ephemeral-sandbox.com/multi-agent-coding-workspaces)
+  and the narrowly scoped
+  [parallel-agent benchmark](https://ephemeral-sandbox.com/benchmarks/parallel-coding-agents).
 - [External tests and benchmarks](https://github.com/Ephemeral-AI-Lab/ephemeral-sandbox-test)
   live in their own repository.
 - Repository-local notes cover [configuration](config/README.md),
