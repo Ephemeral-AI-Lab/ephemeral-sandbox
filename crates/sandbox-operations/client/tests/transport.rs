@@ -90,6 +90,20 @@ async fn explicit_tcp_endpoint_uses_the_shared_transport() {
 }
 
 #[tokio::test]
+async fn legacy_dns_tcp_endpoint_remains_supported() {
+    let (addr, worker) = gateway(b"{\"transport\":\"tcp-dns\"}\n".to_vec()).await;
+    let port = addr
+        .parse::<std::net::SocketAddr>()
+        .expect("fake gateway address")
+        .port();
+    let client = GatewayClient::new(format!("localhost:{port}"), None);
+    let response = client.send(&request(json!({}))).await.expect("response");
+    worker.await.expect("gateway task");
+
+    assert_eq!(response, json!({"transport": "tcp-dns"}));
+}
+
+#[tokio::test]
 async fn invalid_endpoint_fails_before_transport_connection() {
     let client = GatewayClient::new("http://127.0.0.1:7878", None);
     let error = client

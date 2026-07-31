@@ -70,6 +70,7 @@ fn gateway_endpoints_reject_unsafe_or_ambiguous_values() {
         "npipe://./pipe/../escape",
         "npipe://./pipe/name\\escape",
         "unix://relative.sock",
+        "unix:////tmp/ambiguous.sock",
         "unix:///tmp/../escape.sock",
         "unix:///tmp//ambiguous.sock",
     ];

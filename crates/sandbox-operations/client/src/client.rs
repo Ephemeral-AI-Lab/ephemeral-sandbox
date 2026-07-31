@@ -108,6 +108,9 @@ async fn connect(endpoint: &GatewayEndpoint) -> std::io::Result<GatewayStream> {
         GatewayEndpoint::Tcp(address) => TcpStream::connect(address)
             .await
             .map(|stream| Box::new(stream) as GatewayStream),
+        GatewayEndpoint::TcpHost(address) => TcpStream::connect(address.as_str())
+            .await
+            .map(|stream| Box::new(stream) as GatewayStream),
         GatewayEndpoint::WindowsNamedPipe(path) => connect_windows_named_pipe(path).await,
         GatewayEndpoint::UnixSocket(path) => connect_unix_socket(path).await,
     }
