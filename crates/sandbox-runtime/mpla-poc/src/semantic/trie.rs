@@ -9,7 +9,6 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{FileExt, MetadataExt};
 use std::path::{Path, PathBuf};
 #[cfg(test)]
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use sha2::{Digest, Sha256};
@@ -95,7 +94,9 @@ const _: () = assert!(
 );
 
 #[cfg(test)]
-static FULL_PACK_INDEX_VALIDATIONS: AtomicUsize = AtomicUsize::new(0);
+thread_local! {
+    static FULL_PACK_INDEX_VALIDATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
 
 struct TemporaryDirectory {
     path: PathBuf,
@@ -2499,7 +2500,7 @@ fn pack_path_for_index(directory: &Path, name: &str) -> Option<PathBuf> {
 
 fn read_pack_index(index_path: &Path, pack_path: PathBuf) -> PocResult<PackedObjectIndex> {
     #[cfg(test)]
-    FULL_PACK_INDEX_VALIDATIONS.fetch_add(1, Ordering::Relaxed);
+    FULL_PACK_INDEX_VALIDATIONS.with(|count| count.set(count.get().saturating_add(1)));
     let index_metadata = std::fs::symlink_metadata(index_path)
         .map_err(|error| PocError::io("stat semantic pack index", index_path, error))?;
     if !index_metadata.file_type().is_file()
@@ -4082,11 +4083,11 @@ mod tests {
             .expect("append immutable object");
         writer.finish().expect("install immutable pack");
 
-        FULL_PACK_INDEX_VALIDATIONS.store(0, Ordering::Relaxed);
+        FULL_PACK_INDEX_VALIDATIONS.set(0);
         let first = load_packed_indexes(&objects).expect("validate historical pack once");
         assert_eq!(first.len(), 1);
         assert_eq!(
-            FULL_PACK_INDEX_VALIDATIONS.load(Ordering::Relaxed),
+            FULL_PACK_INDEX_VALIDATIONS.get(),
             1,
             "the first legacy open must validate the complete pack index"
         );
@@ -4095,11 +4096,11 @@ mod tests {
             "the validated pack metadata must be retained durably"
         );
 
-        FULL_PACK_INDEX_VALIDATIONS.store(0, Ordering::Relaxed);
+        FULL_PACK_INDEX_VALIDATIONS.set(0);
         let second = load_packed_indexes(&objects).expect("reuse durable pack catalog");
         assert_eq!(second.len(), 1);
         assert_eq!(
-            FULL_PACK_INDEX_VALIDATIONS.load(Ordering::Relaxed),
+            FULL_PACK_INDEX_VALIDATIONS.get(),
             0,
             "unchanged validated indexes must not be reread on every publication"
         );
@@ -4117,10 +4118,10 @@ mod tests {
             .append([2_u8; 32], b"second immutable object")
             .expect("append second sorted object");
 
-        FULL_PACK_INDEX_VALIDATIONS.store(0, Ordering::Relaxed);
+        FULL_PACK_INDEX_VALIDATIONS.set(0);
         let written = writer.finish().expect("finish immutable pack");
         assert_eq!(
-            FULL_PACK_INDEX_VALIDATIONS.load(Ordering::Relaxed),
+            FULL_PACK_INDEX_VALIDATIONS.get(),
             0,
             "a just-written pack must not re-read its own already-verified index"
         );
@@ -4133,7 +4134,7 @@ mod tests {
         assert_eq!(written.pack_bytes, reopened.pack_bytes);
         assert_eq!(written.bloom.as_ref(), reopened.bloom.as_ref());
         assert_eq!(
-            FULL_PACK_INDEX_VALIDATIONS.load(Ordering::Relaxed),
+            FULL_PACK_INDEX_VALIDATIONS.get(),
             1,
             "normal reopen must retain complete on-disk validation"
         );
