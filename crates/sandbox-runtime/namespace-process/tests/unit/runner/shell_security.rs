@@ -280,6 +280,7 @@ fn benchmark_profile_opens_only_the_mpla_mount_syscall_set() {
         "fsconfig",
         "fsmount",
         "move_mount",
+        "mount_setattr",
     ] {
         assert_eq!(
             run_bpf(standard_errno, data(name, [0; 6])),
@@ -297,7 +298,6 @@ fn benchmark_profile_opens_only_the_mpla_mount_syscall_set() {
         "pivot_root",
         "open_tree",
         "fspick",
-        "mount_setattr",
         "setns",
         "unshare",
         "reboot",

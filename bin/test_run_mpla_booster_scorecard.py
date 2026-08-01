@@ -445,26 +445,47 @@ class BoosterScorecardHarnessTest(unittest.TestCase):
                 )
             layer_timings.append(timing)
         pre_seal_branches = []
+        allocation_ids = {
+            index: f"00000000-0000-4000-8000-{index:012x}"
+            for index in range(1, 9)
+        }
         for name, depth in [
             ("fixture-depth-1", 1),
             ("fixture-depth-5", 5),
             ("fixture-depth-8", 8),
         ]:
+            root_id = f"{depth:064x}"
+            attribution_root_id = f"{depth + 8:064x}"
+            semantic_roots = {
+                "root_id": root_id,
+                "attribution_root_id": attribution_root_id,
+            }
             pre_seal_branches.append(
                 {
                     "branch": name,
                     "chain_depth": depth,
-                    "semantic_roots": {"root_id": f"root-{depth}"},
-                    "semantic_attribution": {"depth": depth},
-                    "root_manifest": {"depth": depth},
-                    "projection_roots": {"root_id": f"root-{depth}"},
+                    "semantic_roots": semantic_roots,
+                    "semantic_attribution": {
+                        "actor_id": "sandbox-runtime-publication",
+                        "semantic_operation_id": (
+                            f"fixture-{self.scorecard.PREPARED_FIXTURE_PROFILE}"
+                        ),
+                    },
+                    "root_manifest": (
+                        "/eos/mpla-fixtures/s4-chain-sparse-v1/workspace/"
+                        "mpla-poc/control/runs/fixture-s4-chain-sparse-v1/"
+                        f"canonical-objects/manifests/{root_id}-"
+                        f"{attribution_root_id}.json"
+                    ),
+                    "projection_roots": semantic_roots,
                     "projection_lower_allocation_ids_newest_first": [
-                        f"allocation-{index}" for index in range(depth)
+                        allocation_ids[index]
+                        for index in range(depth, 0, -1)
                     ],
                     "projection_kernel_lower_count": depth,
-                    "locator_allocation_id": f"allocation-{depth}",
-                    "locator_extent_count": depth,
-                    "locator_accounted_bytes": depth * 1024 * 1024 * 1024,
+                    "locator_allocation_id": allocation_ids[depth],
+                    "locator_extent_count": 1,
+                    "locator_accounted_bytes": 1,
                 }
             )
         return {
@@ -542,9 +563,9 @@ class BoosterScorecardHarnessTest(unittest.TestCase):
         def identity(marker: str, byte_count: int = 1) -> dict:
             return {"bytes": byte_count, "sha256": marker * 64}
 
-        def source(marker: str) -> dict:
+        def source(marker: str, commit: str | None = None) -> dict:
             return {
-                "commit": self.scorecard.BUILD_COMMIT,
+                "commit": commit or self.scorecard.BUILD_COMMIT,
                 "tree": marker * 40,
                 "tracked_diff_sha256": self.scorecard.sha256_bytes(b""),
                 "tracked_diff_bytes": 0,
@@ -2448,8 +2469,12 @@ class BoosterScorecardHarnessTest(unittest.TestCase):
 
         for index, case in enumerate(self.scorecard.SCORECARD_CASES[:-1]):
             marker = format(index + 1, "x")
-            verified[case]["source"] = copy.deepcopy(current_source)
-            verified[case]["source"]["tree"] = marker * 40
+            historical_commit = format(index + 9, "x") * 40
+            verified[case]["source"] = {
+                **copy.deepcopy(current_source),
+                "commit": historical_commit,
+                "tree": marker * 40,
+            }
             verified[case]["staged_artifacts"]["artifacts"][
                 "mpla-poc-oracle"
             ] = {"bytes": index + 1, "sha256": marker * 64}
@@ -2480,7 +2505,7 @@ class BoosterScorecardHarnessTest(unittest.TestCase):
         )
         with self.assertRaisesRegex(
             self.scorecard.CampaignError,
-            "P7 source fingerprint",
+            "P7 source commit",
         ):
             self.scorecard.verify_phase_lineage(
                 stale_source,
@@ -2771,6 +2796,63 @@ class BoosterScorecardHarnessTest(unittest.TestCase):
                 self.scorecard.Campaign.verify_cold_cache_root(
                     *self.cold_cache_root_input(cold_cache_root)
                 )
+
+    def test_p8_cold_pre_seal_requires_exact_sparse_v3_branch_proof(self) -> None:
+        mutations = {
+            "dense locator accounting": lambda branch: branch.__setitem__(
+                "locator_accounted_bytes", 1024 * 1024 * 1024
+            ),
+            "multiple locator extents": lambda branch: branch.__setitem__(
+                "locator_extent_count", 2
+            ),
+            "noncanonical manifest": lambda branch: branch.__setitem__(
+                "root_manifest", {"depth": branch["chain_depth"]}
+            ),
+            "wrong semantic actor": lambda branch: branch[
+                "semantic_attribution"
+            ].__setitem__("actor_id", "untrusted-builder"),
+            "unnested allocation chain": lambda branch: branch[
+                "projection_lower_allocation_ids_newest_first"
+            ].__setitem__(-1, "00000000-0000-4000-8000-000000000099"),
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            accepted_root = self.create_cold_cache_root(root)
+            verified = self.scorecard.Campaign.verify_cold_cache_root(
+                *self.cold_cache_root_input(accepted_root)
+            )
+            self.assertEqual(
+                [
+                    branch["locator_accounted_bytes"]
+                    for branch in verified["receipt"]["service_result"][
+                        "pre_seal_validation"
+                    ]["branches"]
+                ],
+                [1, 1, 1],
+            )
+
+            for index, (label, mutate) in enumerate(mutations.items()):
+                with self.subTest(label=label):
+                    receipt = self.cold_cache_receipt()
+                    branch_index = 1 if label == "unnested allocation chain" else 0
+                    mutate(
+                        receipt["service_result"]["pre_seal_validation"][
+                            "branches"
+                        ][branch_index]
+                    )
+                    malformed_root = root / f"malformed-{index}"
+                    malformed_root.mkdir()
+                    self.scorecard.write_new_json(
+                        malformed_root / self.scorecard.COLD_CACHE_RECEIPT_FILE,
+                        receipt,
+                    )
+                    with self.assertRaisesRegex(
+                        self.scorecard.CampaignError,
+                        "pre-seal branch",
+                    ):
+                        self.scorecard.Campaign.verify_cold_cache_root(
+                            *self.cold_cache_root_input(malformed_root)
+                        )
 
     def test_p8_cold_root_requires_pin_and_rejects_links_and_swap(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -4791,7 +4873,7 @@ class StableSourceIdentityRegressionTests(unittest.TestCase):
             run_name="run_mpla_booster_scorecard_ignored_only_regression",
         )
 
-        stable = module["stable_source_identity"](
+        stable = module["stable_runtime_source_identity"](
             {
                 "porcelain": "?? bin/__pycache__/ignored.pyc\n",
                 "worktree_files": {

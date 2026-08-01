@@ -1,3 +1,6 @@
+#[path = "cases/hv07_cgroup_binding.rs"]
+mod hv07_cgroup_binding;
+
 #[cfg(target_os = "linux")]
 #[path = "cases/heavy_lead.rs"]
 mod cases;

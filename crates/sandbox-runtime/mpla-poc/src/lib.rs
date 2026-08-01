@@ -128,9 +128,9 @@ pub use resources::{
 };
 pub use semantic::SemanticResourceMaxima;
 pub use session::{
-    prepare_external_session, recover_session_seal, MplaSession, PreparedExternalSession,
-    SessionRecord, SessionSealCleanupWitness, SessionSealRecoveryDisposition,
-    SessionSealRecoveryReceipt, SessionSealRecoveryRequest,
+    prepare_external_session, recover_session_seal, ExternalSealingGuard, MplaSession,
+    PreparedExternalSession, SessionRecord, SessionSealCleanupWitness,
+    SessionSealRecoveryDisposition, SessionSealRecoveryReceipt, SessionSealRecoveryRequest,
 };
 pub use state::{OwnerGeneration, OwnerSubject, PublicationPhase, SessionPhase};
 

@@ -395,14 +395,16 @@ impl Fixture {
             operation_id: OperationId::from_string("publish-external"),
             publication_id: PublicationId::from_string("publication-external"),
         };
-        prepared
-            .begin_sealing(
-                &allocation,
-                &lease,
-                &request.operation_id,
-                &mut FaultInjector::default(),
-            )
-            .expect("begin external Sealing");
+        drop(
+            prepared
+                .begin_sealing(
+                    &allocation,
+                    &lease,
+                    &request.operation_id,
+                    &mut FaultInjector::default(),
+                )
+                .expect("begin external Sealing"),
+        );
         let (first_inventory, second_inventory) =
             capture_stable_pair(&allocation).expect("capture stable pair");
         let scope = StorageAdminScope {

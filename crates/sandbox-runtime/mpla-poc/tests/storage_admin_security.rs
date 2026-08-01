@@ -1,4 +1,6 @@
 use std::collections::BTreeSet;
+use std::fs::OpenOptions;
+use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
 
 use sandbox_runtime_mpla_poc::storage_admin::{
@@ -55,6 +57,7 @@ struct FakeLifecycle {
     mountinfo_after: Option<StorageAdminMountTableEvidence>,
     attestation_mutation: Option<AttestationMutation>,
     input_access_mutation: Option<InputAccessMutation>,
+    assert_authority_lock_held: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -104,6 +107,7 @@ impl FakeLifecycle {
             mountinfo_after: None,
             attestation_mutation: None,
             input_access_mutation: None,
+            assert_authority_lock_held: false,
         }
     }
 
@@ -117,6 +121,7 @@ impl FakeLifecycle {
             mountinfo_after: None,
             attestation_mutation: None,
             input_access_mutation: None,
+            assert_authority_lock_held: false,
         }
     }
 
@@ -134,14 +139,46 @@ impl FakeLifecycle {
         self.input_access_mutation = Some(mutation);
         self
     }
+
+    fn asserting_authority_lock_held(mut self) -> Self {
+        self.assert_authority_lock_held = true;
+        self
+    }
+}
+
+fn assert_storage_admin_authority_lock_held(scope: &StorageAdminScope) {
+    let lock_path = scope.control_root.join("storage-admin/LOCK");
+    let lock = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&lock_path)
+        .expect("open storage-admin authority lock from lifecycle");
+    let result = unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+    if result == 0 {
+        let _ = unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_UN) };
+        panic!(
+            "storage-admin lifecycle executed without the exclusive authority lock: {}",
+            lock_path.display()
+        );
+    }
+    let error = std::io::Error::last_os_error();
+    let raw_error = error.raw_os_error();
+    assert!(
+        raw_error == Some(libc::EAGAIN) || raw_error == Some(libc::EWOULDBLOCK),
+        "unexpected nonblocking authority-lock error for {}: {error}",
+        lock_path.display()
+    );
 }
 
 impl StorageAdminLifecycle for FakeLifecycle {
     fn execute(
         &mut self,
         _action: StorageAdminAction,
-        _scope: &StorageAdminScope,
+        scope: &StorageAdminScope,
     ) -> StorageAdminExecution {
+        if self.assert_authority_lock_held {
+            assert_storage_admin_authority_lock_held(scope);
+        }
         self.executions += 1;
         self.execution.clone()
     }
@@ -502,6 +539,18 @@ fn only_exact_authenticated_lifecycle_request_selects_storage_profile() {
     let mut wrong_actor = invocation.clone();
     wrong_actor.authorization.actor_id = "ordinary-workload".to_owned();
     assert!(rejection(&wrong_actor).contains("actor id"));
+}
+
+#[test]
+fn storage_admin_holds_exclusive_authority_lock_while_lifecycle_executes() {
+    let root = TestRoot::new();
+    let invocation = invocation(&root.0, "operation-authority-lock");
+    let mut lifecycle = FakeLifecycle::succeeding().asserting_authority_lock_held();
+
+    run_storage_admin(&invocation, &mut lifecycle)
+        .expect("lifecycle executes under the exclusive storage-admin authority lock");
+    assert_eq!(lifecycle.executions, 1);
+    assert_eq!(lifecycle.commits, 1);
 }
 
 #[test]

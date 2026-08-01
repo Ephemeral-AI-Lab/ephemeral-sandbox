@@ -60,6 +60,72 @@ fn external_session_preparation_persists_open_state_without_mounting() {
     assert_eq!(record.workspace_root, prepared.workspace_root());
 }
 
+#[cfg(unix)]
+#[test]
+fn external_sealing_guard_excludes_recovery_until_released() {
+    use std::os::fd::AsRawFd;
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let root = TestDirectory::new("external-sealing-owner-lock");
+    let operation = OperationId::from_string("external-sealing-owner-lock");
+    let allocation = sandbox_runtime_mpla_poc::allocation::create_allocation(
+        &root.0.join("payload/allocations"),
+        &operation,
+    )
+    .expect("create permanent allocation");
+    let lease = sandbox_runtime_mpla_poc::lease::issue_workspace_lease(
+        &allocation,
+        sandbox_runtime_mpla_poc::SessionId::new(),
+        &operation,
+    )
+    .expect("issue workspace lease");
+    let prepared = sandbox_runtime_mpla_poc::prepare_external_session(
+        &root.0.join("control"),
+        &allocation,
+        &lease,
+    )
+    .expect("prepare external session");
+    let guard = prepared
+        .begin_sealing(
+            &allocation,
+            &lease,
+            &operation,
+            &mut FaultInjector::default(),
+        )
+        .expect("ratify external Sealing");
+    assert_eq!(guard.record().operation_id, operation);
+
+    let contender = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(allocation.owner_dir.join("LOCK"))
+        .expect("open owner lock contender");
+    // SAFETY: flock only consumes the valid borrowed contender descriptor.
+    assert_eq!(
+        unsafe { libc::flock(contender.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
+        -1
+    );
+    let error = std::io::Error::last_os_error();
+    let raw_error = error.raw_os_error();
+    assert!(
+        raw_error == Some(libc::EAGAIN) || raw_error == Some(libc::EWOULDBLOCK),
+        "unexpected owner lock probe failure: {error}"
+    );
+
+    drop(guard);
+    // SAFETY: flock only consumes the same valid borrowed contender descriptor.
+    assert_eq!(
+        unsafe { libc::flock(contender.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
+        0
+    );
+    // SAFETY: flock only consumes the same valid borrowed contender descriptor.
+    assert_eq!(
+        unsafe { libc::flock(contender.as_raw_fd(), libc::LOCK_UN) },
+        0
+    );
+}
+
 #[cfg(target_os = "linux")]
 #[test]
 fn public_session_seal_never_follows_rebound_allocation_or_session_names() {
@@ -250,6 +316,136 @@ fn inventory_regression_overlay_unavailable(error: &PocError) -> bool {
 
 #[cfg(target_os = "linux")]
 #[test]
+fn descriptor_shortened_lower_accepts_a_total_path_over_255_bytes() {
+    use std::os::unix::ffi::OsStrExt;
+
+    let root = TestDirectory::new("long-overlay-lower");
+    let lower = root
+        .0
+        .join("a".repeat(96))
+        .join("b".repeat(96))
+        .join("c".repeat(96));
+    assert!(lower.as_os_str().as_bytes().len() > 255);
+    fs::create_dir_all(&lower).expect("create long lower path");
+    fs::write(lower.join("LOWER"), b"long-lower").expect("write long lower sentinel");
+    let operation = OperationId::from_string("descriptor-shortened-long-lower");
+    let allocation = sandbox_runtime_mpla_poc::allocation::create_allocation(
+        &root.0.join("payload/allocations"),
+        &operation,
+    )
+    .expect("create permanent allocation");
+    let lease = sandbox_runtime_mpla_poc::lease::issue_workspace_lease(
+        &allocation,
+        sandbox_runtime_mpla_poc::SessionId::new(),
+        &operation,
+    )
+    .expect("issue workspace lease");
+
+    let mut session = match sandbox_runtime_mpla_poc::MplaSession::open(
+        &root.0.join("control"),
+        allocation,
+        lease,
+        vec![lower.clone()],
+        None,
+    ) {
+        Ok(session) => session,
+        Err(error) if inventory_regression_overlay_unavailable(&error) => return,
+        Err(error) => panic!("open overlay with descriptor-shortened lower: {error}"),
+    };
+
+    let workspace = session
+        .workspace_root()
+        .expect("session has a live workspace")
+        .to_path_buf();
+    assert_eq!(
+        fs::read(workspace.join("LOWER")).expect("read long lower sentinel through overlay"),
+        b"long-lower"
+    );
+    session
+        .seal(
+            &OperationId::from_string("seal-descriptor-shortened-long-lower"),
+            &mut FaultInjector::default(),
+        )
+        .expect("seal overlay with descriptor-shortened lower");
+    assert!(workspace.is_dir());
+    assert!(!workspace.join("LOWER").exists());
+    assert_eq!(
+        fs::read(lower.join("LOWER")).expect("reread original long lower sentinel"),
+        b"long-lower"
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn descriptor_shortened_lower_rejects_a_symlinked_ancestor() {
+    use std::os::unix::fs::symlink;
+
+    let root = TestDirectory::new("symlinked-overlay-lower");
+    let real_parent = root.0.join("real-parent");
+    let real_lower = real_parent.join("lower");
+    fs::create_dir_all(&real_lower).expect("create real lower path");
+    let linked_parent = root.0.join("linked-parent");
+    symlink(&real_parent, &linked_parent).expect("create lower ancestor symlink");
+    let operation = OperationId::from_string("descriptor-shortened-symlinked-lower");
+    let allocation = sandbox_runtime_mpla_poc::allocation::create_allocation(
+        &root.0.join("payload/allocations"),
+        &operation,
+    )
+    .expect("create permanent allocation");
+    let lease = sandbox_runtime_mpla_poc::lease::issue_workspace_lease(
+        &allocation,
+        sandbox_runtime_mpla_poc::SessionId::new(),
+        &operation,
+    )
+    .expect("issue workspace lease");
+
+    assert!(sandbox_runtime_mpla_poc::MplaSession::open(
+        &root.0.join("control"),
+        allocation,
+        lease,
+        vec![linked_parent.join("lower")],
+        None,
+    )
+    .is_err());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn descriptor_shortened_lower_rejects_post_pin_replacement() {
+    let root = TestDirectory::new("replaced-overlay-lower");
+    let lower = root.0.join("lower");
+    let original = root.0.join("original-lower");
+    fs::create_dir(&lower).expect("create original lower");
+    fs::write(lower.join("ORIGINAL"), b"original").expect("write original lower sentinel");
+    let pinned = match sandbox_runtime_mpla_poc::overlay_adapter::PinnedOverlayLower::pin(&lower) {
+        Ok(pinned) => pinned,
+        Err(PocError::Unsupported(message))
+            if message == "Linux statx did not report STATX_MNT_ID_UNIQUE" =>
+        {
+            return;
+        }
+        Err(error) => panic!("pin original lower: {error}"),
+    };
+    fs::rename(&lower, &original).expect("move pinned lower aside");
+    fs::create_dir(&lower).expect("create replacement lower");
+    fs::write(lower.join("REPLACEMENT"), b"replacement").expect("write replacement lower sentinel");
+
+    assert!(matches!(
+        pinned.revalidate(),
+        Err(PocError::RecoveryRequired(_))
+    ));
+    assert_eq!(
+        fs::read(original.join("ORIGINAL")).expect("reread original lower sentinel"),
+        b"original"
+    );
+    assert_eq!(
+        fs::read(lower.join("REPLACEMENT")).expect("reread replacement lower sentinel"),
+        b"replacement"
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
 fn receipt_hit_rejects_an_intermediate_symlink_escape_from_the_pinned_upper() {
     use std::os::unix::fs::symlink;
 
@@ -420,8 +616,9 @@ fn full_seal_rejects_a_directory_entry_replaced_during_descriptor_inventory() {
 
 #[cfg(target_os = "linux")]
 #[test]
-fn strict_unmount_releases_the_fsmount_descriptor_before_umount2() {
+fn strict_unmount_releases_every_target_fd_then_uses_protected_parent_name() {
     use rustix::fd::AsFd;
+    use std::os::fd::AsRawFd;
 
     fn unavailable(error: rustix::io::Errno) -> bool {
         matches!(
@@ -445,6 +642,7 @@ fn strict_unmount_releases_the_fsmount_descriptor_before_umount2() {
         rustix::fs::Mode::empty(),
     )
     .expect("pin detached-mount target");
+    let covered_identity = rustix::fs::fstat(&covered).expect("stat covered mountpoint");
     let fsfd = match rustix::mount::fsopen("tmpfs", rustix::mount::FsOpenFlags::FSOPEN_CLOEXEC) {
         Ok(fsfd) => fsfd,
         Err(error) if unavailable(error) => return,
@@ -478,20 +676,65 @@ fn strict_unmount_releases_the_fsmount_descriptor_before_umount2() {
         }
         panic!("attach detached tmpfs mount: {error}");
     }
-    let workspace = std::ffi::CString::new(workspace.to_string_lossy().as_bytes())
-        .expect("encode detached-mount target");
+    let exact = rustix::fs::open(
+        &workspace,
+        rustix::fs::OFlags::PATH
+            | rustix::fs::OFlags::DIRECTORY
+            | rustix::fs::OFlags::NOFOLLOW
+            | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::Mode::empty(),
+    )
+    .expect("pin exact O_PATH mount target");
+    let exact_workspace = std::ffi::CString::new(format!("/proc/self/fd/{}", exact.as_raw_fd()))
+        .expect("encode exact O_PATH mount target");
+    let protected_parent = rustix::fs::open(
+        &root.0,
+        rustix::fs::OFlags::PATH
+            | rustix::fs::OFlags::DIRECTORY
+            | rustix::fs::OFlags::NOFOLLOW
+            | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::Mode::empty(),
+    )
+    .expect("pin protected mount parent");
+    let protected_workspace = std::ffi::CString::new(format!(
+        "/proc/self/fd/{}/mount",
+        protected_parent.as_raw_fd()
+    ))
+    .expect("encode protected-parent mount target");
 
-    // SAFETY: the path is a live NUL-terminated CString and zero flags request
-    // a strict, non-lazy unmount.
-    assert_eq!(unsafe { libc::umount2(workspace.as_ptr(), 0) }, -1);
+    // SAFETY: the exact descriptor path is a live NUL-terminated CString and
+    // zero flags request a strict, non-lazy unmount.
+    assert_eq!(unsafe { libc::umount2(exact_workspace.as_ptr(), 0) }, -1);
     assert_eq!(
         std::io::Error::last_os_error().raw_os_error(),
         Some(libc::EBUSY)
     );
     drop(mounted);
-    // SAFETY: the path remains a live NUL-terminated CString and zero flags
-    // request a strict, non-lazy unmount.
-    assert_eq!(unsafe { libc::umount2(workspace.as_ptr(), 0) }, 0);
+    // SAFETY: the exact descriptor path remains a live NUL-terminated CString;
+    // its retained target-mount reference must keep strict unmount busy.
+    assert_eq!(unsafe { libc::umount2(exact_workspace.as_ptr(), 0) }, -1);
+    assert_eq!(
+        std::io::Error::last_os_error().raw_os_error(),
+        Some(libc::EBUSY)
+    );
+    drop(exact);
+    // SAFETY: the parent descriptor and fixed child name form a live
+    // NUL-terminated CString; no target-mount descriptor remains live and zero
+    // flags request a strict, non-lazy unmount.
+    assert_eq!(unsafe { libc::umount2(protected_workspace.as_ptr(), 0) }, 0);
+    let restored = rustix::fs::open(
+        &workspace,
+        rustix::fs::OFlags::RDONLY
+            | rustix::fs::OFlags::DIRECTORY
+            | rustix::fs::OFlags::NOFOLLOW
+            | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::Mode::empty(),
+    )
+    .expect("reopen restored covered mountpoint");
+    let restored_identity = rustix::fs::fstat(&restored).expect("stat restored mountpoint");
+    assert_eq!(restored_identity.st_dev, covered_identity.st_dev);
+    assert_eq!(restored_identity.st_ino, covered_identity.st_ino);
+    assert!(workspace.is_dir());
 }
 
 #[cfg(target_os = "linux")]
@@ -553,13 +796,22 @@ fn strict_unmount_exact_descriptor_never_unmounts_stacked_decoy() {
     fs::write(workspace.join("BASE"), b"base").expect("write base mount sentinel");
     let exact_base = rustix::fs::open(
         &workspace,
-        rustix::fs::OFlags::RDONLY
+        rustix::fs::OFlags::PATH
             | rustix::fs::OFlags::DIRECTORY
             | rustix::fs::OFlags::NOFOLLOW
             | rustix::fs::OFlags::CLOEXEC,
         rustix::fs::Mode::empty(),
     )
     .expect("pin exact base mount");
+    let protected_parent = rustix::fs::open(
+        &root.0,
+        rustix::fs::OFlags::PATH
+            | rustix::fs::OFlags::DIRECTORY
+            | rustix::fs::OFlags::NOFOLLOW
+            | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::Mode::empty(),
+    )
+    .expect("pin protected stacked-mount parent");
     drop(base_mount);
 
     let decoy_mount = match detached_tmpfs() {
@@ -604,9 +856,16 @@ fn strict_unmount_exact_descriptor_never_unmounts_stacked_decoy() {
         fs::read(workspace.join("BASE")).expect("read restored base sentinel"),
         b"base"
     );
-    // SAFETY: the exact descriptor still names the base mount and zero flags
-    // request strict cleanup after its child has been removed.
-    assert_eq!(unsafe { libc::umount2(exact_base_path.as_ptr(), 0) }, 0);
+    drop(exact_base);
+    let protected_workspace = std::ffi::CString::new(format!(
+        "/proc/self/fd/{}/mount",
+        protected_parent.as_raw_fd()
+    ))
+    .expect("encode protected-parent stacked-mount target");
+    // SAFETY: the authenticated parent descriptor and fixed child name form a
+    // live NUL-terminated CString; the exact target descriptor has been
+    // released and zero flags request strict cleanup.
+    assert_eq!(unsafe { libc::umount2(protected_workspace.as_ptr(), 0) }, 0);
 }
 
 #[test]
@@ -628,14 +887,16 @@ fn ratified_external_session_cannot_be_reopened_or_rewritten() {
     let prepared =
         sandbox_runtime_mpla_poc::prepare_external_session(&control_root, &allocation, &lease)
             .expect("prepare external session");
-    prepared
-        .begin_sealing(
-            &allocation,
-            &lease,
-            &operation,
-            &mut FaultInjector::default(),
-        )
-        .expect("ratify Sealing");
+    drop(
+        prepared
+            .begin_sealing(
+                &allocation,
+                &lease,
+                &operation,
+                &mut FaultInjector::default(),
+            )
+            .expect("ratify Sealing"),
+    );
     let record_path = prepared.session_dir().join("SESSION.json");
     let before = fs::read(&record_path).expect("read ratified session record");
 
@@ -713,14 +974,16 @@ fn restart_recovery_rejects_a_different_ratified_operation_without_mutation() {
     let prepared =
         sandbox_runtime_mpla_poc::prepare_external_session(&control_root, &allocation, &lease)
             .expect("prepare external session");
-    prepared
-        .begin_sealing(
-            &allocation,
-            &lease,
-            &operation,
-            &mut FaultInjector::default(),
-        )
-        .expect("ratify Sealing");
+    drop(
+        prepared
+            .begin_sealing(
+                &allocation,
+                &lease,
+                &operation,
+                &mut FaultInjector::default(),
+            )
+            .expect("ratify Sealing"),
+    );
     let sealing_path = prepared.session_dir().join("SEALING.json");
     let before = fs::read(&sealing_path).expect("read Sealing record");
 
@@ -982,6 +1245,7 @@ fn unratified_absent_attested_mount_recovery_rejects_without_signaling() {
         target_inode: workspace_metadata.ino(),
         covered_workspace_device: workspace_metadata.dev(),
         covered_workspace_inode: workspace_metadata.ino(),
+        covered_workspace_mount_unique_id: 2,
         filesystem_type: "overlay".to_owned(),
         source: "overlay".to_owned(),
         mount_options: vec!["rw".to_owned()],
@@ -1090,6 +1354,7 @@ fn restart_recovery_keeps_the_opened_session_when_its_ancestor_is_replaced() {
         target_inode: workspace_metadata.ino(),
         covered_workspace_device: workspace_metadata.dev(),
         covered_workspace_inode: workspace_metadata.ino(),
+        covered_workspace_mount_unique_id: u64::MAX - 1,
         filesystem_type: "overlay".to_owned(),
         source: "overlay".to_owned(),
         mount_options: vec!["rw".to_owned()],
@@ -1484,6 +1749,35 @@ fn managed_process_tree_scopes_audit_to_exact_attested_cgroup_members() {
 
 #[cfg(target_os = "linux")]
 #[test]
+fn managed_process_tree_does_not_classify_exact_cgroup_members_through_procfs() {
+    let root = TestDirectory::new("managed-process-cgroup-without-procfs");
+    let cgroup = root.0.join("cgroup");
+    let membership = cgroup.join("cgroup.procs");
+    fs::create_dir(&cgroup).expect("create cgroup fixture");
+    let mut child = std::process::Command::new("/bin/sleep")
+        .arg("30")
+        .spawn()
+        .expect("spawn exact cgroup member");
+    let child_pid = i32::try_from(child.id()).expect("child PID fits i32");
+    fs::write(&membership, format!("{child_pid}\n")).expect("create exact membership fixture");
+    let tree = ManagedProcessTree::new(PathBuf::from("/"), Some(membership))
+        .expect("pin exact cgroup membership");
+
+    let audit_result = tree.audit(false);
+    child.kill().expect("kill exact cgroup member");
+    child.wait().expect("reap exact cgroup member");
+
+    let audit = audit_result.expect("audit exact cgroup member without procfs classification");
+    assert_eq!(audit.cgroup_members, vec![child_pid]);
+    assert!(!audit.is_clear(), "{audit:?}");
+    assert!(audit.cwd_or_root_pins.is_empty(), "{audit:?}");
+    assert!(audit.fd_pins.is_empty(), "{audit:?}");
+    assert!(audit.writable_map_pins.is_empty(), "{audit:?}");
+    assert!(audit.mount_namespace_pins.is_empty(), "{audit:?}");
+}
+
+#[cfg(target_os = "linux")]
+#[test]
 fn managed_process_tree_rejects_malformed_or_nonpositive_cgroup_members() {
     for (case, members) in [("malformed", "not-a-pid\n"), ("zero", "0\n")] {
         let root = TestDirectory::new(&format!("managed-process-cgroup-{case}"));
@@ -1666,6 +1960,7 @@ fn attested_mount_tree_refresh_includes_late_descendants_and_bind_mounts_only() 
         target_inode: 1,
         covered_workspace_device: 1,
         covered_workspace_inode: 1,
+        covered_workspace_mount_unique_id: 4100,
         filesystem_type: "overlay".to_owned(),
         source: "overlay".to_owned(),
         mount_options: vec!["rw".to_owned()],
@@ -1898,6 +2193,161 @@ fn post_file_fsync_retry_preserves_stale_sealing_temporary() {
         before
     );
     assert!(!session_dir.join("SEALING.json").exists());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn live_seal_retains_recovery_lock_at_strict_unmount() {
+    use std::os::fd::AsRawFd;
+    use std::os::unix::fs::OpenOptionsExt;
+    use std::process::{Command, Stdio};
+
+    let root = TestDirectory::new("seal-lock-at-strict-unmount");
+    let marker_path = root.0.join("strict-unmount-marker.json");
+    let stderr_path = root.0.join("seal-child.stderr");
+    let stderr = std::fs::File::create(&stderr_path).expect("create seal child stderr");
+    let mut child = Command::new(std::env::current_exe().expect("locate integration test binary"))
+        .args([
+            "--ignored",
+            "--exact",
+            "live_seal_recovery_lock_child",
+            "--nocapture",
+            "--test-threads=1",
+        ])
+        .env("MPLA_POC_SEAL_LOCK_TEST_ROOT", &root.0)
+        .env(
+            "MPLA_POC_PHYSICAL_FAULT_POINT",
+            sandbox_runtime_mpla_poc::NamedFaultPoint::UnmountBeforeStrict.as_str(),
+        )
+        .env("MPLA_POC_PHYSICAL_FAULT_ORDINAL", "1")
+        .env("MPLA_POC_PHYSICAL_FAULT_ARMED_PATH", &marker_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::from(stderr))
+        .spawn()
+        .expect("spawn seal child");
+    let child_pid = i32::try_from(child.id()).expect("seal child PID fits pid_t");
+    let mut stopped_status = 0;
+    // SAFETY: child_pid names the live child created immediately above, and
+    // stopped_status is writable for the duration of waitpid.
+    let waited = unsafe { libc::waitpid(child_pid, &mut stopped_status, libc::WUNTRACED) };
+    if waited == child_pid && libc::WIFEXITED(stopped_status) {
+        let stderr = fs::read_to_string(&stderr_path).unwrap_or_default();
+        if libc::WEXITSTATUS(stopped_status) == 0 {
+            return;
+        }
+        panic!("seal child exited before strict unmount: {stderr}");
+    }
+    if waited != child_pid
+        || !libc::WIFSTOPPED(stopped_status)
+        || libc::WSTOPSIG(stopped_status) != libc::SIGSTOP
+    {
+        let _ = child.kill();
+        let _ = child.wait();
+        let stderr = fs::read_to_string(&stderr_path).unwrap_or_default();
+        panic!(
+            "seal child did not stop at strict unmount: waited={waited} status={stopped_status} stderr={stderr}"
+        );
+    }
+
+    let lock_observation = (|| -> Result<(), String> {
+        if !marker_path.is_file() {
+            return Err("physical strict-unmount marker was not published".to_owned());
+        }
+        let lock_path = PathBuf::from(
+            fs::read_to_string(root.0.join("owner-lock-path"))
+                .map_err(|error| format!("read owner lock handshake: {error}"))?,
+        );
+        let lock = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(&lock_path)
+            .map_err(|error| format!("open owner lock handshake path: {error}"))?;
+        // SAFETY: flock only reads the valid descriptor borrowed from lock.
+        let result = unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+        if result == 0 {
+            // SAFETY: flock only reads the same valid descriptor borrowed from lock.
+            let _ = unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_UN) };
+            return Err("recovery acquired owner lock during live strict unmount".to_owned());
+        }
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() != Some(libc::EWOULDBLOCK) {
+            return Err(format!("owner lock probe failed unexpectedly: {error}"));
+        }
+        Ok(())
+    })();
+
+    // SAFETY: child_pid remains the stopped, unreaped child observed above.
+    assert_eq!(unsafe { libc::kill(child_pid, libc::SIGCONT) }, 0);
+    let completed = child.wait().expect("wait for resumed seal child");
+    let stderr = fs::read_to_string(&stderr_path).unwrap_or_default();
+    assert!(
+        completed.success(),
+        "resumed seal child failed strict teardown: {completed:?} stderr={stderr}"
+    );
+    lock_observation.expect("seal must exclude terminal recovery through strict unmount");
+}
+
+#[cfg(target_os = "linux")]
+#[ignore]
+#[test]
+fn live_seal_recovery_lock_child() {
+    let Some(root) = std::env::var_os("MPLA_POC_SEAL_LOCK_TEST_ROOT").map(PathBuf::from) else {
+        return;
+    };
+    let lower = root.join("lower");
+    fs::create_dir_all(&lower).expect("create seal child lower");
+    fs::write(lower.join("LOWER"), b"lower").expect("write seal child lower");
+    let operation = OperationId::from_string("seal-lock-at-strict-unmount");
+    let allocation = sandbox_runtime_mpla_poc::allocation::create_allocation(
+        &root.join("payload/allocations"),
+        &operation,
+    )
+    .expect("create seal child allocation");
+    fs::write(
+        root.join("owner-lock-path"),
+        allocation
+            .owner_dir
+            .join("LOCK")
+            .to_string_lossy()
+            .as_bytes(),
+    )
+    .expect("write owner lock handshake");
+    let lease = sandbox_runtime_mpla_poc::lease::issue_workspace_lease(
+        &allocation,
+        sandbox_runtime_mpla_poc::SessionId::new(),
+        &operation,
+    )
+    .expect("issue seal child lease");
+    let mut session = match sandbox_runtime_mpla_poc::MplaSession::open(
+        &root.join("control"),
+        allocation,
+        lease,
+        vec![lower],
+        None,
+    ) {
+        Ok(session) => session,
+        Err(error) if seal_lock_overlay_mount_unavailable(&error) => return,
+        Err(error) => panic!("open seal child session: {error}"),
+    };
+    session
+        .seal(&operation, &mut FaultInjector::default())
+        .expect("seal child completes after strict-unmount boundary resumes");
+}
+
+#[cfg(target_os = "linux")]
+fn seal_lock_overlay_mount_unavailable(error: &PocError) -> bool {
+    match error {
+        PocError::Unsupported(message) => {
+            message == "Linux statx did not report STATX_MNT_ID_UNIQUE"
+        }
+        PocError::Io { source, .. } => matches!(
+            source.raw_os_error(),
+            Some(libc::EPERM | libc::EACCES | libc::ENOSYS | libc::EOPNOTSUPP)
+        ),
+        _ => false,
+    }
 }
 
 fn allocation_handle(root: &std::path::Path) -> AllocationHandle {

@@ -47,6 +47,7 @@ pub struct OverlayMountAttestation {
     pub target_inode: u64,
     pub covered_workspace_device: u64,
     pub covered_workspace_inode: u64,
+    pub covered_workspace_mount_unique_id: u64,
     pub filesystem_type: String,
     pub source: String,
     pub mount_options: Vec<String>,
@@ -112,6 +113,85 @@ struct DirectoryIdentity {
 
 #[cfg(target_os = "linux")]
 #[derive(Debug)]
+#[doc(hidden)]
+pub struct PinnedOverlayLower {
+    descriptor: OwnedFd,
+    lexical_path: PathBuf,
+    identity: DirectoryIdentity,
+    mount_unique_id: u64,
+}
+
+#[cfg(target_os = "linux")]
+impl PinnedOverlayLower {
+    #[doc(hidden)]
+    pub fn pin(path: &Path) -> PocResult<Self> {
+        let expected = path_directory_identity(path)?;
+        let descriptor = open_overlay_lower_no_symlink(path)?;
+        let identity = fd_directory_identity(&descriptor, "stat pinned overlay lower", path)?;
+        if identity != expected {
+            return Err(PocError::RecoveryRequired(format!(
+                "overlay lower changed while it was pinned: {}",
+                path.display()
+            )));
+        }
+        let mount_unique_id = mount_unique_id_for_fd(&descriptor)?;
+        Ok(Self {
+            descriptor,
+            lexical_path: path.to_path_buf(),
+            identity,
+            mount_unique_id,
+        })
+    }
+
+    pub(crate) fn from_authenticated_descriptor(
+        canonical_path: &Path,
+        authenticated: &OwnedFd,
+    ) -> PocResult<Self> {
+        let descriptor = rustix::io::dup(authenticated).map_err(|error| {
+            PocError::io(
+                "duplicate authenticated overlay lower",
+                canonical_path,
+                std::io::Error::from(error),
+            )
+        })?;
+        let identity = fd_directory_identity(
+            &descriptor,
+            "stat authenticated overlay lower",
+            canonical_path,
+        )?;
+        let mount_unique_id = mount_unique_id_for_fd(&descriptor)?;
+        let pinned = Self {
+            descriptor,
+            lexical_path: canonical_path.to_path_buf(),
+            identity,
+            mount_unique_id,
+        };
+        pinned.revalidate()?;
+        Ok(pinned)
+    }
+
+    #[doc(hidden)]
+    pub fn revalidate(&self) -> PocResult<()> {
+        let reopened = open_overlay_lower_no_symlink(&self.lexical_path)?;
+        if fd_directory_identity(
+            &reopened,
+            "revalidate pinned overlay lower",
+            &self.lexical_path,
+        )? == self.identity
+            && mount_unique_id_for_fd(&reopened)? == self.mount_unique_id
+        {
+            Ok(())
+        } else {
+            Err(PocError::RecoveryRequired(format!(
+                "overlay lower changed during mount construction: {}",
+                self.lexical_path.display()
+            )))
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Debug)]
 struct AnchoredOverlayGuard {
     session: OwnedFd,
     mounted: Option<OwnedFd>,
@@ -119,8 +199,9 @@ struct AnchoredOverlayGuard {
     mount_unique_id: u64,
     target_identity: DirectoryIdentity,
     workspace_identity: DirectoryIdentity,
+    workspace_mount_unique_id: u64,
     workspace_root: PathBuf,
-    armed: bool,
+    construction_cleanup_armed: bool,
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -142,7 +223,7 @@ impl AnchoredOverlayGuard {
         rustix::fs::openat(
             &self.session,
             "mount",
-            rustix::fs::OFlags::RDONLY
+            rustix::fs::OFlags::PATH
                 | rustix::fs::OFlags::DIRECTORY
                 | rustix::fs::OFlags::NOFOLLOW
                 | rustix::fs::OFlags::CLOEXEC,
@@ -218,7 +299,7 @@ impl AnchoredOverlayGuard {
             "stat restored covered workspace",
             &self.workspace_root,
         )? != self.workspace_identity
-            || mount_unique_id_for_fd(&restored)? == self.mount_unique_id
+            || mount_unique_id_for_fd(&restored)? != self.workspace_mount_unique_id
         {
             return Err(PocError::RecoveryRequired(
                 "covered workspace authority was not restored after strict unmount".to_owned(),
@@ -229,26 +310,22 @@ impl AnchoredOverlayGuard {
 
     fn strict_unmount(mut self) -> PocResult<()> {
         self.authenticate()?;
-        // The detached fsmount descriptor is a busy mount reference and must
-        // be released before strict unmount.  The ordinary authenticated
-        // directory descriptor remains usable as the exact syscall target.
         drop(self.mounted.take());
         let named = self.authenticate_named()?;
-        strict_unmount_exact_mount(&named).map_err(|error| {
+        drop(named);
+        strict_unmount_protected_name(&self.session).map_err(|error| {
             PocError::io(
                 "strictly unmount exact anchored overlay",
                 &self.workspace_root,
                 error,
             )
         })?;
-        drop(named);
         if current_mount_by_id(self.mount_id)?.is_some() {
             return Err(PocError::RecoveryRequired(
                 "anchored overlay remained visible after strict unmount".to_owned(),
             ));
         }
         drop(self.authenticate_restored_workspace()?);
-        self.armed = false;
         Ok(())
     }
 }
@@ -256,16 +333,11 @@ impl AnchoredOverlayGuard {
 #[cfg(target_os = "linux")]
 impl Drop for AnchoredOverlayGuard {
     fn drop(&mut self) {
-        if self.armed && self.authenticate().is_ok() {
+        if self.construction_cleanup_armed && self.authenticate().is_ok() {
             drop(self.mounted.take());
             if let Ok(named) = self.authenticate_named() {
-                if strict_unmount_exact_mount(&named).is_ok() {
-                    drop(named);
-                    if let Ok(restored) = self.authenticate_restored_workspace() {
-                        drop(restored);
-                        self.armed = false;
-                    }
-                }
+                drop(named);
+                let _ = strict_unmount_protected_name(&self.session);
             }
         }
     }
@@ -378,6 +450,7 @@ impl PermanentOverlayMount {
             guard.mount_id,
             guard.mount_unique_id,
             guard.workspace_identity,
+            guard.workspace_mount_unique_id,
             &self.workspace_root,
             &self.allocation_root,
             &self.allocation_upper,
@@ -391,12 +464,9 @@ impl PermanentOverlayMount {
         )
     }
 
-    /// Strictly unmount without a lazy-detach fallback.
-    ///
-    /// The production overlay guard's best-effort `Drop` remains armed until
-    /// the strict syscall succeeds. After success, dropping the guard observes
-    /// an already-unmounted directory and performs no payload operation.
-    pub fn strict_unmount(mut self) -> PocResult<UnmountedOverlay> {
+    /// Strictly unmount without a lazy-detach fallback. The caller must retain
+    /// the session's exclusive mount-mutation authority through this call.
+    pub(crate) fn strict_unmount(mut self) -> PocResult<UnmountedOverlay> {
         let mount = self
             .mount
             .take()
@@ -568,8 +638,10 @@ pub(crate) fn strict_unmount_attested_frozen_anchored(
     require_attested_mount_tree_read_only(attestation)?;
     drop(authenticate_attested_named_mount(attestation, session)?);
     require_attested_mount_tree_read_only(attestation)?;
-    let named = authenticate_attested_named_mount(attestation, session)?;
-    if let Err(error) = strict_unmount_exact_mount(&workspace) {
+    let named = authenticate_attested_named_mount_path(attestation, session)?;
+    drop(workspace);
+    drop(named);
+    if let Err(error) = strict_unmount_protected_name(session) {
         if frozen_mount_operation_requires_retry(error.raw_os_error().unwrap_or_default()) {
             return Err(PocError::RecoveryRequired(
                 "frozen terminal mount remained busy; retry recovery".to_owned(),
@@ -581,8 +653,6 @@ pub(crate) fn strict_unmount_attested_frozen_anchored(
             error,
         ));
     }
-    drop(named);
-    drop(workspace);
     if current_mount_by_id(attestation.mount_id)?.is_some()
         || !attested_mount_tree_ids(attestation)?.is_empty()
     {
@@ -595,11 +665,13 @@ pub(crate) fn strict_unmount_attested_frozen_anchored(
 }
 
 #[cfg(target_os = "linux")]
-fn strict_unmount_exact_mount(mount: &OwnedFd) -> std::io::Result<()> {
-    let descriptor_path = CString::new(format!("/proc/self/fd/{}", mount.as_raw_fd()))
-        .expect("numeric procfd mount path cannot contain NUL");
-    // SAFETY: the C string names the exact mount held by the authenticated
-    // descriptor, and zero flags deliberately exclude lazy detach.
+fn strict_unmount_protected_name(session: &OwnedFd) -> std::io::Result<()> {
+    let descriptor_path = CString::new(format!("/proc/self/fd/{}/mount", session.as_raw_fd()))
+        .expect("numeric protected-session procfd path cannot contain NUL");
+    // SAFETY: while the caller holds exclusive mount-mutation authority, the C
+    // string resolves the authenticated fixed child through the private
+    // session-parent descriptor after every target descriptor was released;
+    // zero flags deliberately exclude lazy detach.
     if unsafe { libc::umount2(descriptor_path.as_ptr(), 0) } == 0 {
         Ok(())
     } else {
@@ -647,6 +719,7 @@ pub(crate) fn require_attested_mount_absent_anchored(
     )?;
     if restored.device != attestation.covered_workspace_device
         || restored.inode != attestation.covered_workspace_inode
+        || mount_unique_id_for_fd(workspace)? != attestation.covered_workspace_mount_unique_id
     {
         return Err(PocError::RecoveryRequired(
             "post-unmount workspace is not the attested covered directory".to_owned(),
@@ -876,7 +949,7 @@ pub(crate) fn validated_attested_cgroup_path(
 #[cfg(target_os = "linux")]
 pub(crate) fn mount_permanent_overlay_anchored(
     allocation: &AllocationHandle,
-    lower_dirs_newest_first: Vec<PathBuf>,
+    pinned_lowers: &[PinnedOverlayLower],
     workspace_root: &Path,
     session: &OwnedFd,
     workspace: &OwnedFd,
@@ -884,23 +957,21 @@ pub(crate) fn mount_permanent_overlay_anchored(
     allocation_work: &OwnedFd,
 ) -> PocResult<PermanentOverlayMount> {
     require_stationary_layout(allocation)?;
-    if lower_dirs_newest_first.is_empty() {
+    if pinned_lowers.is_empty() {
         return Err(PocError::Integrity(
             "permanent overlay requires at least one lower layer".to_owned(),
         ));
     }
     let (allocation_upper_identity, allocation_work_identity) =
         pinned_overlay_source_identities(allocation, allocation_upper, allocation_work)?;
-
     let mount_upper_label = descriptor_path(allocation_upper);
     let mount_work_label = descriptor_path(allocation_work);
-    let fsfd = configured_anchored_overlay_fs(
-        &lower_dirs_newest_first,
-        &mount_upper_label,
-        &mount_work_label,
-    )?;
+    require_pinned_overlay_lowers(&pinned_lowers)?;
+    let fsfd =
+        configured_anchored_overlay_fs(&pinned_lowers, &mount_upper_label, &mount_work_label)?;
     rustix::mount::fsconfig_create(fsfd.as_fd())
         .map_err(|error| mount_syscall_error("create anchored overlay", workspace_root, error))?;
+    require_pinned_overlay_lowers(&pinned_lowers)?;
     let mount_fd = rustix::mount::fsmount(
         fsfd.as_fd(),
         rustix::mount::FsMountFlags::FSMOUNT_CLOEXEC,
@@ -908,11 +979,13 @@ pub(crate) fn mount_permanent_overlay_anchored(
             | rustix::mount::MountAttrFlags::MOUNT_ATTR_NOSUID,
     )
     .map_err(|error| mount_syscall_error("fsmount anchored overlay", workspace_root, error))?;
+    require_pinned_overlay_lowers(&pinned_lowers)?;
     let workspace_identity = fd_directory_identity(
         workspace,
         "stat pinned workspace mountpoint",
         workspace_root,
     )?;
+    let workspace_mount_unique_id = mount_unique_id_for_fd(workspace)?;
     let guard_session = rustix::io::dup(session).map_err(|error| {
         PocError::io(
             "duplicate anchored session for overlay guard",
@@ -929,7 +1002,7 @@ pub(crate) fn mount_permanent_overlay_anchored(
             std::io::Error::from(error),
         )
     })?;
-    let guard = AnchoredOverlayGuard {
+    let mut guard = AnchoredOverlayGuard {
         session: guard_session,
         mounted: Some(mount_fd),
         mount_id,
@@ -939,8 +1012,9 @@ pub(crate) fn mount_permanent_overlay_anchored(
             inode: mounted_status.st_ino,
         },
         workspace_identity,
+        workspace_mount_unique_id,
         workspace_root: workspace_root.to_path_buf(),
-        armed: true,
+        construction_cleanup_armed: true,
     };
     rustix::mount::move_mount(
         guard
@@ -986,6 +1060,8 @@ pub(crate) fn mount_permanent_overlay_anchored(
         allocation_work_identity,
         "allocation work changed during overlay mount",
     )?;
+    require_pinned_overlay_lowers(&pinned_lowers)?;
+    guard.construction_cleanup_armed = false;
     Ok(PermanentOverlayMount {
         workspace_root: workspace_root.to_path_buf(),
         allocation_root: allocation.allocation_root.clone(),
@@ -1041,15 +1117,21 @@ fn pinned_overlay_source_identities(
 
 #[cfg(target_os = "linux")]
 fn configured_anchored_overlay_fs(
-    lower_dirs_newest_first: &[PathBuf],
+    lower_dirs_newest_first: &[PinnedOverlayLower],
     upper: &Path,
     work: &Path,
 ) -> PocResult<OwnedFd> {
     let fsfd = rustix::mount::fsopen("overlay", rustix::mount::FsOpenFlags::FSOPEN_CLOEXEC)
         .map_err(|error| mount_syscall_error("open overlay mount context", upper, error))?;
     for lower in lower_dirs_newest_first {
-        rustix::mount::fsconfig_set_string(fsfd.as_fd(), "lowerdir+", lower)
-            .map_err(|error| mount_syscall_error("configure overlay lowerdir+", lower, error))?;
+        rustix::mount::fsconfig_set_string(
+            fsfd.as_fd(),
+            "lowerdir+",
+            descriptor_path(&lower.descriptor),
+        )
+        .map_err(|error| {
+            mount_syscall_error("configure overlay lowerdir+", &lower.lexical_path, error)
+        })?;
     }
     rustix::mount::fsconfig_set_flag(fsfd.as_fd(), "userxattr")
         .map_err(|error| mount_syscall_error("configure overlay userxattr", upper, error))?;
@@ -1058,6 +1140,66 @@ fn configured_anchored_overlay_fs(
     rustix::mount::fsconfig_set_string(fsfd.as_fd(), "workdir", work)
         .map_err(|error| mount_syscall_error("configure pinned overlay work", work, error))?;
     Ok(fsfd)
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn pin_overlay_lowers(paths: &[PathBuf]) -> PocResult<Vec<PinnedOverlayLower>> {
+    paths
+        .iter()
+        .map(|path| PinnedOverlayLower::pin(path))
+        .collect()
+}
+
+#[cfg(target_os = "linux")]
+fn require_pinned_overlay_lowers(lowers: &[PinnedOverlayLower]) -> PocResult<()> {
+    for lower in lowers {
+        lower.revalidate()?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn open_overlay_lower_no_symlink(path: &Path) -> PocResult<OwnedFd> {
+    if !path.is_absolute() {
+        return Err(PocError::RecoveryRequired(format!(
+            "overlay lower must be an absolute no-symlink path: {}",
+            path.display()
+        )));
+    }
+    let flags = rustix::fs::OFlags::PATH
+        | rustix::fs::OFlags::DIRECTORY
+        | rustix::fs::OFlags::NOFOLLOW
+        | rustix::fs::OFlags::CLOEXEC;
+    let mut current =
+        rustix::fs::open(Path::new("/"), flags, rustix::fs::Mode::empty()).map_err(|error| {
+            PocError::io(
+                "open overlay lower root",
+                Path::new("/"),
+                std::io::Error::from(error),
+            )
+        })?;
+    for component in path.components() {
+        match component {
+            std::path::Component::RootDir => {}
+            std::path::Component::Normal(component) => {
+                current = rustix::fs::openat(&current, component, flags, rustix::fs::Mode::empty())
+                    .map_err(|error| {
+                        PocError::io(
+                            "open anchored overlay lower",
+                            path,
+                            std::io::Error::from(error),
+                        )
+                    })?;
+            }
+            _ => {
+                return Err(PocError::RecoveryRequired(format!(
+                    "overlay lower is not a normalized absolute path: {}",
+                    path.display()
+                )));
+            }
+        }
+    }
+    Ok(current)
 }
 
 #[cfg(target_os = "linux")]
@@ -1314,6 +1456,7 @@ fn capture_mount_attestation_anchored(
     expected_mount_id: u64,
     expected_mount_unique_id: u64,
     workspace_identity: DirectoryIdentity,
+    workspace_mount_unique_id: u64,
     workspace_root: &Path,
     allocation_root: &Path,
     allocation_upper: &Path,
@@ -1367,6 +1510,7 @@ fn capture_mount_attestation_anchored(
         "restat exact covered workspace directory",
         workspace_root,
     )? != workspace_identity
+        || mount_unique_id_for_fd(workspace)? != workspace_mount_unique_id
         || mount_id_for_fd(mounted)? != expected_mount_id
         || mount_unique_id_for_fd(mounted)? != expected_mount_unique_id
         || mount_id_for_fd(&named)? != expected_mount_id
@@ -1441,6 +1585,7 @@ fn capture_mount_attestation_anchored(
         target_inode: target.st_ino,
         covered_workspace_device: workspace_identity.device,
         covered_workspace_inode: workspace_identity.inode,
+        covered_workspace_mount_unique_id: workspace_mount_unique_id,
         filesystem_type: observed.filesystem_type,
         source: observed.source,
         mount_options: observed.mount_options,
@@ -1597,6 +1742,49 @@ fn authenticate_attested_named_mount(
 }
 
 #[cfg(target_os = "linux")]
+fn authenticate_attested_named_mount_path(
+    attestation: &OverlayMountAttestation,
+    session: &OwnedFd,
+) -> PocResult<OwnedFd> {
+    let named = rustix::fs::openat(
+        session,
+        "mount",
+        rustix::fs::OFlags::PATH
+            | rustix::fs::OFlags::DIRECTORY
+            | rustix::fs::OFlags::NOFOLLOW
+            | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::Mode::empty(),
+    )
+    .map_err(|error| {
+        PocError::io(
+            "open exact protected session workspace",
+            &attestation.workspace_root,
+            std::io::Error::from(error),
+        )
+    })?;
+    let identity = fd_directory_identity(
+        &named,
+        "stat exact protected session workspace",
+        &attestation.workspace_root,
+    )?;
+    if mount_id_for_fd(&named)? != attestation.mount_id
+        || mount_unique_id_for_fd(&named)? != attestation.mount_unique_id
+        || identity.device != attestation.target_device
+        || identity.inode != attestation.target_inode
+    {
+        return Err(PocError::RecoveryRequired(
+            "protected session workspace is not the exact attested mount".to_owned(),
+        ));
+    }
+    require_unstacked_named_mount(
+        &attestation.workspace_root,
+        attestation.mount_id,
+        attestation.target_device,
+    )?;
+    Ok(named)
+}
+
+#[cfg(target_os = "linux")]
 fn require_restored_covered_workspace(
     attestation: &OverlayMountAttestation,
     session: &OwnedFd,
@@ -1609,7 +1797,7 @@ fn require_restored_covered_workspace(
     )?;
     if identity.device != attestation.covered_workspace_device
         || identity.inode != attestation.covered_workspace_inode
-        || mount_unique_id_for_fd(&restored)? == attestation.mount_unique_id
+        || mount_unique_id_for_fd(&restored)? != attestation.covered_workspace_mount_unique_id
     {
         return Err(PocError::RecoveryRequired(
             "covered session workspace authority was not restored after strict unmount".to_owned(),

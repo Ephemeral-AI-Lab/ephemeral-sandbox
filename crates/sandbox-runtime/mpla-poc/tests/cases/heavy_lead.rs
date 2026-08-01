@@ -31,6 +31,7 @@ const HV05_FILES_PER_DELTA: usize = 10;
 const HV05_FILE_BYTES: u64 = 100 * 1024;
 const HV05_TPUB_MAX_NS: u64 = 1_070_000_000;
 const HV05_MEDIAN_OBJECTIVE_NS: u64 = 100_000_000;
+const HV07_CHILD_STDERR_LIMIT_BYTES: u64 = 32 * 1024;
 const HEAVY_LEASE_PREFIX: &str = "m2r-20260728T015724p0800:lead:";
 const HEAVY_BRANCH: &str = "heavy-main";
 
@@ -259,6 +260,68 @@ impl Drop for Hv07PhysicalChildGuard {
     }
 }
 
+fn hv07_decode_wait_status(status: libc::c_int) -> String {
+    if libc::WIFEXITED(status) {
+        format!("exited(code={})", libc::WEXITSTATUS(status))
+    } else if libc::WIFSIGNALED(status) {
+        format!("signaled(signal={})", libc::WTERMSIG(status))
+    } else if libc::WIFSTOPPED(status) {
+        format!("stopped(signal={})", libc::WSTOPSIG(status))
+    } else if libc::WIFCONTINUED(status) {
+        "continued".to_owned()
+    } else {
+        "unknown".to_owned()
+    }
+}
+
+fn hv07_child_stderr_window(length: u64) -> (u64, u64) {
+    (
+        length.saturating_sub(HV07_CHILD_STDERR_LIMIT_BYTES),
+        length.min(HV07_CHILD_STDERR_LIMIT_BYTES),
+    )
+}
+
+fn hv07_read_child_stderr(path: &Path) -> String {
+    let mut stderr = match File::open(path) {
+        Ok(stderr) => stderr,
+        Err(error) => return format!("<unable to open child stderr: {error}>"),
+    };
+    let length = match stderr.metadata() {
+        Ok(metadata) => metadata.len(),
+        Err(error) => return format!("<unable to inspect child stderr: {error}>"),
+    };
+    let (omitted, retained) = hv07_child_stderr_window(length);
+    if let Err(error) = stderr.seek(SeekFrom::Start(omitted)) {
+        return format!("<unable to seek child stderr: {error}>");
+    }
+    let mut bytes = Vec::with_capacity(usize::try_from(retained).unwrap_or(0));
+    if let Err(error) = stderr
+        .take(HV07_CHILD_STDERR_LIMIT_BYTES)
+        .read_to_end(&mut bytes)
+    {
+        return format!("<unable to read child stderr: {error}>");
+    }
+    let diagnostic = String::from_utf8_lossy(&bytes);
+    if omitted == 0 {
+        diagnostic.into_owned()
+    } else {
+        format!("<omitted {omitted} leading bytes>\n{diagnostic}")
+    }
+}
+
+#[test]
+fn hv07_wait_status_diagnostic_is_decoded_and_bounded() {
+    assert_eq!(hv07_decode_wait_status(101 << 8), "exited(code=101)");
+    assert_eq!(
+        hv07_decode_wait_status(libc::SIGKILL),
+        format!("signaled(signal={})", libc::SIGKILL)
+    );
+    assert_eq!(
+        hv07_child_stderr_window(HV07_CHILD_STDERR_LIMIT_BYTES + 7),
+        (7, HV07_CHILD_STDERR_LIMIT_BYTES)
+    );
+}
+
 struct Hv07CgroupGuard {
     directory: PathBuf,
     cgroup_procs_path: PathBuf,
@@ -367,6 +430,7 @@ struct Hv07ActivationRetry {
     recipe: ProjectionRecipe,
     arena_root: PathBuf,
     control_root: PathBuf,
+    cgroup_procs_path: PathBuf,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -903,6 +967,15 @@ fn hv07(context: &HeavyContext) -> CampaignResult<CaseExecution> {
     .map(|(execution, _)| execution)
 }
 
+fn hv07_storage_cgroup_binding(context: &Context) -> CampaignResult<(&Path, &Path)> {
+    Ok(
+        crate::hv07_cgroup_binding::validate_hv07_storage_cgroup_binding(
+            context.cgroup_procs_path.as_deref(),
+            context.storage_cgroup_dir.as_deref(),
+        )?,
+    )
+}
+
 fn hv07_point(
     smoke_context: &Context,
     case_dir: &Path,
@@ -949,17 +1022,7 @@ fn hv07_point(
         family,
         Hv07OperationFamily::Session | Hv07OperationFamily::Activation
     ) {
-        let parent = smoke_context
-            .storage_cgroup_dir
-            .as_deref()
-            .ok_or("HV-07 physical session/activation has no storage cgroup")?;
-        let shared_membership = smoke_context
-            .cgroup_procs_path
-            .as_deref()
-            .ok_or("HV-07 physical session/activation has no workload cgroup membership")?;
-        if shared_membership != parent.join("cgroup.procs") {
-            return Err("HV-07 storage cgroup and workload membership disagree".into());
-        }
+        let (_, parent) = hv07_storage_cgroup_binding(smoke_context)?;
         Some(Hv07CgroupGuard::create(parent)?)
     } else {
         None
@@ -1012,6 +1075,14 @@ fn hv07_point(
         File::open(&point_dir)?.sync_all()?;
     }
 
+    let child_stderr_path = point_dir.join(format!(
+        "child-stderr-{}.log",
+        candidate.operation_id.as_str()
+    ));
+    let child_stderr = File::options()
+        .write(true)
+        .create_new(true)
+        .open(&child_stderr_path)?;
     let mut child_command = Command::new(std::env::current_exe()?);
     child_command
         .args([
@@ -1026,7 +1097,7 @@ fn hv07_point(
         .env("MPLA_POC_PHYSICAL_FAULT_ORDINAL", "1")
         .env("MPLA_POC_PHYSICAL_FAULT_ARMED_PATH", &marker_path)
         .stdout(Stdio::null())
-        .stderr(Stdio::null());
+        .stderr(Stdio::from(child_stderr));
     child_command.stdin(if stale_session_probe.is_some() {
         Stdio::piped()
     } else {
@@ -1061,8 +1132,15 @@ fn hv07_point(
         {
             child.disarm_reaped();
         }
+        let decoded_status = if stopped_pid == i32::try_from(child_pid)? {
+            hv07_decode_wait_status(stopped_status)
+        } else {
+            "not-reaped".to_owned()
+        };
+        let child_stderr = hv07_read_child_stderr(&child_stderr_path);
         return Err(format!(
-            "HV-07 child did not stop at the durable marker: pid={stopped_pid} status={stopped_status}"
+            "HV-07 child did not stop at the durable marker: pid={stopped_pid} raw_status={stopped_status} decoded_status={decoded_status} stderr_path={} stderr_tail=\n{child_stderr}",
+            child_stderr_path.display()
         )
         .into());
     }
@@ -2063,7 +2141,7 @@ fn recover_hv07_activation(
         payload_allocations: vec![retry.payload.clone()],
         arena_root: retry.arena_root.clone(),
         control_root: retry.control_root.clone(),
-        cgroup_procs_path: None,
+        cgroup_procs_path: Some(retry.cgroup_procs_path.clone()),
         readiness_path: PathBuf::from("sm12.txt"),
         readiness_contains: None,
         readiness_timeout: Duration::from_secs(2),
@@ -2671,6 +2749,8 @@ pub fn run_hv07_fresh_sweep() -> CampaignResult {
     const HV07_HARD_STOP_NS: u64 = 60_000_000_000;
     let started = Instant::now();
     let context = Context::from_env()?;
+    let (cgroup_procs_path, storage_cgroup_dir) = hv07_storage_cgroup_binding(&context)?;
+    verify_storage_cgroup(cgroup_procs_path, storage_cgroup_dir)?;
     let qualification_capabilities = qualification_capability_receipt()?;
     let requested_fixture_bytes = required_env("MPLA_POC_HV07_FIXTURE_BYTES")?.parse::<u64>()?;
     if requested_fixture_bytes != 128 * HEAVY_MIB {
@@ -3166,6 +3246,10 @@ fn run_hv07_activation_operation(request: &Hv07ChildRequest) -> CampaignResult {
     };
     let arena_root = source_root.join("payload/allocations");
     let control_root = source_root.join("control");
+    let cgroup_procs_path = request
+        .operation_cgroup_procs_path
+        .clone()
+        .ok_or("HV-07 activation operation has no exclusive cgroup")?;
     fs::create_dir(&control_root)?;
     File::open(&source_root)?.sync_all()?;
     write_hv07_create_new_json(
@@ -3176,6 +3260,7 @@ fn run_hv07_activation_operation(request: &Hv07ChildRequest) -> CampaignResult {
             recipe: recipe.clone(),
             arena_root: arena_root.clone(),
             control_root: control_root.clone(),
+            cgroup_procs_path: cgroup_procs_path.clone(),
         },
     )?;
     let activation = activate_exact(ExactActivationRequest {
@@ -3189,12 +3274,7 @@ fn run_hv07_activation_operation(request: &Hv07ChildRequest) -> CampaignResult {
         payload_allocations: vec![payload],
         arena_root,
         control_root,
-        cgroup_procs_path: Some(
-            request
-                .operation_cgroup_procs_path
-                .clone()
-                .ok_or("HV-07 activation operation has no exclusive cgroup")?,
-        ),
+        cgroup_procs_path: Some(cgroup_procs_path),
         readiness_path: PathBuf::from("sm12.txt"),
         readiness_contains: None,
         readiness_timeout: Duration::from_secs(2),

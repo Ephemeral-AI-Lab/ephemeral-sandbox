@@ -216,7 +216,13 @@ fn build_errno_filter(errno: i32, profile: CommandSecurityProfile) -> io::Result
         if matches!(profile, CommandSecurityProfile::MplaBenchmarkQualification)
             && matches!(
                 *name,
-                "mount" | "umount2" | "fsopen" | "fsconfig" | "fsmount" | "move_mount"
+                "mount"
+                    | "umount2"
+                    | "fsopen"
+                    | "fsconfig"
+                    | "fsmount"
+                    | "move_mount"
+                    | "mount_setattr"
             )
         {
             continue;

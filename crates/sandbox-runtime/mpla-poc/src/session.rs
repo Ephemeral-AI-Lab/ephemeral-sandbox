@@ -15,14 +15,18 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::fault::{FaultInjector, FaultPoint};
-#[cfg(target_os = "linux")]
-use crate::overlay_adapter::mount_permanent_overlay_anchored;
 use crate::overlay_adapter::{
     freeze_attested_mount_read_only_anchored, require_attested_mount_absent_anchored,
     strict_unmount_attested_frozen_anchored, validate_attested_mount_for_cleanup_anchored,
     validated_attested_cgroup_path, AttestedMountCleanupState, OverlayMountAttestation,
     PermanentOverlayMount, UnmountedOverlay,
 };
+#[cfg(target_os = "linux")]
+use crate::overlay_adapter::{
+    mount_permanent_overlay_anchored, pin_overlay_lowers, PinnedOverlayLower,
+};
+#[cfg(target_os = "linux")]
+use crate::process_tree::live_workspace_audit_identity;
 use crate::process_tree::{
     anchored_workspace_audit_identity, audit_terminal_workspace_anchored,
     terminate_terminal_workspace_references_anchored, AnchoredWorkspaceAuditIdentity,
@@ -152,6 +156,28 @@ impl PartialEq for PreparedExternalSession {
 }
 
 impl Eq for PreparedExternalSession {}
+
+#[must_use = "the sealing guard must be retained through strict unmount"]
+pub struct ExternalSealingGuard {
+    record: SealingRecord,
+    _seal_recovery_lock: durable::FileLock,
+}
+
+impl std::fmt::Debug for ExternalSealingGuard {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ExternalSealingGuard")
+            .field("record", &self.record)
+            .finish_non_exhaustive()
+    }
+}
+
+impl ExternalSealingGuard {
+    #[must_use]
+    pub fn record(&self) -> &SealingRecord {
+        &self.record
+    }
+}
 
 #[cfg(target_os = "linux")]
 #[derive(Debug)]
@@ -436,9 +462,17 @@ impl PreparedExternalSession {
         lease: &MutableLease,
         operation_id: &OperationId,
         faults: &mut FaultInjector,
-    ) -> PocResult<SealingRecord> {
+    ) -> PocResult<ExternalSealingGuard> {
         require_single_component("Sealing operation", operation_id.as_str())?;
-        let _seal_recovery_lock =
+        #[cfg(target_os = "linux")]
+        let seal_recovery_lock = lock_original_seal_against_recovery_anchored(
+            allocation,
+            &self.allocation_authority,
+            &self.session_dir,
+            operation_id,
+        )?;
+        #[cfg(not(target_os = "linux"))]
+        let seal_recovery_lock =
             lock_original_seal_against_recovery(allocation, &self.session_dir, operation_id)?;
         let record = self.validate_binding(allocation, lease)?;
         faults.hit(FaultPoint::BeforeSealing, false)?;
@@ -459,7 +493,10 @@ impl PreparedExternalSession {
                     lease.session_id, record.phase
                 )));
             }
-            return Ok(sealing);
+            return Ok(ExternalSealingGuard {
+                record: sealing,
+                _seal_recovery_lock: seal_recovery_lock,
+            });
         }
         if !matches!(record.phase, SessionPhase::Open | SessionPhase::Closing) {
             return Err(PocError::Integrity(format!(
@@ -503,7 +540,10 @@ impl PreparedExternalSession {
             }
         };
         faults.hit(FaultPoint::AfterSealingDurable, true)?;
-        Ok(sealing)
+        Ok(ExternalSealingGuard {
+            record: sealing,
+            _seal_recovery_lock: seal_recovery_lock,
+        })
     }
 
     /// Return whether the session has crossed its durable publication boundary.
@@ -2546,12 +2586,13 @@ impl MplaSession {
         let allocation_upper =
             open_directory_no_symlink("allocation upper", &allocation.upper_dir)?;
         let allocation_work = open_directory_no_symlink("allocation work", &allocation.work_dir)?;
+        let pinned_lowers = pin_overlay_lowers(&lower_dirs_newest_first)?;
         Self::open_anchored(
             control_root,
             &control_root_anchor,
             allocation,
             lease,
-            lower_dirs_newest_first,
+            pinned_lowers,
             &allocation_upper,
             &allocation_work,
             cgroup_procs_path,
@@ -2577,7 +2618,7 @@ impl MplaSession {
         control_root: &OwnedFd,
         allocation: AllocationHandle,
         lease: MutableLease,
-        lower_dirs_newest_first: Vec<PathBuf>,
+        pinned_lowers: Vec<PinnedOverlayLower>,
         allocation_upper: &OwnedFd,
         allocation_work: &OwnedFd,
         cgroup_procs_path: Option<PathBuf>,
@@ -2595,7 +2636,7 @@ impl MplaSession {
         )?;
         let overlay = mount_permanent_overlay_anchored(
             &allocation,
-            lower_dirs_newest_first,
+            &pinned_lowers,
             &prepared.workspace_root,
             &prepared.session,
             &prepared.workspace,
@@ -2788,7 +2829,7 @@ impl MplaSession {
         operation_id: &OperationId,
         faults: &mut FaultInjector,
     ) -> PocResult<SealedAllocation> {
-        let overlay = self.begin_sealing(operation_id, faults)?;
+        let (overlay, seal_recovery_lock) = self.begin_sealing(operation_id, faults)?;
         #[cfg(target_os = "linux")]
         let result = quiesce::quiesce_and_stabilize_anchored(
             &self.runtime_session_dir,
@@ -2810,10 +2851,12 @@ impl MplaSession {
             overlay,
             faults,
         );
-        result.inspect_err(|_error| {
+        let result = result.inspect_err(|_error| {
             self.phase = SessionPhase::RecoveryRequired;
             let _ = self.persist_record();
-        })
+        });
+        drop(seal_recovery_lock);
+        result
     }
 
     pub fn seal_receipt_hit(
@@ -2825,7 +2868,7 @@ impl MplaSession {
         self.ensure_open_for_sealing()?;
         quiesce::validate_receipt_hit_input(input)?;
         durable::replace_json(&self.runtime_session_dir.join("RECEIPT-HIT.json"), input)?;
-        let overlay = self.begin_sealing(operation_id, faults)?;
+        let (overlay, seal_recovery_lock) = self.begin_sealing(operation_id, faults)?;
         #[cfg(target_os = "linux")]
         let result = quiesce::quiesce_and_stabilize_receipt_hit_anchored(
             &self.runtime_session_dir,
@@ -2847,35 +2890,34 @@ impl MplaSession {
             overlay,
             faults,
         );
-        result.inspect_err(|_error| {
+        let result = result.inspect_err(|_error| {
             self.phase = SessionPhase::RecoveryRequired;
             let _ = self.persist_record();
-        })
+        });
+        drop(seal_recovery_lock);
+        result
     }
 
     fn begin_sealing(
         &mut self,
         operation_id: &OperationId,
         faults: &mut FaultInjector,
-    ) -> PocResult<PermanentOverlayMount> {
+    ) -> PocResult<(PermanentOverlayMount, durable::FileLock)> {
         self.ensure_open_for_sealing()?;
         #[cfg(target_os = "linux")]
-        let _seal_recovery_lock = lock_original_seal_against_recovery_anchored(
+        let seal_recovery_lock = lock_original_seal_against_recovery_anchored(
             &self.allocation,
             &self.allocation_authority,
             &self.runtime_session_dir,
             operation_id,
         )?;
         #[cfg(not(target_os = "linux"))]
-        let _seal_recovery_lock = lock_original_seal_against_recovery(
+        let seal_recovery_lock = lock_original_seal_against_recovery(
             &self.allocation,
             &self.runtime_session_dir,
             operation_id,
         )?;
-        #[cfg(target_os = "linux")]
-        let allocation_upper = self.allocation_authority.upper_path();
-        #[cfg(not(target_os = "linux"))]
-        let allocation_upper = self.allocation.upper_dir.clone();
+        let stationary_payload_path = self.allocation.upper_dir.clone();
         let state_paths = [
             self.session_dir.join("SESSION.json"),
             quiesce::sealing_record_path(&self.session_dir),
@@ -2888,7 +2930,7 @@ impl MplaSession {
             NamedFaultPoint::FenceBeforeClose,
             operation_id,
             [self.session_dir.join("SESSION.json")],
-            Some(&allocation_upper),
+            Some(&stationary_payload_path),
             false,
         )?;
         self.phase = SessionPhase::Closing;
@@ -2903,7 +2945,7 @@ impl MplaSession {
             NamedFaultPoint::FenceAfterClose,
             operation_id,
             [self.session_dir.join("SESSION.json")],
-            Some(&allocation_upper),
+            Some(&stationary_payload_path),
             false,
         )?;
         self.process_tree
@@ -2913,7 +2955,7 @@ impl MplaSession {
             NamedFaultPoint::FenceAfterDrain,
             operation_id,
             [self.session_dir.join("SESSION.json")],
-            Some(&allocation_upper),
+            Some(&stationary_payload_path),
             false,
         )?;
 
@@ -2922,7 +2964,7 @@ impl MplaSession {
             &self.runtime_session_dir,
             operation_id,
             &self.lease,
-            &allocation_upper,
+            &stationary_payload_path,
             &mut named_faults,
         ) {
             let temporary_path =
@@ -2957,9 +2999,10 @@ impl MplaSession {
         })?;
         faults.hit(FaultPoint::AfterSealingDurable, true)?;
 
-        self.overlay.take().ok_or_else(|| {
+        let overlay = self.overlay.take().ok_or_else(|| {
             PocError::RecoveryRequired("sealed session has no live overlay guard".to_owned())
-        })
+        })?;
+        Ok((overlay, seal_recovery_lock))
     }
 
     fn ensure_open_for_sealing(&self) -> PocResult<()> {
@@ -3068,9 +3111,52 @@ fn persist_recovery_session_record(
 impl Drop for MplaSession {
     fn drop(&mut self) {
         self.process_tree.fence();
-        let _ = self.process_tree.stop_kill_reap();
-        if let Some(overlay) = self.overlay.take() {
-            let _ = overlay.strict_unmount();
+        #[cfg(target_os = "linux")]
+        {
+            let Some(overlay) = self.overlay.as_ref() else {
+                return;
+            };
+            if self
+                .allocation_authority
+                .revalidate(&self.allocation)
+                .is_err()
+            {
+                return;
+            }
+            let Ok(_owner_lock) =
+                durable::FileLock::exclusive(&self.allocation_authority.owner_path().join("LOCK"))
+            else {
+                return;
+            };
+            if self
+                .allocation_authority
+                .revalidate(&self.allocation)
+                .is_err()
+            {
+                return;
+            }
+            let Ok(audit_identity) = live_workspace_audit_identity(overlay) else {
+                return;
+            };
+            if self
+                .process_tree
+                .stop_kill_reap_anchored(&audit_identity)
+                .is_err()
+            {
+                return;
+            }
+            if self
+                .allocation_authority
+                .revalidate(&self.allocation)
+                .is_err()
+            {
+                return;
+            }
+            if let Some(overlay) = self.overlay.take() {
+                let _ = overlay.strict_unmount();
+            }
         }
+        #[cfg(not(target_os = "linux"))]
+        let _ = self.process_tree.stop_kill_reap();
     }
 }

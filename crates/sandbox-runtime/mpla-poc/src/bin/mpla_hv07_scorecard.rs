@@ -44,6 +44,8 @@ pub fn run(run_id: &str, candidate_sandbox_id: &str, build_commit: &str) -> Hv07
     fs::create_dir(&run_root)?;
     let backing = super::persistent_backing(&run_root)?;
     let cgroup_dir = super::current_cgroup_v2_dir()?;
+    let cgroup_procs_path = cgroup_dir.join("cgroup.procs");
+    require_regular_file(&cgroup_procs_path, "HV-07 workload cgroup membership")?;
     let cgroup = json!({
         "path": cgroup_dir,
         "memory_high": super::read_limit(&cgroup_dir.join("memory.high"))?,
@@ -85,6 +87,9 @@ pub fn run(run_id: &str, candidate_sandbox_id: &str, build_commit: &str) -> Hv07
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    command
+        .env("MPLA_POC_STORAGE_CGROUP_DIR", &cgroup_dir)
+        .env("MPLA_POC_CGROUP_PROCS", &cgroup_procs_path);
     let campaign_started = Instant::now();
     let output = run_with_watchdog(
         &mut command,

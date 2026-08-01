@@ -1535,21 +1535,13 @@ fn audit_workspace_references_anchored(
         workspace_root: identity.mount.workspace_root.clone(),
         ..ProcessAudit::default()
     };
-    let candidates = if let Some(attested) = attested_cgroup {
-        let members = parse_cgroup_members(&attested.read_exact()?)?;
-        audit.cgroup_members.extend(
-            members
-                .iter()
-                .copied()
-                .filter(|pid| u32::try_from(*pid).ok() != Some(std::process::id())),
+    if let Some(attested) = attested_cgroup {
+        return exact_cgroup_process_audit(
+            identity.mount.workspace_root.clone(),
+            &attested.read_exact()?,
         );
-        members
-            .into_iter()
-            .map(|pid| (pid, PathBuf::from(format!("/proc/{pid}"))))
-            .collect()
-    } else {
-        proc_candidates()?
-    };
+    }
+    let candidates = proc_candidates()?;
 
     for (pid, proc_root) in candidates {
         if u32::try_from(pid).ok() == Some(std::process::id()) {
@@ -1635,6 +1627,22 @@ fn parse_cgroup_members(text: &str) -> PocResult<Vec<i32>> {
     members.sort_unstable();
     members.dedup();
     Ok(members)
+}
+
+#[cfg(target_os = "linux")]
+fn exact_cgroup_process_audit(
+    workspace_root: PathBuf,
+    membership_text: &str,
+) -> PocResult<ProcessAudit> {
+    let members = parse_cgroup_members(membership_text)?;
+    Ok(ProcessAudit {
+        workspace_root,
+        cgroup_members: members
+            .into_iter()
+            .filter(|pid| u32::try_from(*pid).ok() != Some(std::process::id()))
+            .collect(),
+        ..ProcessAudit::default()
+    })
 }
 
 #[cfg(target_os = "linux")]
@@ -1927,7 +1935,12 @@ fn audit_workspace_references(
             fs::read_to_string(path)
                 .map_err(|error| PocError::io("audit session cgroup.procs", path, error))?,
         ),
-        (None, Some(attested)) => Some(attested.read_exact()?),
+        (None, Some(attested)) => {
+            return exact_cgroup_process_audit(
+                workspace_root.to_path_buf(),
+                &attested.read_exact()?,
+            );
+        }
         (None, None) => None,
     };
     let candidates = if let Some(text) = cgroup_text {

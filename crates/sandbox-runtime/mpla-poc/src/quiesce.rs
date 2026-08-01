@@ -411,7 +411,8 @@ fn quiesce_and_stabilize_from(
     source.revalidate(allocation)?;
     let audit_identity = live_workspace_audit_identity(&overlay)?;
     let allocation_root = source.root_path(allocation);
-    let allocation_upper = source.upper_path(allocation);
+    let anchored_allocation_upper = source.upper_path(allocation);
+    let allocation_upper = allocation.upper_dir.clone();
     let sealing: SealingRecord = durable::read_json(&sealing_record_path(session_dir))?;
     validate_sealing_scope(&sealing, operation_id, lease)?;
 
@@ -474,7 +475,7 @@ fn quiesce_and_stabilize_from(
         &mut named_faults,
         NamedFaultPoint::FlushBeforeSyncfs,
         operation_id,
-        [allocation_upper.clone()],
+        [anchored_allocation_upper.clone()],
         Some(&allocation_upper),
         true,
     )?;
@@ -485,7 +486,7 @@ fn quiesce_and_stabilize_from(
         NamedFaultPoint::FlushAfterSyncfs,
         operation_id,
         [
-            allocation_upper.clone(),
+            anchored_allocation_upper.clone(),
             source.root_path(allocation).join("owner"),
         ],
         Some(&allocation_upper),
@@ -613,7 +614,8 @@ fn quiesce_and_stabilize_receipt_hit_from(
 ) -> PocResult<ReceiptSealedAllocation> {
     source.revalidate(allocation)?;
     let audit_identity = live_workspace_audit_identity(&overlay)?;
-    let allocation_upper = source.upper_path(allocation);
+    let anchored_allocation_upper = source.upper_path(allocation);
+    let allocation_upper = allocation.upper_dir.clone();
     let input: ReceiptHitSealInput = durable::read_json(&session_dir.join("RECEIPT-HIT.json"))?;
     validate_receipt_hit_input(&input)?;
     let sealing: SealingRecord = durable::read_json(&sealing_record_path(session_dir))?;
@@ -678,7 +680,7 @@ fn quiesce_and_stabilize_receipt_hit_from(
         &mut named_faults,
         NamedFaultPoint::FlushBeforeSyncfs,
         operation_id,
-        [allocation_upper.clone()],
+        [anchored_allocation_upper.clone()],
         Some(&allocation_upper),
         true,
     )?;
@@ -689,7 +691,7 @@ fn quiesce_and_stabilize_receipt_hit_from(
         NamedFaultPoint::FlushAfterSyncfs,
         operation_id,
         [
-            allocation_upper.clone(),
+            anchored_allocation_upper.clone(),
             source.root_path(allocation).join("owner"),
         ],
         Some(&allocation_upper),

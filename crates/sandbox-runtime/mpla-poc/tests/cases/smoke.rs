@@ -14,7 +14,7 @@ use sandbox_runtime_mpla_poc::allocation::{
     create_allocation, destroy_workspace_allocation, open_allocation,
 };
 use sandbox_runtime_mpla_poc::evidence;
-use sandbox_runtime_mpla_poc::inventory::capture_stable_pair;
+use sandbox_runtime_mpla_poc::inventory::{capture_stable_metadata_pair, capture_stable_pair};
 use sandbox_runtime_mpla_poc::lease::{issue_workspace_lease, validate_deleter, validate_writer};
 use sandbox_runtime_mpla_poc::locator::{
     ForwardLocatorEntry, LocatorDelta, LocatorExtent, LocatorStore, PayloadRootId,
@@ -2367,7 +2367,7 @@ fn prepare_hv07_unmounted_candidate(
     payload.sync_all()?;
     File::open(&allocation.upper_dir)?.sync_all()?;
     File::open(&allocation.owner_dir)?.sync_all()?;
-    let (before, after) = capture_stable_pair(allocation)?;
+    let (before, after) = capture_stable_metadata_pair(allocation)?;
     let stable = StableAllocationReceipt {
         schema_version: SCHEMA_VERSION,
         operation_id: operation_id.clone(),

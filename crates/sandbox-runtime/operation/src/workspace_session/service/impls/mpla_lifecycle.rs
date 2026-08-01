@@ -386,26 +386,29 @@ impl WorkspaceSessionService {
             "sealing_started",
             &started,
         );
-        if let Err(error) = binding.prepared.begin_sealing(
+        let seal_recovery_guard = match binding.prepared.begin_sealing(
             &binding.allocation,
             &binding.lease,
             &operation_id,
             &mut FaultInjector::default(),
         ) {
-            if sandbox_runtime_mpla_poc::quiesce::sealing_record_path(
-                binding.prepared.session_dir(),
-            )
-            .exists()
-            {
-                self.fail_mpla_publication(&binding, workspace_session_id);
-            } else {
-                self.restore_mpla_active(workspace_session_id);
+            Ok(guard) => guard,
+            Err(error) => {
+                if sandbox_runtime_mpla_poc::quiesce::sealing_record_path(
+                    binding.prepared.session_dir(),
+                )
+                .exists()
+                {
+                    self.fail_mpla_publication(&binding, workspace_session_id);
+                } else {
+                    self.restore_mpla_active(workspace_session_id);
+                }
+                return Err(mpla_session_error(
+                    workspace_session_id,
+                    format!("persist terminal MPLA Sealing record: {error}"),
+                ));
             }
-            return Err(mpla_session_error(
-                workspace_session_id,
-                format!("persist terminal MPLA Sealing record: {error}"),
-            ));
-        }
+        };
         self.publication_checkpoint(
             &operation_id,
             workspace_session_id,
@@ -651,6 +654,7 @@ impl WorkspaceSessionService {
                     ))
                 },
             )?;
+            drop(seal_recovery_guard);
             self.publication_checkpoint(
                 &operation_id,
                 workspace_session_id,

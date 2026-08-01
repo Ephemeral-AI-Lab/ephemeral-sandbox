@@ -8,7 +8,6 @@ use std::os::unix::ffi::OsStrExt;
 #[cfg(unix)]
 use std::os::unix::fs::{FileExt, MetadataExt};
 use std::path::{Path, PathBuf};
-#[cfg(test)]
 use std::sync::{Arc, Mutex, OnceLock};
 
 use sha2::{Digest, Sha256};

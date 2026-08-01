@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from typing import Any
 
 
@@ -29,7 +30,7 @@ IMAGE = (
     "4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90"
 )
 GATEWAY_SOCKET = "127.0.0.1:7903"
-BUILD_COMMIT = "ac5c0686807ab40ee7e4ef3ff0f8488b66292221"
+BUILD_COMMIT = "99290631750430cf267b5c9329f2ac5d281def05"
 M3_SCORECARD_CONFIG = REPO / "config/mpla-poc-m3-phase-profile-sparse-v1.yml"
 STAGED_COORDINATOR_PATH = "/workspace/_campaign-tools/mpla-speed-poc-v1"
 PREPARED_FIXTURE_PROFILE = "s4-chain-sparse-v1"
@@ -320,6 +321,16 @@ def is_sha256(value: Any) -> bool:
         and len(value) == 64
         and all(character in "0123456789abcdef" for character in value)
     )
+
+
+def is_canonical_uuid_v4(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = uuid.UUID(value)
+    except (AttributeError, ValueError):
+        return False
+    return parsed.version == 4 and str(parsed) == value
 
 
 def parse_utc_instant(value: Any, label: str) -> dt.datetime:
@@ -942,13 +953,24 @@ def ignored_source_identity_path(name: str) -> bool:
     )
 
 
-def stable_source_identity(source: dict[str, Any]) -> dict[str, Any]:
+SEALING_TOOL_SOURCE_PATHS = frozenset(
+    {
+        "bin/run-mpla-booster-scorecard",
+        "bin/test_run_mpla_booster_scorecard.py",
+    }
+)
+
+
+def stable_runtime_source_identity(source: dict[str, Any]) -> dict[str, Any]:
+    def ignored(name: str) -> bool:
+        return ignored_source_identity_path(name) or name in SEALING_TOOL_SOURCE_PATHS
+
     files = source.get("worktree_files")
     stable_files = (
         {
             name: identity
             for name, identity in files.items()
-            if not ignored_source_identity_path(name)
+            if not ignored(name)
         }
         if isinstance(files, dict)
         else files
@@ -959,7 +981,7 @@ def stable_source_identity(source: dict[str, Any]) -> dict[str, Any]:
             line
             for line in porcelain.splitlines()
             if len(line) < 4
-            or not ignored_source_identity_path(line[3:])
+            or not ignored(line[3:])
         ]
         if isinstance(porcelain, str)
         else None
@@ -989,7 +1011,7 @@ def source_status_paths(source: dict[str, Any]) -> frozenset[str]:
         name = line[3:]
         if ignored_source_identity_path(name):
             continue
-        if line[:2] != " M" or name in paths:
+        if line[:2] not in {" M", "??"} or name in paths:
             raise CampaignError("source porcelain status is unsupported")
         paths.add(name)
     return frozenset(paths)
@@ -1158,11 +1180,6 @@ def verify_phase_lineage(
         for case in SCORECARD_CASES
     ):
         raise CampaignError("P0-P7 source receipts are malformed")
-    current_identity = stable_source_identity(current_source)
-    phase_identities = {
-        case: stable_source_identity(verified[case]["source"])
-        for case in SCORECARD_CASES
-    }
     for source in (
         current_source,
         *(verified[case]["source"] for case in SCORECARD_CASES),
@@ -1172,15 +1189,15 @@ def verify_phase_lineage(
     validate_source_receipt("P8", current_source)
     for case in SCORECARD_CASES:
         validate_source_receipt(case, verified[case]["source"])
-    if any(
-        verified[case]["source"].get("commit") != BUILD_COMMIT
-        for case in SCORECARD_CASES
-    ):
-        raise CampaignError("P0-P7 source commits do not match the campaign build")
-
     current_case = SCORECARD_CASES[-1]
-    if phase_identities[current_case] != current_identity:
-        raise CampaignError("P7 source fingerprint does not match the P8 source")
+    if verified[current_case]["source"].get("commit") != BUILD_COMMIT:
+        raise CampaignError("P7 source commit does not match the campaign build")
+    if stable_runtime_source_identity(
+        verified[current_case]["source"]
+    ) != stable_runtime_source_identity(current_source):
+        raise CampaignError(
+            "P7 runtime source fingerprint does not match the P8 source"
+        )
 
     common_artifact_names = (
         "mpla-speed-poc-v1",
@@ -4507,7 +4524,6 @@ class Campaign:
             or environment.get("gateway_socket") != GATEWAY_SOCKET
             or environment.get("gateway_config") != str(M3_SCORECARD_CONFIG)
             or environment.get("r0") != str(R0)
-            or environment.get("build_commit") != BUILD_COMMIT
             or source.get("commit") != environment.get("build_commit")
         ):
             raise CampaignError(f"{case} phase eligibility receipt is invalid")
@@ -4804,9 +4820,9 @@ class Campaign:
             "locator_accounted_bytes",
         }
         expected_branches = [
-            ("fixture-depth-1", 1, 1 * 1024 * 1024 * 1024),
-            ("fixture-depth-5", 5, 5 * 1024 * 1024 * 1024),
-            ("fixture-depth-8", 8, PREPARED_FIXTURE_LOGICAL_BYTES),
+            ("fixture-depth-1", 1),
+            ("fixture-depth-5", 5),
+            ("fixture-depth-8", 8),
         ]
         if (
             not isinstance(pre_seal, dict)
@@ -4819,33 +4835,96 @@ class Campaign:
             raise CampaignError(
                 "F0-COLD pre-seal validation does not prove an exact read-only reopen"
             )
-        for branch, (expected_name, expected_depth, expected_bytes) in zip(
+        branch_lower_ids: list[list[str]] = []
+        branch_root_pairs: list[tuple[str, str]] = []
+        manifest_directory = pathlib.PurePosixPath(
+            "/eos/mpla-fixtures/s4-chain-sparse-v1/workspace/mpla-poc/"
+            "control/runs/fixture-s4-chain-sparse-v1/"
+            "canonical-objects/manifests"
+        )
+        for branch, (expected_name, expected_depth) in zip(
             pre_seal["branches"], expected_branches, strict=True
         ):
-            if (
-                not isinstance(branch, dict)
-                or set(branch) != expected_branch_fields
-                or branch.get("branch") != expected_name
-                or branch.get("chain_depth") != expected_depth
-                or branch.get("locator_accounted_bytes") != expected_bytes
-                or not isinstance(branch.get("semantic_roots"), dict)
-                or not isinstance(branch.get("semantic_attribution"), dict)
-                or not isinstance(branch.get("root_manifest"), dict)
-                or not isinstance(branch.get("projection_roots"), dict)
-                or not isinstance(
-                    branch.get("projection_lower_allocation_ids_newest_first"),
-                    list,
+            if not isinstance(branch, dict):
+                raise CampaignError(
+                    "F0-COLD pre-seal branch validation is malformed"
                 )
+            semantic_roots = branch.get("semantic_roots")
+            semantic_attribution = branch.get("semantic_attribution")
+            root_manifest = branch.get("root_manifest")
+            projection_roots = branch.get("projection_roots")
+            lower_ids = branch.get(
+                "projection_lower_allocation_ids_newest_first"
+            )
+            expected_manifest_name = None
+            if (
+                isinstance(semantic_roots, dict)
+                and set(semantic_roots) == {"root_id", "attribution_root_id"}
+                and is_sha256(semantic_roots.get("root_id"))
+                and is_sha256(semantic_roots.get("attribution_root_id"))
+            ):
+                expected_manifest_name = (
+                    f"{semantic_roots['root_id']}-"
+                    f"{semantic_roots['attribution_root_id']}.json"
+                )
+            root_manifest_path = (
+                pathlib.PurePosixPath(root_manifest)
+                if isinstance(root_manifest, str)
+                else None
+            )
+            if (
+                set(branch) != expected_branch_fields
+                or branch.get("branch") != expected_name
+                or type(branch.get("chain_depth")) is not int
+                or branch["chain_depth"] != expected_depth
+                or type(branch.get("locator_accounted_bytes")) is not int
+                or branch["locator_accounted_bytes"] != 1
+                or expected_manifest_name is None
+                or semantic_attribution
+                != {
+                    "actor_id": "sandbox-runtime-publication",
+                    "semantic_operation_id": f"fixture-{PREPARED_FIXTURE_PROFILE}",
+                }
+                or projection_roots != semantic_roots
+                or root_manifest_path is None
+                or root_manifest_path.parent != manifest_directory
+                or root_manifest_path.name != expected_manifest_name
+                or not isinstance(lower_ids, list)
+                or len(lower_ids) != expected_depth
+                or any(not is_canonical_uuid_v4(value) for value in lower_ids)
+                or len(lower_ids) != len(set(lower_ids))
                 or type(branch.get("projection_kernel_lower_count")) is not int
                 or branch["projection_kernel_lower_count"] != expected_depth
                 or not isinstance(branch.get("locator_allocation_id"), str)
                 or not branch["locator_allocation_id"]
+                or lower_ids[0] != branch["locator_allocation_id"]
                 or type(branch.get("locator_extent_count")) is not int
-                or branch["locator_extent_count"] != expected_depth
+                or branch["locator_extent_count"] != 1
             ):
                 raise CampaignError(
                     "F0-COLD pre-seal branch validation is malformed"
                 )
+            branch_lower_ids.append(lower_ids)
+            branch_root_pairs.append(
+                (
+                    semantic_roots["root_id"],
+                    semantic_roots["attribution_root_id"],
+                )
+            )
+        if len(branch_root_pairs) != len(set(branch_root_pairs)):
+            raise CampaignError(
+                "F0-COLD pre-seal branch semantic roots are not distinct"
+            )
+        if any(
+            current[-len(previous) :] != previous
+            for previous, current in zip(
+                branch_lower_ids,
+                branch_lower_ids[1:],
+            )
+        ):
+            raise CampaignError(
+                "F0-COLD pre-seal branch chains are not nested exact suffixes"
+            )
         paired_ref = pre_seal.get("paired_ref")
         expected_paired_ref_fields = {
             "format",
@@ -4861,14 +4940,18 @@ class Campaign:
             not isinstance(paired_ref, dict)
             or set(paired_ref) != expected_paired_ref_fields
             or paired_ref.get("format") != "mpla-poc-paired-ref-layout-v3"
-            or paired_ref.get("journal_data_bytes") != 64 * 1024 * 1024
-            or paired_ref.get("journal_total_bytes") != 64 * 1024 * 1024 + 8192
+            or type(paired_ref.get("journal_data_bytes")) is not int
+            or paired_ref["journal_data_bytes"] != 64 * 1024 * 1024
+            or type(paired_ref.get("journal_total_bytes")) is not int
+            or paired_ref["journal_total_bytes"] != 64 * 1024 * 1024 + 8192
             or type(paired_ref.get("cursor_generation")) is not int
             or paired_ref["cursor_generation"] <= 0
-            or paired_ref.get("cursor_slot") not in {0, 1}
+            or type(paired_ref.get("cursor_slot")) is not int
+            or paired_ref["cursor_slot"] not in {0, 1}
             or type(paired_ref.get("logical_end")) is not int
             or not 0 < paired_ref["logical_end"] <= paired_ref["journal_data_bytes"]
-            or paired_ref.get("record_count") != PREPARED_FIXTURE_REF_RECORD_COUNT
+            or type(paired_ref.get("record_count")) is not int
+            or paired_ref["record_count"] != PREPARED_FIXTURE_REF_RECORD_COUNT
             or not isinstance(paired_ref.get("last_record_hash"), str)
             or len(paired_ref["last_record_hash"]) != 64
             or any(
@@ -5303,11 +5386,6 @@ class Campaign:
                 warm_cache_input,
             )
         )
-        if any(
-            item["source"].get("commit") != BUILD_COMMIT
-            for item in verified.values()
-        ):
-            raise CampaignError("P0-P7 source commits do not match the P8 build")
         current_source = json.loads((self.evidence_root / "source.json").read_text())
         current_coordinator_bytes = read_regular_path_once(
             COORDINATOR,

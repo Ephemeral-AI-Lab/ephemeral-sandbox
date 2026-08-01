@@ -12,6 +12,8 @@ use rustix::fs::{AtFlags, FlockOperation, Timespec, Timestamps, CWD};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+#[cfg(target_os = "linux")]
+use crate::overlay_adapter::PinnedOverlayLower;
 use crate::projection::{select_exact, ExactProjectionReceipt, ProjectionRecipe};
 use crate::recovery::reach_real_operation;
 use crate::{
@@ -283,21 +285,55 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
         .map(|allocation| {
             (
                 allocation.supplied.descriptor.allocation_id.clone(),
-                PathBuf::from("/proc/self/fd").join(allocation.upper.as_raw_fd().to_string()),
+                allocation,
             )
         })
         .collect();
+    #[cfg(target_os = "linux")]
     let lower_dirs = projection
         .lower_allocation_ids_newest_first
         .iter()
         .map(|allocation_id| {
-            payload_by_id.get(allocation_id).cloned().ok_or_else(|| {
+            let allocation = payload_by_id.get(allocation_id).ok_or_else(|| {
                 PocError::Integrity(format!(
                     "projection allocation {allocation_id} has no validated handle"
                 ))
-            })
+            })?;
+            PinnedOverlayLower::from_authenticated_descriptor(
+                &allocation.supplied.upper_dir,
+                &allocation.upper,
+            )
         })
         .collect::<PocResult<Vec<_>>>()?;
+    #[cfg(not(target_os = "linux"))]
+    let lower_dirs = projection
+        .lower_allocation_ids_newest_first
+        .iter()
+        .map(|allocation_id| {
+            payload_by_id
+                .get(allocation_id)
+                .map(|allocation| allocation.supplied.upper_dir.clone())
+                .ok_or_else(|| {
+                    PocError::Integrity(format!(
+                        "projection allocation {allocation_id} has no validated handle"
+                    ))
+                })
+        })
+        .collect::<PocResult<Vec<_>>>()?;
+    let selected_allocation_id = projection
+        .lower_allocation_ids_newest_first
+        .first()
+        .ok_or_else(|| {
+            PocError::Integrity("activation projection selected no payload root".to_owned())
+        })?;
+    let selected_payload = pinned_payloads
+        .iter()
+        .find(|payload| &payload.supplied.descriptor.allocation_id == selected_allocation_id)
+        .ok_or_else(|| {
+            PocError::Integrity(format!(
+                "projection allocation {selected_allocation_id} has no pinned handle"
+            ))
+        })?;
     write_immutable_json_at(
         activation_anchor,
         &locator_pin_path,
@@ -341,10 +377,15 @@ pub fn activate_exact(request: ExactActivationRequest) -> PocResult<ActivatedSes
             fresh.upper_dir.display()
         )));
     }
-    let selected_root = lower_dirs.first().ok_or_else(|| {
-        PocError::Integrity("activation projection selected no payload root".to_owned())
-    })?;
-    inherit_projection_root_metadata(selected_root, &pinned_fresh_upper)?;
+    revalidate_pinned_allocation(selected_payload)?;
+    revalidate_pinned_allocation(&pinned_fresh)?;
+    inherit_projection_root_metadata_anchored(
+        &selected_payload.upper,
+        &selected_payload.supplied.upper_dir,
+        &pinned_fresh.upper,
+        &fresh.upper_dir,
+    )?;
+    revalidate_pinned_allocation(selected_payload)?;
     revalidate_pinned_allocation(&pinned_fresh)?;
     let allocation_elapsed_ns = elapsed_ns(allocation_started);
 
@@ -3704,6 +3745,108 @@ fn directory_is_empty(path: &Path) -> PocResult<bool> {
         Some(Ok(_)) => Ok(false),
         Some(Err(source)) => Err(PocError::io("read activation upper entry", path, source)),
     }
+}
+
+#[cfg(target_os = "linux")]
+fn inherit_projection_root_metadata_anchored(
+    source: &OwnedFd,
+    source_path: &Path,
+    target: &OwnedFd,
+    target_path: &Path,
+) -> PocResult<()> {
+    let source_metadata = rustix::fs::fstat(source).map_err(|error| {
+        PocError::io(
+            "stat pinned selected projection root",
+            source_path,
+            std::io::Error::from_raw_os_error(error.raw_os_error()),
+        )
+    })?;
+    if raw_mode_file_type(source_metadata.st_mode as rustix::fs::RawMode)
+        != rustix::fs::FileType::Directory
+    {
+        return Err(PocError::Integrity(format!(
+            "pinned selected projection root is not a directory: {}",
+            source_path.display()
+        )));
+    }
+    let target_metadata = rustix::fs::fstat(target).map_err(|error| {
+        PocError::io(
+            "stat pinned fresh activation root",
+            target_path,
+            std::io::Error::from_raw_os_error(error.raw_os_error()),
+        )
+    })?;
+    if raw_mode_file_type(target_metadata.st_mode as rustix::fs::RawMode)
+        != rustix::fs::FileType::Directory
+    {
+        return Err(PocError::Integrity(format!(
+            "pinned fresh activation root is not a directory: {}",
+            target_path.display()
+        )));
+    }
+
+    if source_metadata.st_uid != target_metadata.st_uid
+        || source_metadata.st_gid != target_metadata.st_gid
+    {
+        // SAFETY: fstat returned owner IDs for an existing inode.
+        let source_uid = unsafe { rustix::fs::Uid::from_raw(source_metadata.st_uid) };
+        // SAFETY: fstat returned group IDs for an existing inode.
+        let source_gid = unsafe { rustix::fs::Gid::from_raw(source_metadata.st_gid) };
+        rustix::fs::fchown(target, Some(source_uid), Some(source_gid)).map_err(|error| {
+            PocError::io(
+                "inherit pinned activation root ownership",
+                target_path,
+                std::io::Error::from_raw_os_error(error.raw_os_error()),
+            )
+        })?;
+    }
+    rustix::fs::fchmod(
+        target,
+        rustix::fs::Mode::from_raw_mode((source_metadata.st_mode as rustix::fs::RawMode) & 0o7777),
+    )
+    .map_err(|error| {
+        PocError::io(
+            "inherit pinned activation root permissions",
+            target_path,
+            std::io::Error::from_raw_os_error(error.raw_os_error()),
+        )
+    })?;
+    let timestamps = Timestamps {
+        last_access: Timespec {
+            tv_sec: source_metadata.st_atime as _,
+            tv_nsec: source_metadata.st_atime_nsec as _,
+        },
+        last_modification: Timespec {
+            tv_sec: source_metadata.st_mtime as _,
+            tv_nsec: source_metadata.st_mtime_nsec as _,
+        },
+    };
+    rustix::fs::futimens(target, &timestamps).map_err(|error| {
+        PocError::io(
+            "inherit pinned activation root timestamps",
+            target_path,
+            std::io::Error::from_raw_os_error(error.raw_os_error()),
+        )
+    })?;
+    rustix::fs::fsync(target).map_err(|error| {
+        PocError::io(
+            "sync inherited pinned activation root",
+            target_path,
+            std::io::Error::from_raw_os_error(error.raw_os_error()),
+        )
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+fn inherit_projection_root_metadata_anchored(
+    _source: &OwnedFd,
+    _source_path: &Path,
+    _target: &OwnedFd,
+    _target_path: &Path,
+) -> PocResult<()> {
+    Err(PocError::Unsupported(
+        "pinned activation root metadata inheritance requires Linux".to_owned(),
+    ))
 }
 
 /// Copies the selected projection root's semantic metadata onto a fresh upper.
