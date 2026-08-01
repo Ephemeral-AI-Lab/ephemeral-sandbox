@@ -24,6 +24,8 @@ const OPAQUE_MARKER: &[u8] = b".wh..wh..opq";
 const WHITEOUT_PREFIX: &[u8] = b".wh.";
 const QUEUE_MAGIC: &[u8; 8] = b"MPLAQUE1";
 const MAX_XATTR_LIST_BYTES: usize = 1024 * 1024;
+pub(super) const SELECTED_RECORD_SPOOL_MEMORY_BYTES: usize = 1024 * 1024;
+pub(super) const SELECTED_HARDLINK_SPOOL_MEMORY_BYTES: usize = 1024 * 1024;
 pub(super) const MAX_XATTR_TRANSIENT_BYTES: usize =
     2 * MAX_XATTR_LIST_BYTES + super::record::MAX_XATTR_BYTES;
 
@@ -69,8 +71,12 @@ fn scan_selected_paths_in(
     relative_paths: &[PathBuf],
     scan_dir: &Path,
 ) -> PocResult<SelectedPathScan> {
-    let mut records = BoundedSpool::new(scan_dir.join("records"), 1024 * 1024)?;
-    let hardlinks = BoundedSpool::new(scan_dir.join("hardlinks"), 1024 * 1024)?;
+    let mut records =
+        BoundedSpool::new_ephemeral(scan_dir.join("records"), SELECTED_RECORD_SPOOL_MEMORY_BYTES)?;
+    let hardlinks = BoundedSpool::new_ephemeral(
+        scan_dir.join("hardlinks"),
+        SELECTED_HARDLINK_SPOOL_MEMORY_BYTES,
+    )?;
     let mut stats = ScanStats {
         peak_open_data_fds: 3,
         peak_data_workers: 1,
@@ -102,12 +108,16 @@ fn scan_selected_paths_in(
             .max(2_usize.saturating_add(usize::from(node.data_workers)));
     }
     let hardlinks = hardlinks.finish()?;
+    stats.peak_open_data_fds = stats
+        .peak_open_data_fds
+        .max(hardlinks.stats().peak_open_files);
     if hardlinks.stats().records_out != 0 {
         return Err(PocError::Integrity(
             "receipt-hit selected scan produced hardlink claims".to_owned(),
         ));
     }
     let sorted = records.finish()?;
+    stats.peak_open_data_fds = stats.peak_open_data_fds.max(sorted.stats().peak_open_files);
     let mut decoded = Vec::with_capacity(
         usize::try_from(sorted.stats().records_out)
             .map_err(|_| PocError::Integrity("selected record count overflow".to_owned()))?,

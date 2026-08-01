@@ -295,7 +295,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             if suite != "smoke" {
                 return Err(format!("unsupported suite {suite:?}; expected \"smoke\"").into());
             }
-            dispatch_campaign("suite", None, 1, None, None)?;
+            dispatch_campaign("suite", None, 1, None, None, Duration::from_secs(179))?;
         }
         Command::Test {
             run_id,
@@ -306,7 +306,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             if samples == 0 {
                 return Err("--samples must be positive".into());
             }
-            dispatch_campaign("test", Some(&case), samples, run_id.as_deref(), None)?;
+            let hard_stop = match case.as_str() {
+                "HV-06" => Duration::from_secs(45),
+                "HV-09" => Duration::from_secs(60),
+                _ => Duration::from_secs(179),
+            };
+            dispatch_campaign(
+                "test",
+                Some(&case),
+                samples,
+                run_id.as_deref(),
+                None,
+                hard_stop,
+            )?;
         }
         Command::Crash {
             run_id,
@@ -317,7 +329,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 return Err(format!("unsupported crash test {test:?}; expected \"HV-07\"").into());
             }
             let point = NamedFaultPoint::parse(&point)?;
-            dispatch_campaign("crash", Some(&test), 1, Some(&run_id), Some(point.as_str()))?;
+            dispatch_campaign(
+                "crash",
+                Some(&test),
+                1,
+                Some(&run_id),
+                Some(point.as_str()),
+                Duration::from_secs(60),
+            )?;
         }
         Command::Scorecard { command } => {
             mpla_poc_scorecard::run(command)?;
@@ -570,6 +589,7 @@ fn dispatch_campaign(
     samples: u32,
     run_id: Option<&str>,
     fault_point: Option<&str>,
+    hard_stop: Duration,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let heavy = case.is_some_and(|case| case.starts_with("HV-"));
     let binary_variable = if heavy {
@@ -609,11 +629,6 @@ fn dispatch_campaign(
 
     let mut child = command.spawn()?;
     let started = Instant::now();
-    let hard_stop = if heavy {
-        Duration::from_secs(600)
-    } else {
-        Duration::from_secs(179)
-    };
     loop {
         if let Some(status) = child.try_wait()? {
             if status.success() {

@@ -609,11 +609,38 @@ fn explicit_publish_commits_one_layer_audits_owner_closes_and_projects_only_publ
         .workspace_session
         .create_workspace_session(create_request())?;
 
-    let response = publish_json(
+    let mut response = publish_json(
         &operations,
         json!({"workspace_session_id": "ws-success", "grace_s": 1.25}),
     );
     let active = fixture.active_manifest()?;
+    let matched_publication = response
+        .as_object_mut()
+        .expect("publish response is an object")
+        .remove("matched_publication")
+        .expect("publish response projects its service-owned matched span");
+    assert_eq!(
+        matched_publication["start_boundary"],
+        sandbox_runtime_mpla_poc::MATCHED_PUBLICATION_START_BOUNDARY
+    );
+    assert_eq!(
+        matched_publication["stop_boundary"],
+        "durable root and closed session"
+    );
+    assert_eq!(matched_publication["admission_gate_included"], true);
+    assert_eq!(matched_publication["durable_root_committed"], true);
+    assert_eq!(matched_publication["session_closed"], true);
+    let started_ns = matched_publication["span"]["started_ns"]
+        .as_u64()
+        .expect("matched start is an unsigned nanosecond timestamp");
+    let finished_ns = matched_publication["span"]["finished_ns"]
+        .as_u64()
+        .expect("matched stop is an unsigned nanosecond timestamp");
+    let elapsed_ns = matched_publication["span"]["elapsed_ns"]
+        .as_u64()
+        .expect("matched elapsed time is an unsigned nanosecond duration");
+    assert!(elapsed_ns > 0);
+    assert_eq!(finished_ns - started_ns, elapsed_ns);
 
     assert_eq!(
         response,
@@ -1153,6 +1180,10 @@ fn committed_destroy_failure_is_partial_success_cleanup_only_and_never_duplicate
     assert_eq!(
         partial["error"]["message"],
         "workspace session published but could not be closed"
+    );
+    assert!(
+        partial.get("matched_publication").is_none(),
+        "a durable publish whose session did not close cannot emit a matched completion span"
     );
     assert_eq!(
         partial["error"]["details"],
@@ -1767,6 +1798,18 @@ fn explicit_empty_publish_returns_current_revision_and_closes_without_a_layer(
         json!({"source_count": 0, "ignored_count": 0})
     );
     assert_eq!(response["destroyed"], true);
+    assert_eq!(
+        response["matched_publication"]["stop_boundary"],
+        "durable root and closed session"
+    );
+    assert_eq!(
+        response["matched_publication"]["durable_root_committed"], false,
+        "a no-op close must not claim that it committed a new durable root"
+    );
+    assert_eq!(response["matched_publication"]["session_closed"], true);
+    assert!(response["matched_publication"]["span"]["elapsed_ns"]
+        .as_u64()
+        .is_some_and(|elapsed_ns| elapsed_ns > 0));
     assert_eq!(fixture.active_manifest()?, base);
     assert_eq!(fake.capture_calls().len(), 1);
     assert_eq!(fake.destroy_calls().len(), 1);

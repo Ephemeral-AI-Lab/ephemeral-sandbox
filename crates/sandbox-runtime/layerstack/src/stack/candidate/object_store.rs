@@ -15,6 +15,7 @@ use sandbox_runtime_layerstack_core::{
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 pub(crate) const RECORD_HEADER_BYTES: usize = 15;
 pub(crate) const MAX_CHUNK_BYTES: usize = 32 * 1024;
+const MAX_SPARSE_NATIVE_COPY_FALLBACK_BYTES: u64 = 32 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum InstallStage {
@@ -223,7 +224,7 @@ impl LooseObjectStore {
         id: FileNodeId,
         source: &Path,
         logical_length: u64,
-    ) -> Result<PathBuf, ObjectStoreError> {
+    ) -> Result<Option<PathBuf>, ObjectStoreError> {
         let batch = self.require_open_batch()?;
         let _batch_guard = batch
             .mutation_lock
@@ -240,7 +241,7 @@ impl LooseObjectStore {
         let final_path = self.native_file_path(id);
         if path_is_present(&final_path)? {
             validate_native_file(&final_path, logical_length)?;
-            return Ok(final_path);
+            return Ok(Some(final_path));
         }
         let parent = final_path.parent().ok_or(ObjectStoreError::InvalidBatch(
             "native acceleration path has no parent",
@@ -259,13 +260,28 @@ impl LooseObjectStore {
             .create_new(true)
             .open(&temp)?;
         if !clone_file_extents(&native_file, &source_file)? {
-            source_file.seek(SeekFrom::Start(0))?;
-            native_file.set_len(0)?;
-            let copied = std::io::copy(&mut source_file, &mut native_file)?;
-            if copied != logical_length {
-                return Err(ObjectStoreError::InvalidBatch(
-                    "native acceleration fallback copied the wrong length",
-                ));
+            if logical_length <= MAX_SPARSE_NATIVE_COPY_FALLBACK_BYTES
+                || !metadata_is_sparse(&source_metadata)
+            {
+                source_file.seek(SeekFrom::Start(0))?;
+                native_file.set_len(0)?;
+                let copied = std::io::copy(&mut source_file, &mut native_file)?;
+                if copied != logical_length {
+                    return Err(ObjectStoreError::InvalidBatch(
+                        "native acceleration fallback copied the wrong length",
+                    ));
+                }
+            } else {
+                // This cache is optional: the authenticated chunk graph
+                // remains authoritative and can materialize the file without
+                // a native seed. Copying a large sparse source after an
+                // unsupported or cross-filesystem reflink would turn
+                // publication into a full payload copy and allocate every
+                // hole. Leave no cache object instead.
+                drop(native_file);
+                drop(source_file);
+                guard.remove()?;
+                return Ok(None);
             }
         }
         if native_file.metadata()?.len() != logical_length {
@@ -283,7 +299,7 @@ impl LooseObjectStore {
             Err(error) => return Err(error.into()),
         }
         guard.remove()?;
-        Ok(final_path)
+        Ok(Some(final_path))
     }
 
     /// Open a native acceleration object without following a final symlink.
@@ -853,6 +869,21 @@ fn validate_native_file(path: &Path, logical_length: u64) -> Result<(), ObjectSt
         ));
     }
     Ok(())
+}
+
+#[cfg(unix)]
+fn metadata_is_sparse(metadata: &std::fs::Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt;
+
+    metadata
+        .blocks()
+        .checked_mul(512)
+        .is_some_and(|allocated| allocated < metadata.len())
+}
+
+#[cfg(not(unix))]
+fn metadata_is_sparse(_metadata: &std::fs::Metadata) -> bool {
+    false
 }
 
 #[cfg(target_os = "linux")]

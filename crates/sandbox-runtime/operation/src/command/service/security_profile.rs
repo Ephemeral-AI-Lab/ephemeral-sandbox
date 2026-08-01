@@ -82,7 +82,6 @@ fn is_frozen_mpla_benchmark_command(command: &str) -> bool {
                     | "activation"
                     | "fork"
                     | "rollback"
-                    | "publication"
                     | "squash"
                     | "stream"
                     | "recovery"
@@ -91,6 +90,16 @@ fn is_frozen_mpla_benchmark_command(command: &str) -> bool {
             is_safe_identifier(run_id)
                 && is_safe_identifier(candidate_sandbox_id)
                 && is_git_commit(build_commit)
+        }
+        [_, "scorecard-case", "--run-id", run_id, "--case", "publication", "--candidate-sandbox-id", candidate_sandbox_id, "--build-commit", build_commit, "--control-sandbox-id", control_one, "--control-sandbox-id", control_two, "--control-sandbox-id", control_three] => {
+            is_safe_identifier(run_id)
+                && is_git_commit(build_commit)
+                && all_distinct_safe_sandbox_ids([
+                    candidate_sandbox_id,
+                    control_one,
+                    control_two,
+                    control_three,
+                ])
         }
         [_, "measure", "--run-id", run_id, "--run-root", run_root, "--oracle", candidate_oracle, "--catalog-exporter", candidate_exporter, "--catalog", candidate_catalog, "--build-commit", build_commit, "--samples-ledger", LEDGER] => {
             is_normal_root
@@ -115,6 +124,14 @@ fn is_safe_identifier(value: &str) -> bool {
         && value
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+}
+
+fn all_distinct_safe_sandbox_ids(ids: [&str; 4]) -> bool {
+    ids.iter().all(|id| is_safe_identifier(id))
+        && ids
+            .iter()
+            .enumerate()
+            .all(|(index, id)| !ids[index + 1..].contains(id))
 }
 
 fn is_git_commit(value: &str) -> bool {

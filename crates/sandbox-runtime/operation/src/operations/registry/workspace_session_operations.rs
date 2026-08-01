@@ -309,27 +309,16 @@ fn dispatch_rollback_workspace_session(
                 Ok(profile) => profile,
                 Err(error) => return workspace_session_error_response(error),
             };
-            match operations
-                .workspace_session
-                .mpla_storage_scope(&result.workspace_session_id, sandbox_id)
-            {
-                Ok(storage_admin_scope) => {
-                    let mut value = rollback_mpla_workspace_session_value(result);
-                    if let Err(error) = attach_storage_admin_authority(
-                        &mut value,
-                        selected_profile.profile_id(),
-                        &storage_admin_scope,
-                    ) {
-                        return OperationResponse::fault_with_details(
-                            "operation_failed",
-                            error,
-                            json!({}),
-                        );
-                    }
-                    OperationResponse::ok(value)
-                }
-                Err(error) => workspace_session_error_response(error),
+            let storage_admin_scope = result.storage_admin_scope.clone();
+            let mut value = rollback_mpla_workspace_session_value(result);
+            if let Err(error) = attach_storage_admin_authority(
+                &mut value,
+                selected_profile.profile_id(),
+                &storage_admin_scope,
+            ) {
+                return OperationResponse::fault_with_details("operation_failed", error, json!({}));
             }
+            OperationResponse::ok(value)
         }
         Err(error) => workspace_session_error_response(error),
     }
@@ -737,6 +726,14 @@ fn publish_workspace_session_value(result: PublishWorkspaceSessionResult) -> Val
         "publish": workspace_session_publish_value(&result.publish),
         "destroyed": true,
         "evicted_upperdir_bytes": result.evicted_upperdir_bytes,
+        "matched_publication": {
+            "start_boundary": sandbox_runtime_mpla_poc::MATCHED_PUBLICATION_START_BOUNDARY,
+            "stop_boundary": sandbox_runtime_mpla_poc::MATCHED_PUBLICATION_STOP_BOUNDARY,
+            "admission_gate_included": true,
+            "durable_root_committed": !result.publish.no_op,
+            "session_closed": true,
+            "span": result.matched_publication_span,
+        },
     })
 }
 
@@ -800,6 +797,24 @@ fn rollback_mpla_workspace_session_value(result: RollbackMplaWorkspaceSessionRes
         "branch": result.branch,
         "target_branch": result.target_branch,
         "projection": result.projection,
+        "timings": {
+            "projection_elapsed_ns": result.timings.projection_elapsed_ns,
+            "session_create_elapsed_ns": result.timings.session_create_elapsed_ns,
+            "session_identity_elapsed_ns": result.timings.session_identity_elapsed_ns,
+            "allocation_create_elapsed_ns": result.timings.allocation_create_elapsed_ns,
+            "allocation_lease_elapsed_ns": result.timings.allocation_lease_elapsed_ns,
+            "projection_metadata_elapsed_ns": result.timings.projection_metadata_elapsed_ns,
+            "external_session_prepare_elapsed_ns": result.timings.external_session_prepare_elapsed_ns,
+            "durability_commit_elapsed_ns": result.timings.durability_commit_elapsed_ns,
+            "workspace_create_elapsed_ns": result.timings.workspace_create_elapsed_ns,
+            "launch_material_elapsed_ns": result.timings.launch_material_elapsed_ns,
+            "cgroup_prepare_elapsed_ns": result.timings.cgroup_prepare_elapsed_ns,
+            "session_register_elapsed_ns": result.timings.session_register_elapsed_ns,
+            "session_commit_elapsed_ns": result.timings.session_commit_elapsed_ns,
+            "storage_mount_elapsed_ns": result.timings.storage_mount_elapsed_ns,
+            "outcome_persist_elapsed_ns": result.timings.outcome_persist_elapsed_ns,
+            "response_elapsed_ns": result.timings.response_elapsed_ns,
+        },
         "lifecycle": mpla_lifecycle_receipt_value(&result.lifecycle),
         "service_elapsed_ns": result.service_elapsed_ns,
     })
@@ -819,6 +834,7 @@ fn publish_mpla_workspace_session_value(result: PublishMplaWorkspaceSessionResul
     let semantic = result.semantic.map(|receipt| {
         let mut value = serde_json::to_value(receipt)
             .expect("serialize MPLA semantic receipt for publish response");
+        attach_semantic_resource_maxima(&mut value, result.semantic_resource_maxima);
         attach_incremental_semantic_counters(
             &mut value,
             result.semantic_affected_record_count,
@@ -874,6 +890,16 @@ fn publish_mpla_workspace_session_value(result: PublishMplaWorkspaceSessionResul
     })
 }
 
+fn attach_semantic_resource_maxima(
+    semantic: &mut Value,
+    resource_maxima: Option<sandbox_runtime_mpla_poc::SemanticResourceMaxima>,
+) {
+    if let Some(resource_maxima) = resource_maxima {
+        semantic["resource_maxima"] = serde_json::to_value(resource_maxima)
+            .expect("serialize MPLA semantic resource maxima for publish response");
+    }
+}
+
 fn attach_incremental_semantic_counters(
     semantic: &mut Value,
     affected_record_count: Option<u64>,
@@ -899,6 +925,8 @@ fn squash_mpla_branch_value(result: SquashMplaBranchResult) -> Value {
     json!({
         "run_id": result.run_id,
         "branch": result.branch,
+        "roots": result.roots,
+        "ref_sequence": result.ref_sequence,
         "lifecycle": mpla_lifecycle_receipt_value(&result.lifecycle),
         "service_elapsed_ns": result.service_elapsed_ns,
     })
@@ -974,6 +1002,73 @@ mod tests {
         assert_eq!(
             semantic.pointer("/affected_stream_bytes_read"),
             Some(&json!(5_737))
+        );
+    }
+
+    #[test]
+    fn incremental_semantic_reply_preserves_measured_resource_maxima() {
+        let mut semantic = json!({"entry_count": 4});
+        attach_semantic_resource_maxima(
+            &mut semantic,
+            Some(sandbox_runtime_mpla_poc::SemanticResourceMaxima {
+                application_pool_bytes: 8 * 1024 * 1024,
+                peak_managed_bytes: 7 * 1024 * 1024,
+                scan_window_bytes: 1024 * 1024,
+                spool_run_bytes: 4 * 1024 * 1024,
+                merge_fan_in: 8,
+                peak_open_data_fds: 11,
+                peak_data_workers: 4,
+                trie_fan_out: 256,
+            }),
+        );
+
+        assert_eq!(
+            semantic.pointer("/resource_maxima/application_pool_bytes"),
+            Some(&json!(8 * 1024 * 1024))
+        );
+        assert_eq!(
+            semantic.pointer("/resource_maxima/peak_managed_bytes"),
+            Some(&json!(7 * 1024 * 1024))
+        );
+        assert_eq!(
+            semantic.pointer("/resource_maxima/peak_open_data_fds"),
+            Some(&json!(11))
+        );
+        assert_eq!(
+            semantic.pointer("/resource_maxima/peak_data_workers"),
+            Some(&json!(4))
+        );
+    }
+
+    #[test]
+    fn squash_response_exposes_canonical_continuity_and_committed_sequence() {
+        let roots = sandbox_runtime_mpla_poc::CanonicalRootPair {
+            root_id: sandbox_runtime_mpla_poc::RootId::parse("11".repeat(32)).expect("root ID"),
+            attribution_root_id: sandbox_runtime_mpla_poc::AttributionRootId::parse(
+                "22".repeat(32),
+            )
+            .expect("attribution root ID"),
+        };
+        let response = squash_mpla_branch_value(SquashMplaBranchResult {
+            run_id: "run-1".to_owned(),
+            branch: "main".to_owned(),
+            roots: roots.clone(),
+            ref_sequence: 7,
+            lifecycle: MplaLifecycleReceipt {
+                operation_id: "run-1-squash-00".to_owned(),
+                committed: true,
+                idempotent_replay: false,
+                selected_ref: format!("main@7#{}", "33".repeat(32)),
+                service_elapsed_ns: 123,
+            },
+            service_elapsed_ns: 123,
+        });
+
+        assert_eq!(response.get("roots"), Some(&json!(roots)));
+        assert_eq!(response.get("ref_sequence"), Some(&json!(7)));
+        assert_eq!(
+            response.pointer("/lifecycle/selected_ref"),
+            Some(&json!(format!("main@7#{}", "33".repeat(32))))
         );
     }
 }

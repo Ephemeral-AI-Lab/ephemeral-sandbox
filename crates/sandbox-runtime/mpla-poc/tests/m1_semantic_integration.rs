@@ -9,9 +9,9 @@ use sandbox_runtime_mpla_poc::semantic::record::{
 use sandbox_runtime_mpla_poc::semantic::scan::scan_selected_paths;
 use sandbox_runtime_mpla_poc::semantic::{
     affected_stream_paths, build_incremental, build_with_output, build_with_output_serial,
-    capture_affected_paths, materialize_record_stream, write_affected_stream,
-    write_affected_stream_from_snapshots, AffectedPathSnapshot, IncrementalBuildRequest,
-    SemanticBuildOutput,
+    capture_affected_paths, capture_affected_paths_with_maxima, materialize_record_stream,
+    write_affected_stream, write_affected_stream_from_snapshots, AffectedPathSnapshot,
+    IncrementalBuildRequest, SemanticBuildOutput,
 };
 use sandbox_runtime_mpla_poc::{
     AllocationId, AttributionInput, OperationId, SemanticBuildRequest, SCHEMA_VERSION,
@@ -255,9 +255,13 @@ fn selected_parallel_dense_and_sparse_scan_matches_canonical_full_and_incrementa
     assert!(direct.peak_open_data_fds <= 6);
     assert!(direct.peak_open_data_fds <= 16);
     assert!(direct.bytes_read >= u64::try_from(dense.len()).expect("test size must fit"));
-    let after = capture_affected_paths(&tree, &paths, &temporary.path.join("selected-after"))
-        .expect("selected snapshot must succeed");
+    let (after, selected_maxima) =
+        capture_affected_paths_with_maxima(&tree, &paths, &temporary.path.join("selected-after"))
+            .expect("selected snapshot must succeed");
     assert_eq!(direct.records, after.records);
+    assert_eq!(selected_maxima.peak_data_workers, 4);
+    assert!(selected_maxima.peak_open_data_fds <= 16);
+    assert!(selected_maxima.peak_managed_bytes <= 8 * 1024 * 1024);
 
     let expected = full_build(
         &temporary.path,
@@ -283,6 +287,30 @@ fn selected_parallel_dense_and_sparse_scan_matches_canonical_full_and_incrementa
         attribution,
     })
     .expect("incremental selected delta must succeed");
+    let combined_maxima = incremental
+        .resource_maxima
+        .with_sequential_phase(selected_maxima);
+    assert_eq!(combined_maxima.peak_data_workers, 4);
+    assert_eq!(
+        combined_maxima.application_pool_bytes,
+        incremental.resource_maxima.application_pool_bytes
+    );
+    assert_eq!(
+        combined_maxima.scan_window_bytes,
+        incremental.resource_maxima.scan_window_bytes
+    );
+    assert_eq!(
+        combined_maxima.spool_run_bytes,
+        incremental.resource_maxima.spool_run_bytes
+    );
+    assert_eq!(
+        combined_maxima.merge_fan_in,
+        incremental.resource_maxima.merge_fan_in
+    );
+    assert_eq!(
+        combined_maxima.trie_fan_out,
+        incremental.resource_maxima.trie_fan_out
+    );
     assert_eq!(incremental.receipt.roots, expected.receipt.roots);
     assert_eq!(
         incremental.receipt.record_stream_sha256,

@@ -6,7 +6,7 @@ mod cases;
 #[test]
 #[ignore = "requires the qualified live Docker environment"]
 fn hv_07_fresh_crash_sweep() {
-    cases::prepare().expect("prepare HV-07 fixtures");
+    cases::prepare_hv07().expect("prepare dedicated HV-07 fixtures");
     cases::run_hv07_fresh_sweep().expect("complete the physical HV-07 crash sweep");
 }
 

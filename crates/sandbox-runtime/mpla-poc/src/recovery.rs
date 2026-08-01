@@ -1,6 +1,11 @@
 use std::collections::BTreeSet;
 use std::fs::File;
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "linux")]
+use std::{
+    ffi::OsStr,
+    os::fd::{AsRawFd, OwnedFd},
+};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -11,7 +16,7 @@ use crate::occ::{
     BranchOcc, ChangedPathSet, ConflictAllocation, OccPublication, OccPublishOutcome,
     RebasedCanonical, RetainedOverlapConflict,
 };
-use crate::owner::current_owner;
+use crate::owner::{current_owner_locked, owner_lock_path};
 use crate::ref_store::{PairedRefStore, RefCommitReceipt};
 use crate::{
     unix_time_ms, AllocationId, CanonicalDurabilityReceipt, LocatorGeneration, LocatorRefCandidate,
@@ -19,7 +24,7 @@ use crate::{
     PocResult, PublicationId, RefSequence, SCHEMA_VERSION,
 };
 
-const RECOVERY_FORMAT: &str = "mpla-poc-recovery-v1";
+const RECOVERY_FORMAT: &str = "mpla-poc-recovery-v2";
 const CRASH_SWEEP_FORMAT: &str = "mpla-poc-crash-sweep-v1";
 const REAL_OPERATION_WITNESS_FORMAT: &str = "mpla-poc-real-operation-witness-v1";
 const PHYSICAL_POINT_ENV: &str = "MPLA_POC_PHYSICAL_FAULT_POINT";
@@ -44,6 +49,7 @@ pub struct RecoveryRequest {
     pub publication_id: PublicationId,
     pub branch: String,
     pub allocation_root: PathBuf,
+    pub allocation_identity: RecoveryAllocationIdentity,
     pub allocation_id: AllocationId,
     pub owner_epoch: u64,
     pub accounted_bytes: u64,
@@ -51,6 +57,373 @@ pub struct RecoveryRequest {
     pub candidate: LocatorRefCandidate,
     pub canonical: CanonicalDurabilityReceipt,
     pub changed_paths: ChangedPathSet,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct RecoveryAllocationIdentity {
+    pub allocation_device: u64,
+    pub allocation_inode: u64,
+    pub owner_device: u64,
+    pub owner_inode: u64,
+}
+
+pub fn capture_recovery_allocation_identity(
+    allocation_root: &Path,
+    allocation_id: &AllocationId,
+) -> PocResult<RecoveryAllocationIdentity> {
+    #[cfg(target_os = "linux")]
+    {
+        PinnedRecoveryAllocation::open(allocation_root, allocation_id).map(|pinned| pinned.identity)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (allocation_root, allocation_id);
+        Err(PocError::Unsupported(
+            "publication recovery allocation identity requires Linux descriptor authority"
+                .to_owned(),
+        ))
+    }
+}
+
+#[cfg(target_os = "linux")]
+struct PinnedRecoveryAllocation {
+    arena_root: PathBuf,
+    prefix_name: std::ffi::OsString,
+    allocation_name: std::ffi::OsString,
+    arena: OwnedFd,
+    prefix: OwnedFd,
+    allocation: OwnedFd,
+    owner: OwnedFd,
+    identity: RecoveryAllocationIdentity,
+}
+
+#[cfg(target_os = "linux")]
+impl PinnedRecoveryAllocation {
+    fn open(allocation_root: &Path, allocation_id: &AllocationId) -> PocResult<Self> {
+        if !allocation_root.is_absolute() {
+            return Err(PocError::RecoveryRequired(
+                "publication recovery allocation root must be absolute".to_owned(),
+            ));
+        }
+        let allocation_name = allocation_root
+            .file_name()
+            .ok_or_else(|| {
+                PocError::RecoveryRequired(
+                    "publication recovery allocation root has no allocation component".to_owned(),
+                )
+            })?
+            .to_os_string();
+        if allocation_name != OsStr::new(allocation_id.as_str()) {
+            return Err(PocError::RecoveryRequired(
+                "publication recovery allocation path does not end in its AllocationId".to_owned(),
+            ));
+        }
+        let prefix_root = allocation_root.parent().ok_or_else(|| {
+            PocError::RecoveryRequired(
+                "publication recovery allocation root has no prefix directory".to_owned(),
+            )
+        })?;
+        let prefix_name = prefix_root
+            .file_name()
+            .ok_or_else(|| {
+                PocError::RecoveryRequired(
+                    "publication recovery allocation prefix has no name".to_owned(),
+                )
+            })?
+            .to_os_string();
+        let expected_prefix = allocation_id.as_str().get(..2).ok_or_else(|| {
+            PocError::Integrity("publication recovery AllocationId is too short".to_owned())
+        })?;
+        if prefix_name != OsStr::new(expected_prefix) {
+            return Err(PocError::RecoveryRequired(
+                "publication recovery allocation prefix does not match its AllocationId".to_owned(),
+            ));
+        }
+        let arena_root = prefix_root.parent().ok_or_else(|| {
+            PocError::RecoveryRequired(
+                "publication recovery allocation prefix has no arena directory".to_owned(),
+            )
+        })?;
+        let arena = open_absolute_directory_no_symlinks(arena_root)?;
+        let prefix = open_recovery_child_directory(
+            &arena,
+            &prefix_name,
+            prefix_root,
+            "publication recovery allocation prefix",
+        )?;
+        let allocation = open_recovery_child_directory(
+            &prefix,
+            &allocation_name,
+            allocation_root,
+            "publication recovery allocation",
+        )?;
+        let owner = open_recovery_child_directory(
+            &allocation,
+            OsStr::new("owner"),
+            &allocation_root.join("owner"),
+            "publication recovery owner directory",
+        )?;
+        let descriptor_fd = rustix::fs::openat(
+            &allocation,
+            "ALLOCATION.json",
+            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::CLOEXEC,
+            rustix::fs::Mode::empty(),
+        )
+        .map_err(|error| {
+            PocError::io(
+                "open pinned publication recovery allocation descriptor",
+                allocation_root.join("ALLOCATION.json"),
+                std::io::Error::from(error),
+            )
+        })?;
+        let descriptor_status = rustix::fs::fstat(&descriptor_fd).map_err(|error| {
+            PocError::io(
+                "stat pinned publication recovery allocation descriptor",
+                allocation_root.join("ALLOCATION.json"),
+                std::io::Error::from(error),
+            )
+        })?;
+        if rustix::fs::FileType::from_raw_mode(descriptor_status.st_mode as rustix::fs::RawMode)
+            != rustix::fs::FileType::RegularFile
+        {
+            return Err(PocError::RecoveryRequired(
+                "publication recovery allocation descriptor is not a regular file".to_owned(),
+            ));
+        }
+        let descriptor: crate::AllocationDescriptor =
+            serde_json::from_reader(File::from(descriptor_fd))?;
+        if descriptor.schema_version != SCHEMA_VERSION || descriptor.allocation_id != *allocation_id
+        {
+            return Err(PocError::RecoveryRequired(
+                "publication recovery allocation descriptor identity mismatch".to_owned(),
+            ));
+        }
+        let allocation_status = rustix::fs::fstat(&allocation).map_err(|error| {
+            PocError::io(
+                "stat pinned publication recovery allocation",
+                allocation_root,
+                std::io::Error::from(error),
+            )
+        })?;
+        let owner_status = rustix::fs::fstat(&owner).map_err(|error| {
+            PocError::io(
+                "stat pinned publication recovery owner directory",
+                allocation_root.join("owner"),
+                std::io::Error::from(error),
+            )
+        })?;
+        let pinned = Self {
+            arena_root: arena_root.to_path_buf(),
+            prefix_name,
+            allocation_name,
+            arena,
+            prefix,
+            allocation,
+            owner,
+            identity: RecoveryAllocationIdentity {
+                allocation_device: allocation_status.st_dev as u64,
+                allocation_inode: allocation_status.st_ino as u64,
+                owner_device: owner_status.st_dev as u64,
+                owner_inode: owner_status.st_ino as u64,
+            },
+        };
+        pinned.verify_named_authority()?;
+        Ok(pinned)
+    }
+
+    fn require_identity(&self, expected: RecoveryAllocationIdentity) -> PocResult<()> {
+        if self.identity != expected {
+            return Err(PocError::RecoveryRequired(
+                "publication recovery allocation object identity changed".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn anchored_root(&self) -> PathBuf {
+        PathBuf::from("/proc/self/fd").join(self.allocation.as_raw_fd().to_string())
+    }
+
+    fn verify_named_authority(&self) -> PocResult<()> {
+        let reopened_arena = open_absolute_directory_no_symlinks(&self.arena_root)?;
+        require_recovery_fd_identity(
+            &self.arena,
+            &reopened_arena,
+            &self.arena_root,
+            "publication recovery arena",
+        )?;
+        require_recovery_directory_entry(
+            &self.arena,
+            &self.prefix_name,
+            &self.prefix,
+            &self.arena_root.join(&self.prefix_name),
+            "publication recovery allocation prefix",
+        )?;
+        require_recovery_directory_entry(
+            &self.prefix,
+            &self.allocation_name,
+            &self.allocation,
+            &self
+                .arena_root
+                .join(&self.prefix_name)
+                .join(&self.allocation_name),
+            "publication recovery allocation",
+        )?;
+        require_recovery_directory_entry(
+            &self.allocation,
+            OsStr::new("owner"),
+            &self.owner,
+            &self.anchored_root().join("owner"),
+            "publication recovery owner directory",
+        )
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn open_absolute_directory_no_symlinks(path: &Path) -> PocResult<OwnedFd> {
+    use std::path::Component;
+
+    if !path.is_absolute() {
+        return Err(PocError::RecoveryRequired(format!(
+            "publication recovery path is not absolute: {}",
+            path.display()
+        )));
+    }
+    let mut current = rustix::fs::open(
+        Path::new("/"),
+        rustix::fs::OFlags::RDONLY
+            | rustix::fs::OFlags::DIRECTORY
+            | rustix::fs::OFlags::NOFOLLOW
+            | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::Mode::empty(),
+    )
+    .map_err(|error| {
+        PocError::io(
+            "open publication recovery filesystem root",
+            "/",
+            std::io::Error::from(error),
+        )
+    })?;
+    for component in path.components() {
+        match component {
+            Component::RootDir => {}
+            Component::Normal(name) => {
+                current = open_recovery_child_directory(
+                    &current,
+                    name,
+                    path,
+                    "publication recovery path component",
+                )?;
+            }
+            _ => {
+                return Err(PocError::RecoveryRequired(format!(
+                    "publication recovery path is not lexically canonical: {}",
+                    path.display()
+                )));
+            }
+        }
+    }
+    Ok(current)
+}
+
+#[cfg(target_os = "linux")]
+fn open_recovery_child_directory(
+    parent: &OwnedFd,
+    name: &OsStr,
+    display_path: &Path,
+    label: &str,
+) -> PocResult<OwnedFd> {
+    let child = rustix::fs::openat(
+        parent,
+        name,
+        rustix::fs::OFlags::RDONLY
+            | rustix::fs::OFlags::DIRECTORY
+            | rustix::fs::OFlags::NOFOLLOW
+            | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::Mode::empty(),
+    )
+    .map_err(|error| {
+        PocError::io(
+            "open pinned publication recovery directory",
+            display_path,
+            std::io::Error::from(error),
+        )
+    })?;
+    require_recovery_directory_entry(parent, name, &child, display_path, label)?;
+    Ok(child)
+}
+
+#[cfg(target_os = "linux")]
+fn require_recovery_directory_entry(
+    parent: &OwnedFd,
+    name: &OsStr,
+    child: &OwnedFd,
+    display_path: &Path,
+    label: &str,
+) -> PocResult<()> {
+    let named = rustix::fs::statat(parent, name, rustix::fs::AtFlags::SYMLINK_NOFOLLOW).map_err(
+        |error| {
+            PocError::io(
+                "stat named publication recovery directory",
+                display_path,
+                std::io::Error::from(error),
+            )
+        },
+    )?;
+    let pinned = rustix::fs::fstat(child).map_err(|error| {
+        PocError::io(
+            "stat pinned publication recovery directory",
+            display_path,
+            std::io::Error::from(error),
+        )
+    })?;
+    if rustix::fs::FileType::from_raw_mode(named.st_mode as rustix::fs::RawMode)
+        != rustix::fs::FileType::Directory
+        || named.st_dev != pinned.st_dev
+        || named.st_ino != pinned.st_ino
+    {
+        return Err(PocError::RecoveryRequired(format!(
+            "{label} changed while descriptor authority was acquired: {}",
+            display_path.display()
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn require_recovery_fd_identity(
+    expected: &OwnedFd,
+    observed: &OwnedFd,
+    display_path: &Path,
+    label: &str,
+) -> PocResult<()> {
+    let expected = rustix::fs::fstat(expected).map_err(|error| {
+        PocError::io(
+            "stat expected publication recovery directory",
+            display_path,
+            std::io::Error::from(error),
+        )
+    })?;
+    let observed = rustix::fs::fstat(observed).map_err(|error| {
+        PocError::io(
+            "stat observed publication recovery directory",
+            display_path,
+            std::io::Error::from(error),
+        )
+    })?;
+    if expected.st_dev != observed.st_dev
+        || expected.st_ino != observed.st_ino
+        || rustix::fs::FileType::from_raw_mode(expected.st_mode as rustix::fs::RawMode)
+            != rustix::fs::FileType::Directory
+        || rustix::fs::FileType::from_raw_mode(observed.st_mode as rustix::fs::RawMode)
+            != rustix::fs::FileType::Directory
+    {
+        return Err(PocError::RecoveryRequired(format!(
+            "{label} identity changed: {}",
+            display_path.display()
+        )));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -334,14 +707,34 @@ pub fn reach_real_operation(
                 point.as_str()
             )));
         }
-        if stationary_payload_path.is_some_and(|path| !path.exists()) {
+        let contextual_stationary_payload_path = faults.physical_stationary_payload_path();
+        if stationary_payload_path.is_some()
+            && contextual_stationary_payload_path.is_some()
+            && stationary_payload_path != contextual_stationary_payload_path
+        {
+            return Err(PocError::Integrity(format!(
+                "real operation {} reached {} with conflicting stationary payload paths",
+                binding.durable_boundary,
+                point.as_str()
+            )));
+        }
+        let stationary = stationary_payload_path
+            .or(contextual_stationary_payload_path)
+            .ok_or_else(|| {
+                PocError::Integrity(format!(
+                    "real operation {} reached {} without an exact stationary payload path",
+                    binding.durable_boundary,
+                    point.as_str()
+                ))
+            })?;
+        if stationary.as_os_str().is_empty() || !stationary.is_dir() {
             return Err(PocError::Integrity(format!(
                 "real operation {} lost its stationary payload before {}",
                 binding.durable_boundary,
                 point.as_str()
             )));
         }
-        let operation_state_parent_synced = sync_operation_state_parents(&durable_state_paths)?;
+        let stationary = stationary.to_path_buf();
         let marker_path = std::env::var_os(PHYSICAL_ARMED_PATH_ENV)
             .map(PathBuf::from)
             .ok_or_else(|| {
@@ -350,7 +743,6 @@ pub fn reach_real_operation(
                 )
             })?;
         let witness_path = marker_path.with_file_name("real-operation.json");
-        let stationary = stationary_payload_path.map(Path::to_path_buf);
         replace_json(
             &witness_path,
             &RealOperationWitness {
@@ -362,9 +754,11 @@ pub fn reach_real_operation(
                 durable_boundary: binding.durable_boundary.to_owned(),
                 operation_id: operation_id.clone(),
                 durable_state_paths,
-                operation_state_parent_synced,
-                stationary_payload_path_before: stationary.clone(),
-                stationary_payload_path_after: stationary,
+                // The fault hook is observational.  It must never upgrade the
+                // durability of the operation it is about to interrupt.
+                operation_state_parent_synced: false,
+                stationary_payload_path_before: Some(stationary.clone()),
+                stationary_payload_path_after: Some(stationary),
                 payload_bytes_moved: 0,
                 payload_bytes_copied: 0,
                 recorded_unix_ms: unix_time_ms()?,
@@ -372,26 +766,6 @@ pub fn reach_real_operation(
         )?;
     }
     faults.reach(point, 1, post_sealing)
-}
-
-fn sync_operation_state_parents(paths: &[PathBuf]) -> PocResult<bool> {
-    let mut parents = std::collections::BTreeSet::new();
-    for path in paths {
-        let parent = path.parent().ok_or_else(|| {
-            PocError::Integrity(format!(
-                "real-operation durable state has no parent: {}",
-                path.display()
-            ))
-        })?;
-        parents.insert(parent.to_path_buf());
-    }
-    for parent in parents {
-        std::fs::File::open(&parent)
-            .map_err(|error| PocError::io("open real-operation state parent", &parent, error))?
-            .sync_all()
-            .map_err(|error| PocError::io("fsync real-operation state parent", &parent, error))?;
-    }
-    Ok(true)
 }
 
 fn operation_binding(point: NamedFaultPoint) -> PocResult<FaultOperationBinding> {
@@ -470,6 +844,19 @@ impl PublicationRecovery {
 
     pub fn prepare(&self, request: &RecoveryRequest) -> PocResult<RecoverySnapshot> {
         validate_request(request)?;
+        #[cfg(target_os = "linux")]
+        {
+            let pinned =
+                PinnedRecoveryAllocation::open(&request.allocation_root, &request.allocation_id)?;
+            pinned.require_identity(request.allocation_identity)?;
+            pinned.verify_named_authority()?;
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            return Err(PocError::Unsupported(
+                "publication recovery preparation requires Linux descriptor authority".to_owned(),
+            ));
+        }
         let operation_dir = self.prepare_operation(request.operation_id.as_str())?;
         let _lock = FileLock::exclusive(&operation_dir.join("LOCK"))?;
         let request_sha256 = digest_json(request)?;
@@ -532,100 +919,35 @@ impl PublicationRecovery {
             ));
         }
 
-        let owner = current_owner(&record.request.allocation_root)?;
-        match &owner.subject {
-            OwnerSubject::PayloadOwned { publication_id }
-                if owner.allocation_id == record.request.allocation_id
-                    && owner.owner_epoch == record.request.owner_epoch
-                    && owner.operation_id == record.request.operation_id
-                    && *publication_id == record.request.publication_id => {}
-            OwnerSubject::WorkspaceOwned { .. } | OwnerSubject::OwnerTransitionIntent { .. } => {
-                return Ok(RecoveryOutcome::AwaitingOwnerTransition {
-                    phase: record.phase,
-                    observed: owner.subject,
-                });
-            }
-            _ => {
-                return Err(PocError::RecoveryRequired(
-                    "recovery observed zero or multiple valid owners for the publication"
-                        .to_owned(),
-                ));
-            }
+        #[cfg(target_os = "linux")]
+        {
+            let pinned = PinnedRecoveryAllocation::open(
+                &record.request.allocation_root,
+                &record.request.allocation_id,
+            )?;
+            pinned.require_identity(record.request.allocation_identity)?;
+            pinned.verify_named_authority()?;
+            let anchored_root = pinned.anchored_root();
+            crate::owner::with_pinned_owner_directory(&anchored_root, &pinned.owner, || {
+                replay_pinned_publication(
+                    &state_path,
+                    &mut record,
+                    locator_store,
+                    ref_store,
+                    occ,
+                    faults,
+                    rebase,
+                    &pinned,
+                    &anchored_root,
+                )
+            })
         }
-
-        if let Some(receipt) = ref_store.recover_committed(
-            &record.request.branch,
-            operation_id.as_str(),
-            locator_store,
-        )? {
-            if receipt.value.publication_id != record.request.publication_id {
-                return Err(PocError::RecoveryRequired(
-                    "committed paired ref belongs to another publication".to_owned(),
-                ));
-            }
-            record.phase = DurableRecoveryPhase::PublicationCommitted;
-            record.committed_ref = Some(receipt.value.clone());
-            record.conflict = None;
-            persist_record(&state_path, &mut record)?;
-            return Ok(RecoveryOutcome::Committed(receipt));
-        }
-
-        if let Some(conflict) = record.conflict.clone() {
-            validate_conflict_owner(&record.request, &conflict)?;
-            return Ok(RecoveryOutcome::Conflict(conflict));
-        }
-        if let Some(committed) = record.committed_ref.clone() {
-            return Err(PocError::RecoveryRequired(format!(
-                "recovery state claims paired ref {} but durable head is absent",
-                committed.sequence
-            )));
-        }
-
-        advance_phase(&mut record, DurableRecoveryPhase::PayloadOwned)?;
-        persist_record(&state_path, &mut record)?;
-        validate_canonical_durability(&record.request.canonical)?;
-        advance_phase(&mut record, DurableRecoveryPhase::CanonicalDurable)?;
-        persist_record(&state_path, &mut record)?;
-
-        let locator = locator_store.install(&record.request.locator_delta, faults)?;
-        record.working_candidate.locator_generation = locator.generation;
-        advance_phase(&mut record, DurableRecoveryPhase::LocatorDurable)?;
-        persist_record(&state_path, &mut record)?;
-
-        let publication = OccPublication {
-            candidate: record.working_candidate.clone(),
-            canonical: record.request.canonical.clone(),
-            changed_paths: record.request.changed_paths.clone(),
-            conflict_allocation: ConflictAllocation {
-                allocation_root: record.request.allocation_root.clone(),
-                allocation_id: record.request.allocation_id.clone(),
-                owner_epoch: record.request.owner_epoch,
-                accounted_bytes: record.request.accounted_bytes,
-            },
-        };
-        match occ.publish(
-            &record.request.branch,
-            &publication,
-            locator_store,
-            ref_store,
-            faults,
-            rebase,
-        )? {
-            OccPublishOutcome::Committed { receipt, .. } => {
-                advance_phase(&mut record, DurableRecoveryPhase::RefCommitted)?;
-                record.committed_ref = Some(receipt.value.clone());
-                persist_record(&state_path, &mut record)?;
-                advance_phase(&mut record, DurableRecoveryPhase::PublicationCommitted)?;
-                persist_record(&state_path, &mut record)?;
-                Ok(RecoveryOutcome::Committed(receipt))
-            }
-            OccPublishOutcome::Conflict(conflict) => {
-                validate_conflict_owner(&record.request, &conflict)?;
-                record.phase = DurableRecoveryPhase::RetainedConflict;
-                record.conflict = Some(conflict.clone());
-                persist_record(&state_path, &mut record)?;
-                Ok(RecoveryOutcome::Conflict(conflict))
-            }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = (locator_store, ref_store, occ, faults, rebase);
+            Err(PocError::Unsupported(
+                "publication recovery replay requires Linux descriptor authority".to_owned(),
+            ))
         }
     }
 
@@ -642,6 +964,124 @@ impl PublicationRecovery {
         create_lock_file(&operation_dir.join("LOCK"))?;
         fsync_dir(&operation_dir)?;
         Ok(operation_dir)
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn replay_pinned_publication<F>(
+    state_path: &Path,
+    record: &mut DurableRecoveryRecord,
+    locator_store: &LocatorStore,
+    ref_store: &PairedRefStore,
+    occ: &BranchOcc,
+    faults: &mut NamedFaultInjector,
+    rebase: F,
+    pinned: &PinnedRecoveryAllocation,
+    anchored_root: &Path,
+) -> PocResult<RecoveryOutcome>
+where
+    F: FnMut(&LocatorRefCandidate, &PairedRefValue, &ChangedPathSet) -> PocResult<RebasedCanonical>,
+{
+    let owner = pinned_current_owner(pinned, anchored_root)?;
+    match &owner.subject {
+        OwnerSubject::PayloadOwned { publication_id }
+            if owner.allocation_id == record.request.allocation_id
+                && owner.owner_epoch == record.request.owner_epoch
+                && owner.operation_id == record.request.operation_id
+                && *publication_id == record.request.publication_id => {}
+        OwnerSubject::WorkspaceOwned { .. } | OwnerSubject::OwnerTransitionIntent { .. } => {
+            return Ok(RecoveryOutcome::AwaitingOwnerTransition {
+                phase: record.phase,
+                observed: owner.subject,
+            });
+        }
+        _ => {
+            return Err(PocError::RecoveryRequired(
+                "recovery observed zero or multiple valid owners for the publication".to_owned(),
+            ));
+        }
+    }
+
+    if let Some(receipt) = ref_store.recover_committed(
+        &record.request.branch,
+        record.request.operation_id.as_str(),
+        locator_store,
+    )? {
+        if receipt.value.publication_id != record.request.publication_id {
+            return Err(PocError::RecoveryRequired(
+                "committed paired ref belongs to another publication".to_owned(),
+            ));
+        }
+        pinned.verify_named_authority()?;
+        record.phase = DurableRecoveryPhase::PublicationCommitted;
+        record.committed_ref = Some(receipt.value.clone());
+        record.conflict = None;
+        persist_record(state_path, record)?;
+        return Ok(RecoveryOutcome::Committed(receipt));
+    }
+
+    if let Some(conflict) = record.conflict.clone() {
+        validate_conflict_owner(&record.request, &conflict, pinned, anchored_root)?;
+        pinned.verify_named_authority()?;
+        return Ok(RecoveryOutcome::Conflict(conflict));
+    }
+    if let Some(committed) = record.committed_ref.clone() {
+        return Err(PocError::RecoveryRequired(format!(
+            "recovery state claims paired ref {} but durable head is absent",
+            committed.sequence
+        )));
+    }
+
+    pinned.verify_named_authority()?;
+    advance_phase(record, DurableRecoveryPhase::PayloadOwned)?;
+    persist_record(state_path, record)?;
+    validate_canonical_durability(&record.request.canonical)?;
+    advance_phase(record, DurableRecoveryPhase::CanonicalDurable)?;
+    persist_record(state_path, record)?;
+
+    pinned.verify_named_authority()?;
+    let locator = locator_store.install(&record.request.locator_delta, faults)?;
+    record.working_candidate.locator_generation = locator.generation;
+    advance_phase(record, DurableRecoveryPhase::LocatorDurable)?;
+    persist_record(state_path, record)?;
+
+    pinned.verify_named_authority()?;
+    let publication = OccPublication {
+        candidate: record.working_candidate.clone(),
+        canonical: record.request.canonical.clone(),
+        changed_paths: record.request.changed_paths.clone(),
+        conflict_allocation: ConflictAllocation {
+            allocation_root: anchored_root.to_path_buf(),
+            allocation_id: record.request.allocation_id.clone(),
+            owner_epoch: record.request.owner_epoch,
+            accounted_bytes: record.request.accounted_bytes,
+        },
+    };
+    let outcome = occ.publish(
+        &record.request.branch,
+        &publication,
+        locator_store,
+        ref_store,
+        faults,
+        rebase,
+    )?;
+    pinned.verify_named_authority()?;
+    match outcome {
+        OccPublishOutcome::Committed { receipt, .. } => {
+            advance_phase(record, DurableRecoveryPhase::RefCommitted)?;
+            record.committed_ref = Some(receipt.value.clone());
+            persist_record(state_path, record)?;
+            advance_phase(record, DurableRecoveryPhase::PublicationCommitted)?;
+            persist_record(state_path, record)?;
+            Ok(RecoveryOutcome::Committed(receipt))
+        }
+        OccPublishOutcome::Conflict(conflict) => {
+            validate_conflict_owner(&record.request, &conflict, pinned, anchored_root)?;
+            record.phase = DurableRecoveryPhase::RetainedConflict;
+            record.conflict = Some(conflict.clone());
+            persist_record(state_path, record)?;
+            Ok(RecoveryOutcome::Conflict(conflict))
+        }
     }
 }
 
@@ -856,14 +1296,22 @@ fn crash_observation_failures(observation: &CrashRecoveryObservation) -> Vec<Str
                     || witness.durable_boundary != binding.durable_boundary
                     || witness.operation_id != observation.operation_id
                     || witness.durable_state_paths.is_empty()
-                    || !witness.operation_state_parent_synced
+                    || witness.operation_state_parent_synced
                 {
                     failures.push(
-                        "real-operation witness does not match the exact durable boundary"
+                        "real-operation witness does not match the exact observational boundary"
                             .to_owned(),
                     );
                 }
-                if witness.stationary_payload_path_before != witness.stationary_payload_path_after
+                let stationary_payload_is_exact = matches!(
+                    (
+                        witness.stationary_payload_path_before.as_ref(),
+                        witness.stationary_payload_path_after.as_ref(),
+                    ),
+                    (Some(before), Some(after))
+                        if !before.as_os_str().is_empty() && before == after
+                );
+                if !stationary_payload_is_exact
                     || witness.payload_bytes_moved != 0
                     || witness.payload_bytes_copied != 0
                 {
@@ -1044,6 +1492,10 @@ fn validate_request(request: &RecoveryRequest) -> PocResult<()> {
         || request.publication_id != request.locator_delta.publication_id
         || request.owner_epoch == 0
         || request.accounted_bytes == 0
+        || request.allocation_identity.allocation_device == 0
+        || request.allocation_identity.allocation_inode == 0
+        || request.allocation_identity.owner_device == 0
+        || request.allocation_identity.owner_inode == 0
     {
         return Err(PocError::Integrity(
             "publication recovery identities or ownership accounting disagree".to_owned(),
@@ -1104,9 +1556,29 @@ fn validate_canonical_durability(receipt: &CanonicalDurabilityReceipt) -> PocRes
         })
 }
 
+#[cfg(target_os = "linux")]
+fn pinned_current_owner(
+    pinned: &PinnedRecoveryAllocation,
+    allocation_root: &Path,
+) -> PocResult<crate::OwnerGeneration> {
+    pinned.verify_named_authority()?;
+    let _owner_lock = FileLock::exclusive(&owner_lock_path(allocation_root))?;
+    pinned.verify_named_authority()?;
+    let owner = current_owner_locked(allocation_root)?.ok_or_else(|| {
+        PocError::RecoveryRequired(
+            "recovery observed no selected owner for the publication".to_owned(),
+        )
+    })?;
+    pinned.verify_named_authority()?;
+    Ok(owner)
+}
+
+#[cfg(target_os = "linux")]
 fn validate_conflict_owner(
     request: &RecoveryRequest,
     conflict: &RetainedOverlapConflict,
+    pinned: &PinnedRecoveryAllocation,
+    allocation_root: &Path,
 ) -> PocResult<()> {
     if conflict.operation_id != request.operation_id
         || conflict.publication_id != request.publication_id
@@ -1118,7 +1590,7 @@ fn validate_conflict_owner(
             "recovered conflict does not retain the exact publication allocation".to_owned(),
         ));
     }
-    let owner = current_owner(&request.allocation_root)?;
+    let owner = pinned_current_owner(pinned, allocation_root)?;
     if owner.allocation_id != request.allocation_id
         || owner.owner_epoch != request.owner_epoch
         || owner.operation_id != request.operation_id

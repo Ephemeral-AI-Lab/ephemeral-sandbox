@@ -42,8 +42,9 @@ pub mod state;
 pub mod storage_admin;
 
 pub use activation::{
-    inherit_projection_root_metadata, ActivatedSession, ActivationBinding, ActivationReceipt,
-    ExactActivationRequest,
+    inherit_projection_root_metadata, recover_exact_activation, ActivatedSession,
+    ActivationBinding, ActivationReceipt, ActivationRecoveryDisposition, ActivationRecoveryReceipt,
+    AllocationPhysicalIdentity, ExactActivationRequest,
 };
 pub use config::PocConfig;
 pub use controls::{
@@ -77,6 +78,7 @@ pub use id::{
     PublicationId, RefSequence, RootId, RunId, SessionId,
 };
 pub use inventory::{AllocationInventory, InventoryEntry, InventoryEntryKind};
+pub use lease::TerminalLeaseFenceWitness;
 pub use m1_contract::{
     AttributionInput, CanonicalDurabilityReceipt, CanonicalRootPair, LocatorDurabilityReceipt,
     LocatorRefCandidate, PairedRefValue, SemanticBuildReceipt, SemanticBuildRequest,
@@ -124,7 +126,12 @@ pub use report::{
 pub use resources::{
     AdmissionController, AdmissionGuard, AdmissionReceipt, AdmissionTier, ResourceSnapshot,
 };
-pub use session::{prepare_external_session, MplaSession, PreparedExternalSession, SessionRecord};
+pub use semantic::SemanticResourceMaxima;
+pub use session::{
+    prepare_external_session, recover_session_seal, MplaSession, PreparedExternalSession,
+    SessionRecord, SessionSealCleanupWitness, SessionSealRecoveryDisposition,
+    SessionSealRecoveryReceipt, SessionSealRecoveryRequest,
+};
 pub use state::{OwnerGeneration, OwnerSubject, PublicationPhase, SessionPhase};
 
 pub const INTERFACE_VERSION: &str = "m2r-iface-v1";

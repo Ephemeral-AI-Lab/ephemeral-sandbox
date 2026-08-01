@@ -3,7 +3,7 @@ use std::fs::File;
 use std::os::unix::fs::FileExt;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc::sync_channel;
+use std::sync::{mpsc::sync_channel, OnceLock};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use rustix::fs::Advice;
@@ -37,6 +37,8 @@ struct ChunkBatch {
     bytes_read: u64,
     chunks: Vec<ChunkDigest>,
 }
+
+static ZERO_WINDOW_SHA256: OnceLock<[u8; 32]> = OnceLock::new();
 
 pub(super) fn scan_regular(
     path: &Path,
@@ -338,14 +340,11 @@ fn read_data_extent(
             let record_offset = offset
                 .checked_add(u64::try_from(chunk_offset).unwrap_or(u64::MAX))
                 .ok_or_else(|| PocError::Integrity("semantic chunk offset overflow".to_owned()))?;
-            let mut chunk = Sha256::new();
-            chunk.update(b"mpla-poc-semantic-v1/chunk-bytes\0");
-            chunk.update(&buffer[chunk_offset..chunk_end]);
             emit(
                 record_offset,
                 u32::try_from(chunk_length)
                     .map_err(|_| PocError::Integrity("semantic chunk exceeds u32".to_owned()))?,
-                chunk.finalize().into(),
+                semantic_chunk_sha256(&buffer[chunk_offset..chunk_end]),
             )?;
             chunk_offset = chunk_end;
         }
@@ -354,6 +353,20 @@ fn read_data_extent(
             .ok_or_else(|| PocError::Integrity("semantic chunk offset overflow".to_owned()))?;
     }
     Ok(end - start)
+}
+
+fn semantic_chunk_sha256(bytes: &[u8]) -> [u8; 32] {
+    if bytes.len() == SEMANTIC_SCAN_WINDOW_BYTES && bytes.iter().all(|byte| *byte == 0) {
+        return *ZERO_WINDOW_SHA256.get_or_init(|| hash_semantic_chunk(bytes));
+    }
+    hash_semantic_chunk(bytes)
+}
+
+fn hash_semantic_chunk(bytes: &[u8]) -> [u8; 32] {
+    let mut chunk = Sha256::new();
+    chunk.update(b"mpla-poc-semantic-v1/chunk-bytes\0");
+    chunk.update(bytes);
+    chunk.finalize().into()
 }
 
 fn read_data_extent_parallel(
@@ -523,4 +536,27 @@ fn read_chunk_batch(
 fn advise_dont_need(_file: &File, _logical_size: u64) {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     let _ = rustix::fs::fadvise(_file, 0, _logical_size, Advice::DontNeed);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn zero_window_fast_path_matches_full_domain_separated_hash() {
+        let zeroes = vec![0_u8; SEMANTIC_SCAN_WINDOW_BYTES];
+        assert_eq!(semantic_chunk_sha256(&zeroes), hash_semantic_chunk(&zeroes));
+    }
+
+    #[test]
+    fn nonzero_and_partial_windows_remain_fully_hashed() {
+        let mut nonzero = vec![0_u8; SEMANTIC_SCAN_WINDOW_BYTES];
+        nonzero[SEMANTIC_SCAN_WINDOW_BYTES / 2] = 1;
+        let partial = &nonzero[..SEMANTIC_SCAN_WINDOW_BYTES - 1];
+        assert_eq!(
+            semantic_chunk_sha256(&nonzero),
+            hash_semantic_chunk(&nonzero)
+        );
+        assert_eq!(semantic_chunk_sha256(partial), hash_semantic_chunk(partial));
+    }
 }

@@ -325,8 +325,9 @@ fn batched_native_file_cache_is_content_addressed_and_readable_after_commit(
     let file_node = FileNodeId::new(Digest32::new([0x5a; 32]));
     let store = LooseObjectStore::new_commit_batch(root.path().to_path_buf())?;
 
-    let installed =
-        store.install_native_file(file_node, &source, u64::try_from(expected.len())?)?;
+    let installed = store
+        .install_native_file(file_node, &source, u64::try_from(expected.len())?)?
+        .ok_or("test filesystem does not support native cache reflinks")?;
     assert_eq!(
         installed,
         root.path()
@@ -354,8 +355,9 @@ fn malformed_native_file_cache_fails_closed() -> Result<(), Box<dyn std::error::
     std::fs::write(&source, expected)?;
     let file_node = FileNodeId::new(Digest32::new([0xa5; 32]));
     let store = LooseObjectStore::new_commit_batch(root.path().to_path_buf())?;
-    let installed =
-        store.install_native_file(file_node, &source, u64::try_from(expected.len())?)?;
+    let installed = store
+        .install_native_file(file_node, &source, u64::try_from(expected.len())?)?
+        .ok_or("test filesystem does not support native cache reflinks")?;
     store.commit_batch()?;
     std::fs::write(&installed, b"partial")?;
 

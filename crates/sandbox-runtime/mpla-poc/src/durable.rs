@@ -1,5 +1,6 @@
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -100,16 +101,32 @@ impl FileLock {
         Self::acquire(path, false, lock_shared)
     }
 
+    pub(crate) fn try_shared(path: &Path) -> PocResult<Self> {
+        Self::acquire(path, false, try_lock_shared)
+    }
+
     fn acquire(
         path: &Path,
         writable: bool,
         lock: fn(&File) -> std::io::Result<()>,
     ) -> PocResult<Self> {
         let mut options = OpenOptions::new();
-        options.read(true).write(writable);
+        options
+            .read(true)
+            .write(writable)
+            .custom_flags(libc::O_NOFOLLOW);
         let file = options
             .open(path)
             .map_err(|source| PocError::io("open allocation lock", path, source))?;
+        let metadata = file
+            .metadata()
+            .map_err(|source| PocError::io("stat allocation lock", path, source))?;
+        if !metadata.is_file() {
+            return Err(PocError::Integrity(format!(
+                "allocation lock is not a regular file: {}",
+                path.display()
+            )));
+        }
         lock(&file).map_err(|source| PocError::io("lock allocation", path, source))?;
         Ok(Self { _file: file })
     }
@@ -475,6 +492,24 @@ fn lock_shared(file: &File) -> std::io::Result<()> {
 
 #[cfg(not(unix))]
 fn lock_shared(_file: &File) -> std::io::Result<()> {
+    Ok(())
+}
+
+#[cfg(unix)]
+fn try_lock_shared(file: &File) -> std::io::Result<()> {
+    use std::os::fd::AsRawFd;
+
+    // SAFETY: flock only reads the valid descriptor borrowed from `file`.
+    let result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_SH | libc::LOCK_NB) };
+    if result == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
+}
+
+#[cfg(not(unix))]
+fn try_lock_shared(_file: &File) -> std::io::Result<()> {
     Ok(())
 }
 

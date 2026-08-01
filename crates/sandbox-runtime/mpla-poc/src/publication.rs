@@ -6,8 +6,8 @@ use crate::fault::{FaultInjector, FaultPoint};
 use crate::quiesce::{QuiescenceReceipt, ReceiptHitSealInput, SealedAllocation};
 use crate::session::MplaSession;
 use crate::{
-    durable, lease, owner, AdoptionReceipt, AllocationId, OperationId, OwnerTransitionRequest,
-    PocError, PocResult, PublicationId, PublicationPhase, StableAllocationReceipt, SCHEMA_VERSION,
+    durable, AdoptionReceipt, AllocationId, OperationId, OwnerTransitionRequest, PocError,
+    PocResult, PublicationId, PublicationPhase, StableAllocationReceipt, SCHEMA_VERSION,
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -199,14 +199,11 @@ fn finalize_stationary_adoption(
     )?;
     faults.hit(FaultPoint::AfterOwnerIntent, true)?;
 
-    let adoption = owner::compare_and_adopt(
-        &session.allocation().allocation_root,
-        &stable,
-        &owner_request,
-    )
-    .inspect_err(|_error| {
-        let _ = session.mark_recovery_required();
-    })?;
+    let adoption = session
+        .compare_and_adopt_after_intent(&stable, &owner_request, || Ok(()))
+        .inspect_err(|_error| {
+            let _ = session.mark_recovery_required();
+        })?;
     faults.hit(FaultPoint::AfterOwnerAdoption, true)?;
     persist_operation(
         operation_dir,
@@ -216,16 +213,11 @@ fn finalize_stationary_adoption(
         Some(stable_inventory_sha256),
     )?;
 
-    let stale_writer_rejected = lease::validate_writer(
-        &session.allocation().allocation_root,
-        &session.mutable_lease().writer,
-    )
-    .is_err();
-    let stale_deleter_rejected = lease::validate_deleter(
-        &session.allocation().allocation_root,
-        &session.mutable_lease().deleter,
-    )
-    .is_err();
+    let (stale_writer_rejected, stale_deleter_rejected) = session
+        .stale_capabilities_rejected()
+        .inspect_err(|_error| {
+            let _ = session.mark_recovery_required();
+        })?;
     if !stale_writer_rejected || !stale_deleter_rejected {
         let _ = session.mark_recovery_required();
         return Err(PocError::Integrity(

@@ -4,7 +4,8 @@ use std::path::PathBuf;
 use sandbox_runtime_mpla_poc::{
     AllocationHandle, AllocationId, CanonicalRootPair, ExactProjectionReceipt,
     ExternalStationaryPublicationReceipt, MutableLease, OperationId, PairedRefValue,
-    PreparedExternalSession, RunId, SemanticBuildReceipt,
+    PreparedExternalSession, RunId, SemanticBuildReceipt, SemanticResourceMaxima,
+    StorageAdminScope,
 };
 use sandbox_runtime_namespace_execution::NamespaceExecutionId;
 
@@ -114,6 +115,7 @@ pub struct PublishWorkspaceSessionResult {
     pub workspace_session_id: WorkspaceSessionId,
     pub publish: WorkspaceSessionPublishDetails,
     pub evicted_upperdir_bytes: u64,
+    pub matched_publication_span: sandbox_runtime_mpla_poc::MonotonicSpan,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -188,8 +190,10 @@ pub struct RollbackMplaWorkspaceSessionResult {
     pub branch: String,
     pub target_branch: String,
     pub projection: ExactProjectionReceipt,
+    pub timings: MplaActivationTimings,
     pub lifecycle: MplaLifecycleReceipt,
     pub service_elapsed_ns: u64,
+    pub(crate) storage_admin_scope: StorageAdminScope,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -201,6 +205,7 @@ pub struct PublishMplaWorkspaceSessionResult {
     pub affected_path_count: u64,
     pub roots: CanonicalRootPair,
     pub semantic: Option<SemanticBuildReceipt>,
+    pub semantic_resource_maxima: Option<SemanticResourceMaxima>,
     pub stationary: Option<ExternalStationaryPublicationReceipt>,
     pub affected_payload_bytes_read: u64,
     pub affected_input_bytes: u64,
@@ -243,6 +248,8 @@ pub struct PublishMplaWorkspaceSessionResult {
 pub struct SquashMplaBranchResult {
     pub run_id: String,
     pub branch: String,
+    pub roots: CanonicalRootPair,
+    pub ref_sequence: u64,
     pub lifecycle: MplaLifecycleReceipt,
     pub service_elapsed_ns: u64,
 }

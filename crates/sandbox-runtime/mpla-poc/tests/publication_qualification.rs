@@ -1,7 +1,7 @@
 use sandbox_runtime_mpla_poc::publication_qualification::{
     publication_is_fresh, qualify_publication_timings, validate_candidate_matched_boundary,
     validate_matched_control_boundary, MatchedPublicationReceipt, PublicationCandidateTiming,
-    REQUIRED_PUBLICATION_NS,
+    MATCHED_CONTROL_IMPLEMENTATION, MATCHED_CONTROL_OPERATION, REQUIRED_PUBLICATION_NS,
 };
 use sandbox_runtime_mpla_poc::{
     CatalogCoverageReceipt, ControlApiCoverage, ControlBoundary, ControlCacheMatch, ControlIntent,
@@ -45,14 +45,14 @@ fn candidate(
 fn matched_control(elapsed_ns: u64) -> ControlOperationReceipt {
     ControlOperationReceipt {
         schema_version: 1,
-        implementation: "current_i2_layerstack".to_owned(),
+        implementation: MATCHED_CONTROL_IMPLEMENTATION.to_owned(),
         intent: ControlIntent::ClosingPublication,
         catalog_binding_id: "catalog-binding".to_owned(),
         coverage: CatalogCoverageReceipt {
             classification: ControlApiCoverage::PublicIntentProgrammaticCurrentI2,
-            product_operation: "publish_workspace_session".to_owned(),
+            product_operation: MATCHED_CONTROL_OPERATION.to_owned(),
             product_operation_present: true,
-            direct_control_api: "LayerStack::publish_hidden_validation".to_owned(),
+            direct_control_api: MATCHED_CONTROL_OPERATION.to_owned(),
         },
         boundary: ControlBoundary {
             candidate_start: MATCHED_PUBLICATION_START_BOUNDARY.to_owned(),
@@ -254,6 +254,44 @@ fn matched_control_receipt_rejects_unknown_or_nonpublication_outcomes() {
     let mut unmatched = valid;
     unmatched.publication.as_mut().expect("publication").matched = false;
     assert!(validate_matched_control_boundary(&unmatched).is_err());
+}
+
+#[test]
+fn matched_control_receipt_requires_the_public_product_operation() {
+    let valid = matched_control(10);
+
+    let mut wrong_implementation = valid.clone();
+    wrong_implementation.implementation = "current_i2_layerstack".to_owned();
+    assert!(validate_matched_control_boundary(&wrong_implementation).is_err());
+
+    let mut hidden_api = valid.clone();
+    hidden_api.coverage.direct_control_api = "LayerStack::publish_hidden_validation".to_owned();
+    assert!(validate_matched_control_boundary(&hidden_api).is_err());
+
+    let mut missing_operation = valid.clone();
+    missing_operation.coverage.product_operation_present = false;
+    assert!(validate_matched_control_boundary(&missing_operation).is_err());
+
+    let mut wrong_classification = valid.clone();
+    wrong_classification.coverage.classification = ControlApiCoverage::ProgrammaticCurrentControl;
+    assert!(validate_matched_control_boundary(&wrong_classification).is_err());
+
+    let mut empty_correlation = valid.clone();
+    empty_correlation
+        .publication
+        .as_mut()
+        .expect("publication")
+        .correlation_id
+        .clear();
+    assert!(validate_matched_control_boundary(&empty_correlation).is_err());
+
+    let mut generation_zero = valid;
+    generation_zero
+        .publication
+        .as_mut()
+        .expect("publication")
+        .candidate_generation = 0;
+    assert!(validate_matched_control_boundary(&generation_zero).is_err());
 }
 
 #[test]

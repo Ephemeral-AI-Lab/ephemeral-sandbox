@@ -24,11 +24,11 @@ fn only_frozen_benchmark_commands_receive_the_qualification_profile() {
     let fork = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case fork --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
     let rollback = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case rollback --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
     let squash = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case squash --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
-    let publication = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
+    let publication = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --control-sandbox-id eos-control-1 --control-sandbox-id eos-control-2 --control-sandbox-id eos-control-3";
     let stream = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case stream --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
     let recovery = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case recovery --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
-    let fixture_publication = format!("/eos/mpla-fixtures/{PREPARED_FIXTURE_PROFILE}/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567");
-    let staged_publication = "/workspace/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
+    let fixture_publication = format!("/eos/mpla-fixtures/{PREPARED_FIXTURE_PROFILE}/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --control-sandbox-id eos-control-1 --control-sandbox-id eos-control-2 --control-sandbox-id eos-control-3");
+    let staged_publication = "/workspace/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --control-sandbox-id eos-control-1 --control-sandbox-id eos-control-2 --control-sandbox-id eos-control-3";
     let staged_preparation = format!("/workspace/_campaign-tools/mpla-speed-poc-v1 prepare-publication-fixture --run-id run-1 --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --fixture-profile {PREPARED_FIXTURE_PROFILE}");
     let staged_activation_preparation = "/workspace/_campaign-tools/mpla-speed-poc-v1 prepare-lifecycle-control --run-id run-1 --phase activation --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
     let staged_fork_preparation = "/workspace/_campaign-tools/mpla-speed-poc-v1 prepare-lifecycle-control --run-id run-1 --phase fork --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
@@ -86,6 +86,15 @@ fn shell_suffixes_and_contract_drift_are_not_privileged() {
     let traversal = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 authority-probe --probe-root /eos/workspace/mpla-poc/authority/../escape";
     let wrong_case = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case other --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
     let retired_lifecycle_case = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case lifecycle --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
+    let legacy_publication = "/workspace/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
+    let publication_with_one_control = "/workspace/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --control-sandbox-id eos-control-1";
+    let publication_with_two_controls = "/workspace/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --control-sandbox-id eos-control-1 --control-sandbox-id eos-control-2";
+    let publication_with_four_controls = "/workspace/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --control-sandbox-id eos-control-1 --control-sandbox-id eos-control-2 --control-sandbox-id eos-control-3 --control-sandbox-id eos-control-4";
+    let publication_with_duplicate_control = "/workspace/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --control-sandbox-id eos-control-1 --control-sandbox-id eos-control-1 --control-sandbox-id eos-control-3";
+    let publication_with_candidate_control = "/workspace/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --control-sandbox-id eos-control-1 --control-sandbox-id eos-candidate-1 --control-sandbox-id eos-control-3";
+    let publication_with_malformed_control = "/workspace/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --control-sandbox-id eos-control/1 --control-sandbox-id eos-control-2 --control-sandbox-id eos-control-3";
+    let publication_with_reordered_controls = "/workspace/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --control-sandbox-id eos-control-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --control-sandbox-id eos-control-2 --control-sandbox-id eos-control-3";
+    let activation_with_controls = "/workspace/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case activation --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --control-sandbox-id eos-control-1 --control-sandbox-id eos-control-2 --control-sandbox-id eos-control-3";
     let extra_scorecard_arg = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 scorecard-case --run-id run-1 --case lifecycle --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --token secret";
     let preparation_with_case = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 prepare-publication-fixture --run-id run-1 --case publication --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567 --fixture-profile s4-chain-v5";
     let preparation_without_profile = "/eos/layer-stack/base/B000001-base/_campaign-tools/mpla-speed-poc-v1 prepare-publication-fixture --run-id run-1 --candidate-sandbox-id eos-candidate-1 --build-commit 0123456789abcdef0123456789abcdef01234567";
@@ -103,6 +112,15 @@ fn shell_suffixes_and_contract_drift_are_not_privileged() {
         traversal,
         wrong_case,
         retired_lifecycle_case,
+        legacy_publication,
+        publication_with_one_control,
+        publication_with_two_controls,
+        publication_with_four_controls,
+        publication_with_duplicate_control,
+        publication_with_candidate_control,
+        publication_with_malformed_control,
+        publication_with_reordered_controls,
+        activation_with_controls,
         extra_scorecard_arg,
         preparation_with_case,
         preparation_without_profile,

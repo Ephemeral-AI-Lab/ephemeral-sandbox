@@ -29,7 +29,7 @@ IMAGE = (
     "4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90"
 )
 GATEWAY_SOCKET = "127.0.0.1:7903"
-BUILD_COMMIT = "11f793ad96754e612ca6615835c11d78cf443a83"
+BUILD_COMMIT = "ac5c0686807ab40ee7e4ef3ff0f8488b66292221"
 M3_SCORECARD_CONFIG = REPO / "config/mpla-poc-m3-phase-profile-sparse-v1.yml"
 STAGED_COORDINATOR_PATH = "/workspace/_campaign-tools/mpla-speed-poc-v1"
 PREPARED_FIXTURE_PROFILE = "s4-chain-sparse-v1"
@@ -122,6 +122,7 @@ CASE_PROGRESS_FILES = {
     "rollback": "scorecard-rollback-progress.jsonl",
     "publication": "scorecard-publication-progress.jsonl",
     "squash": "scorecard-squash-progress.jsonl",
+    "stream": "scorecard-stream-progress.jsonl",
 }
 APPROVED_STORAGE_ADMIN_PROFILES = (
     "mpla-storage-admin-v1",
@@ -149,20 +150,131 @@ CASE_SUGGESTED_BUDGET_SECONDS = {
     "recovery": 60,
     "sealing": 30,
 }
+HV07_FAULT_POINTS = (
+    "fence_before_close",
+    "fence_after_close",
+    "fence_after_drain",
+    "sealing_before_write",
+    "sealing_after_file_fsync",
+    "sealing_after_dir_fsync",
+    "quiesce_before_stop",
+    "quiesce_after_reap",
+    "quiesce_after_fd_audit",
+    "unmount_before_strict",
+    "unmount_after_strict",
+    "flush_before_syncfs",
+    "flush_after_syncfs",
+    "inventory_after_first",
+    "inventory_after_stable_second",
+    "owner_before_intent",
+    "owner_after_intent_fsync",
+    "owner_before_compare",
+    "owner_after_generation_fsync",
+    "owner_after_journal_commit",
+    "owner_after_selector_rename",
+    "owner_after_selector_dir_fsync",
+    "owner_before_receipt",
+    "owner_after_receipt_dir_fsync",
+    "canonical_before_install",
+    "canonical_after_object_fsync",
+    "canonical_after_object_dir_fsync",
+    "canonical_after_root_manifest_fsync",
+    "locator_after_forward",
+    "locator_after_reverse",
+    "locator_after_manifest_fsync",
+    "locator_after_selector_rename",
+    "locator_after_selector_dir_fsync",
+    "ref_before_temp",
+    "ref_after_temp_fsync",
+    "ref_after_replace",
+    "ref_after_parent_fsync",
+    "response_loss_publish",
+    "response_loss_activate",
+    "response_loss_rollback",
+    "activate_after_ref_select",
+    "activate_after_locator_pin",
+    "activate_after_fresh_owner",
+    "activate_after_mount",
+    "activate_after_ready",
+    "activate_after_binding_fsync",
+)
+HV07_REQUIRED_POINT_ASSERTIONS = (
+    "exact_fixture_bytes",
+    "physical_attempt_passed",
+    "durable_stop_then_sigkill",
+    "same_operation_exact_replay",
+    "old_or_complete_new_visibility",
+    "no_failed_attempts_or_unclassified_debt",
+    "case_hard_stop",
+)
+HV07_OLD_VISIBILITY_POINTS = frozenset(
+    (
+        "fence_before_close",
+        "fence_after_close",
+        "fence_after_drain",
+        "sealing_before_write",
+        "sealing_after_file_fsync",
+        "activate_after_ref_select",
+        "activate_after_locator_pin",
+        "activate_after_fresh_owner",
+        "activate_after_mount",
+        "activate_after_ready",
+    )
+)
+HV07_EXPECTED_VISIBILITY = {
+    point: "old" if point in HV07_OLD_VISIBILITY_POINTS else "complete_new"
+    for point in HV07_FAULT_POINTS
+}
 SETUP_OPERATION_DEADLINE_SECONDS = 120
 LIFECYCLE_CONTROL_PREPARATION_DEADLINE_SECONDS = 120
 PUBLICATION_PREPARATION_DEADLINE_SECONDS = 5
+PUBLICATION_CONTROL_PREPARATION_DEADLINE_SECONDS = 120
 WARM_ATTACHMENT_SERVICE_TARGET_NS = 50_000_000
 WARM_FIXTURE_PREPARATION_TARGET_NS = 1_000_000_000
+SQUASH_OUTER_TARGET_NS = 10_000_000
+SQUASH_SERVICE_TARGET_NS = 1_000_000
+U64_MAX = (1 << 64) - 1
 PREPARED_FIXTURE_LOGICAL_BYTES = 8 * 1024 * 1024 * 1024
 PREPARED_FIXTURE_ALLOCATION_COUNT = 8
+PREPARED_FIXTURE_REF_RECORD_COUNT = 10
+STREAM_CHANGED_UPPER_BYTES = 1024 * 1024 * 1024
+STREAM_FILE_COUNT = 4
+STREAM_FILE_BYTES = STREAM_CHANGED_UPPER_BYTES // STREAM_FILE_COUNT
+STREAM_EXTENT_BYTES = 64 * 1024 * 1024
+STREAM_EXTENTS_PER_FILE = STREAM_FILE_BYTES // STREAM_EXTENT_BYTES
+STREAM_DISK_MARGIN_BYTES = (STREAM_CHANGED_UPPER_BYTES + 4) // 5
+STREAM_REQUIRED_FREE_BYTES = (
+    STREAM_CHANGED_UPPER_BYTES + STREAM_DISK_MARGIN_BYTES
+)
+STREAM_CAPACITY_RESERVATION_FILE = ".mpla-stream-capacity-margin"
+PUBLICATION_CONTROL_BASE_COUNT = 3
+PUBLICATION_CONTROL_BASE_LOGICAL_BYTES = 1024 * 1024 * 1024
+PUBLICATION_CONTROL_DELTA_FILE_COUNT = 10
+PUBLICATION_CONTROL_DELTA_LOGICAL_BYTES = 1024 * 1024
+PUBLICATION_CONTROL_BASE_SOURCE_MANIFEST_SHA256 = (
+    "7e8c0a26242671839f21c7f228696a981d6a0e50018d2140f7beef87df82ab0d"
+)
+PUBLICATION_CONTROL_DELTA_SOURCE_MANIFEST_SHA256 = (
+    "9755b23ced9873adb986a1234783a5f6c618145c31a185cde62ff6abf6ee2beb"
+)
+MATCHED_PUBLICATION_START_BOUNDARY = (
+    "immediately before closing publication admission"
+)
+MATCHED_PUBLICATION_STOP_BOUNDARY = "durable root and closed session"
+PREPARED_FIXTURE_CONTROL_SOURCE_BYTES = 1025 * 1024 * 1024
 PREPARED_FIXTURE_BRANCHES = [
     "fixture-depth-1",
     "fixture-depth-5",
     "fixture-depth-8",
 ]
+PREPARED_FIXTURE_RECOVERY_PATHS = {
+    "/eos/mpla-fixtures/s4-chain-sparse-v1/control-source",
+    "/eos/mpla-fixtures/s4-chain-sparse-v1/layer-stack/mpla-poc",
+    "/eos/mpla-fixtures/s4-chain-sparse-v1/workspace/mpla-poc",
+}
 COLD_CACHE_RECEIPT_FILE = "fixture-cache-construction.json"
 WARM_CACHE_RECEIPT_FILE = "fixture-cache-attachment.json"
+MUTABLE_COMMAND_REPORT = "crates/e2e-test/test-reports/TEST-REPORT.md"
 MAX_POLLS_PER_CASE = 60
 STARTUP_POLL_DELAYS_SECONDS = (1, 2, 4)
 STEADY_POLL_DELAY_SECONDS = 11
@@ -193,10 +305,124 @@ CASE_RESULT_KINDS = {
     "stream": "mpla_booster_stream_scorecard_v1",
     "recovery": "mpla_hv07_scorecard_result_v1",
 }
+HISTORICAL_INDIRECT_RAW_RESULT_CASES = frozenset(
+    {"qualification", "activation", "publication", "stream"}
+)
 
 
 class CampaignError(RuntimeError):
     pass
+
+
+def is_sha256(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def parse_utc_instant(value: Any, label: str) -> dt.datetime:
+    if not isinstance(value, str) or not value:
+        raise CampaignError(f"{label} is not a UTC timestamp")
+    try:
+        instant = dt.datetime.fromisoformat(value)
+    except (OverflowError, ValueError) as error:
+        raise CampaignError(f"{label} is not a UTC timestamp") from error
+    if instant.tzinfo is None or instant.utcoffset() != dt.timedelta(0):
+        raise CampaignError(f"{label} is not a UTC timestamp")
+    return instant
+
+
+def phase_result_gates(case: str, result: Any) -> dict[str, bool]:
+    if (
+        not isinstance(result, dict)
+        or type(result.get("schema_version")) is not int
+        or result["schema_version"] != 1
+        or result.get("kind") != CASE_RESULT_KINDS[case]
+    ):
+        raise CampaignError(f"{case} raw phase result schema is invalid")
+
+    def required(container: Any, gate: str) -> bool:
+        value = container.get("required") if isinstance(container, dict) else None
+        if type(value) is not bool:
+            raise CampaignError(f"{case} {gate} result is not an exact boolean")
+        return value
+
+    def preferred(container: Any, gate: str) -> None:
+        value = container.get("preferred") if isinstance(container, dict) else None
+        if type(value) is not bool:
+            raise CampaignError(
+                f"{case} {gate} preferred result is not an exact boolean"
+            )
+
+    if case in {"qualification", "recovery"}:
+        return {}
+    if case == "activation":
+        preferred(result.get("activate_exact_gate"), "BG-ACTIVATE-EXACT")
+        preferred(result.get("activate_same_gate"), "BG-ACTIVATE-SAME")
+        return {
+            "BG-ACTIVATE-EXACT": required(
+                result.get("activate_exact_gate"),
+                "BG-ACTIVATE-EXACT",
+            ),
+            "BG-ACTIVATE-SAME": required(
+                result.get("activate_same_gate"),
+                "BG-ACTIVATE-SAME",
+            ),
+        }
+    if case == "fork":
+        preferred(result.get("fork_gate"), "BG-FORK")
+        return {"BG-FORK": required(result.get("fork_gate"), "BG-FORK")}
+    if case == "rollback":
+        preferred(result.get("rollback_gate"), "BG-ROLLBACK")
+        return {
+            "BG-ROLLBACK": required(result.get("rollback_gate"), "BG-ROLLBACK")
+        }
+    if case == "publication":
+        preferred(result.get("gate"), "BG-PUBLISH-SMALL")
+        return {
+            "BG-PUBLISH-SMALL": required(
+                result.get("gate"),
+                "BG-PUBLISH-SMALL",
+            )
+        }
+    if case == "squash":
+        return {"AG-SQUASH": required(result.get("squash_gate"), "AG-SQUASH")}
+    if case == "stream":
+        preferred(result, "AG-STREAM")
+        return {"AG-STREAM": required(result, "AG-STREAM")}
+    raise CampaignError(f"unsupported phase root case: {case}")
+
+
+def expected_raw_result_binding(case: str) -> dict[str, Any]:
+    if case in HISTORICAL_INDIRECT_RAW_RESULT_CASES:
+        return {
+            "mode": "historical-indirect-kind-and-sealed-receipts",
+            "phase": case,
+            "runner": CASE_RUNNERS[case],
+            "result_kind": CASE_RESULT_KINDS[case],
+            "binding_receipts": [
+                "decision.json",
+                "environment.json",
+                "phase-declaration.json",
+                "phase-receipt.json",
+            ],
+            "limitation": (
+                "the historical raw-result schema omitted a complete explicit "
+                "phase/runner pair; binding is narrowed by its case-specific kind "
+                "and the sealed surrounding run/phase/runner receipts, without "
+                "rerunning or upgrading the historical phase claim"
+            ),
+        }
+    return {
+        "mode": "explicit-raw-phase-runner",
+        "phase": case,
+        "runner": CASE_RUNNERS[case],
+        "result_kind": CASE_RESULT_KINDS[case],
+        "binding_receipts": [],
+        "limitation": None,
+    }
 
 
 COMMON_SCORECARD_TOOL_SOURCE_INPUTS = (
@@ -268,12 +494,797 @@ def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def canonical_json_sha256(value: Any) -> str:
+    return sha256_bytes(
+        json.dumps(
+            value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+    )
+
+
+def reserve_dense_file(path: pathlib.Path, byte_count: int) -> dict[str, int]:
+    """Hold the P6 safety margin as allocated blocks until phase cleanup."""
+    if type(byte_count) is not int or byte_count <= 0:
+        raise CampaignError("capacity reservation byte count is invalid")
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        if hasattr(os, "posix_fallocate"):
+            os.posix_fallocate(descriptor, 0, byte_count)
+        else:
+            chunk = bytes(8 * 1024 * 1024)
+            remaining = byte_count
+            while remaining:
+                written = os.write(descriptor, chunk[: min(len(chunk), remaining)])
+                if written <= 0:
+                    raise CampaignError("capacity reservation write made no progress")
+                remaining -= written
+        os.fsync(descriptor)
+    except Exception:
+        os.close(descriptor)
+        path.unlink(missing_ok=True)
+        raise
+    else:
+        os.close(descriptor)
+    details = path.stat()
+    allocated_bytes = details.st_blocks * 512
+    if details.st_size != byte_count or allocated_bytes < byte_count:
+        path.unlink(missing_ok=True)
+        raise CampaignError(
+            "capacity reservation is sparse or incomplete: "
+            f"logical={details.st_size}; allocated={allocated_bytes}; "
+            f"required={byte_count}"
+        )
+    return {
+        "logical_bytes": details.st_size,
+        "allocated_bytes": allocated_bytes,
+    }
+
+
+def canonical_root_pair(value: Any) -> tuple[str, str] | None:
+    if not isinstance(value, dict) or set(value) != {
+        "root_id",
+        "attribution_root_id",
+    }:
+        return None
+    root_id = value.get("root_id")
+    attribution_root_id = value.get("attribution_root_id")
+    if any(
+        not isinstance(digest, str)
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+        for digest in (root_id, attribution_root_id)
+    ):
+        return None
+    return root_id, attribution_root_id
+
+
+def parse_selected_ref(
+    value: Any,
+    expected_branch: str,
+) -> tuple[int, str] | None:
+    if not isinstance(value, str):
+        return None
+    branch, at, revision = value.partition("@")
+    sequence_text, number, digest = revision.partition("#")
+    if (
+        at != "@"
+        or number != "#"
+        or branch != expected_branch
+        or not sequence_text.isascii()
+        or not sequence_text.isdigit()
+        or (
+            len(sequence_text) > 1
+            and sequence_text.startswith("0")
+        )
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+    ):
+        return None
+    sequence = int(sequence_text)
+    if sequence <= 0 or sequence > U64_MAX:
+        return None
+    return sequence, digest
+
+
+def validate_hv07_result(result: Any) -> list[str]:
+    failures: list[str] = []
+    if not isinstance(result, dict):
+        return ["HV-07 scorecard result is not an object"]
+    expected_count = len(HV07_FAULT_POINTS)
+    if (
+        result.get("fixture_logical_bytes") != 128 * 1024 * 1024
+        or result.get("acceptance_budget_seconds") != 60
+        or result.get("outer_watchdog_seconds") != 120
+        or result.get("outer_watchdog_pass") is not True
+        or not isinstance(result.get("campaign_elapsed_ns"), int)
+        or result.get("campaign_elapsed_ns", 120_000_000_001) > 120_000_000_000
+        or result.get("test_exit_code") != 0
+    ):
+        failures.append(
+            "HV-07 wrapper does not prove the exact 128-MiB fixture, "
+            "60-second acceptance budget, and independent 120-second watchdog"
+        )
+    sweep = result.get("fresh_sweep")
+    if not isinstance(sweep, dict):
+        failures.append("HV-07 fresh crash sweep is absent")
+        return failures
+    if (
+        sweep.get("schema_version") != 1
+        or sweep.get("case_id") != "HV-07"
+        or sweep.get("fixture_logical_bytes") != 128 * 1024 * 1024
+        or sweep.get("required_fault_points") != expected_count
+        or sweep.get("canonical_semantic_builds") != 1
+        or sweep.get("semantic_receipt_reuses") != expected_count - 1
+        or sweep.get("hard_stop_ns") != 60_000_000_000
+        or not isinstance(sweep.get("elapsed_ns"), int)
+        or sweep.get("elapsed_ns", 60_000_000_001) > 60_000_000_000
+        or sweep.get("failures") != []
+        or sweep.get("passed") is not True
+    ):
+        failures.append("HV-07 fresh sweep top-level receipt is not exact and passing")
+    summary = sweep.get("summary")
+    if not isinstance(summary, dict) or any(
+        (
+            summary.get("required_fault_points") != expected_count,
+            summary.get("recorded_attempts") != expected_count,
+            summary.get("passing_fault_points") != expected_count,
+            summary.get("physical_passing_fault_points") != expected_count,
+            summary.get("failed_attempts") != 0,
+            summary.get("missing_fault_points") != [],
+            summary.get("physical_missing_fault_points") != [],
+            summary.get("complete_for_requested_mode") is not True,
+        )
+    ):
+        failures.append("HV-07 sweep summary is not an exact complete 46-point physical sweep")
+    points = sweep.get("points")
+    if not isinstance(points, list) or len(points) != expected_count:
+        failures.append("HV-07 point receipt count is not exactly 46")
+        return failures
+    observed: set[str] = set()
+    for point in points:
+        if not isinstance(point, dict):
+            failures.append("HV-07 point receipt is not an object")
+            continue
+        name = point.get("fault_point")
+        if not isinstance(name, str) or name not in HV07_FAULT_POINTS or name in observed:
+            failures.append(f"HV-07 point receipt is unknown or duplicated: {name!r}")
+            continue
+        observed.add(name)
+        if point.get("passed") is not True:
+            failures.append(f"HV-07 point did not pass: {name}")
+        assertions = point.get("assertions")
+        if not isinstance(assertions, list):
+            failures.append(f"HV-07 point omitted assertions: {name}")
+            continue
+        for required in HV07_REQUIRED_POINT_ASSERTIONS:
+            passing = [
+                assertion
+                for assertion in assertions
+                if isinstance(assertion, dict)
+                and assertion.get("name") == required
+                and assertion.get("passed") is True
+            ]
+            if len(passing) != 1:
+                failures.append(
+                    f"HV-07 point {name} has {len(passing)} passing "
+                    f"{required} assertions"
+                )
+        details = point.get("details")
+        record = details.get("record") if isinstance(details, dict) else None
+        observation = (
+            record.get("observation") if isinstance(record, dict) else None
+        )
+        replay = (
+            observation.get("recovery_replay_witness")
+            if isinstance(observation, dict)
+            else None
+        )
+        kill = (
+            observation.get("physical_kill_witness")
+            if isinstance(observation, dict)
+            else None
+        )
+        real_operation = (
+            observation.get("real_operation_witness")
+            if isinstance(observation, dict)
+            else None
+        )
+        operation_id = (
+            observation.get("operation_id")
+            if isinstance(observation, dict)
+            else None
+        )
+        expected_visibility = HV07_EXPECTED_VISIBILITY.get(name)
+        if (
+            not isinstance(record, dict)
+            or record.get("schema_version") != 1
+            or record.get("format") != "mpla-poc-crash-sweep-v1"
+            or record.get("passed") is not True
+            or record.get("failures") != []
+            or not isinstance(record.get("record_sha256"), str)
+            or len(record.get("record_sha256", "")) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in record.get("record_sha256", "")
+            )
+            or not isinstance(observation, dict)
+            or observation.get("fault_point") != name
+            or observation.get("execution_mode") != "process_sigkill"
+            or not isinstance(operation_id, str)
+            or not operation_id
+            or operation_id != observation.get("retry_operation_id")
+            or observation.get("idempotent_retry_same_result") is not True
+            or observation.get("post_sealing_session_resumed") is not False
+            or observation.get("failed_span_retained") is not True
+            or observation.get("cancelled_span_retained") is not True
+            or observation.get("unclassified_debt_bytes") != 0
+            or expected_visibility is None
+            or observation.get("selected_visibility") != expected_visibility
+            or not isinstance(kill, dict)
+            or kill.get("fault_point") != name
+            or kill.get("operation_id") != operation_id
+            or kill.get("signal") != 9
+            or kill.get("durable_marker_observed") is not True
+            or kill.get("marker_parent_synced") is not True
+            or kill.get("terminated_by_expected_signal") is not True
+            or not isinstance(real_operation, dict)
+            or real_operation.get("fault_point") != name
+            or real_operation.get("operation_id") != operation_id
+            or not isinstance(
+                real_operation.get("stationary_payload_path_before"), str
+            )
+            or not real_operation.get("stationary_payload_path_before")
+            or not isinstance(
+                real_operation.get("stationary_payload_path_after"), str
+            )
+            or not real_operation.get("stationary_payload_path_after")
+            or real_operation.get("payload_bytes_moved") != 0
+            or real_operation.get("payload_bytes_copied") != 0
+            or real_operation.get("stationary_payload_path_before")
+            != real_operation.get("stationary_payload_path_after")
+            or not isinstance(replay, dict)
+            or replay.get("fault_point") != name
+            or replay.get("operation_id") != operation_id
+            or replay.get("retry_operation_id") != operation_id
+            or replay.get("selected_visibility") != expected_visibility
+            or any(
+                replay.get(field) is not True
+                for field in (
+                    "recovery_invoked",
+                    "recovery_completed",
+                    "terminal_invariant_verified",
+                    "exact_owner_verified",
+                    "exact_locator_verified",
+                    "exact_ref_verified",
+                    "stationary_payload_verified",
+                    "failed_attempt_bundle_durable",
+                    "cancelled_attempt_bundle_durable",
+                    "idempotent_retry_verified",
+                )
+            )
+        ):
+            failures.append(f"HV-07 point has an invalid physical recovery witness: {name}")
+    if observed != set(HV07_FAULT_POINTS):
+        failures.append("HV-07 point receipt set differs from the frozen registry")
+    return failures
+
+
 def sha256_file(path: pathlib.Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         while chunk := handle.read(1024 * 1024):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def stat_identity(details: os.stat_result) -> tuple[int, ...]:
+    return (
+        details.st_dev,
+        details.st_ino,
+        details.st_mode,
+        details.st_nlink,
+        details.st_size,
+        details.st_mtime_ns,
+        details.st_ctime_ns,
+    )
+
+
+def read_regular_descriptor_once(descriptor: int, label: str) -> tuple[bytes, tuple[int, ...]]:
+    before = os.fstat(descriptor)
+    if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+        raise CampaignError(f"{label} is not one singly-linked regular file")
+    chunks = []
+    while chunk := os.read(descriptor, 1024 * 1024):
+        chunks.append(chunk)
+    payload = b"".join(chunks)
+    after = os.fstat(descriptor)
+    if stat_identity(before) != stat_identity(after) or len(payload) != after.st_size:
+        raise CampaignError(f"{label} changed while it was captured")
+    return payload, stat_identity(after)
+
+
+def open_relative_regular_once(
+    root_descriptor: int,
+    relative: str,
+    label: str,
+) -> tuple[bytes, tuple[int, ...]]:
+    parts = pathlib.PurePosixPath(relative).parts
+    directory_descriptor = os.dup(root_descriptor)
+    try:
+        for component in parts[:-1]:
+            next_descriptor = os.open(
+                component,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                dir_fd=directory_descriptor,
+            )
+            os.close(directory_descriptor)
+            directory_descriptor = next_descriptor
+        descriptor = os.open(
+            parts[-1],
+            os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW,
+            dir_fd=directory_descriptor,
+        )
+        try:
+            return read_regular_descriptor_once(descriptor, label)
+        finally:
+            os.close(descriptor)
+    except OSError as error:
+        raise CampaignError(f"{label} is not safely readable") from error
+    finally:
+        os.close(directory_descriptor)
+
+
+def read_regular_path_once(path: pathlib.Path, label: str) -> bytes:
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+    except OSError as error:
+        raise CampaignError(f"{label} is absent") from error
+    try:
+        payload, _identity = read_regular_descriptor_once(descriptor, label)
+        return payload
+    finally:
+        os.close(descriptor)
+
+
+def inventory_phase_root(
+    root_descriptor: int,
+    case: str,
+) -> tuple[set[str], set[str], dict[str, tuple[int, ...]]]:
+    files: set[str] = set()
+    directories: set[str] = set()
+    identities: dict[str, tuple[int, ...]] = {}
+    seen_regular_inodes: set[tuple[int, int]] = set()
+    retained_directories: list[tuple[str, int, tuple[int, ...]]] = []
+
+    def visit(directory_descriptor: int, prefix: str) -> None:
+        before = stat_identity(os.fstat(directory_descriptor))
+        retained_directories.append(
+            (prefix or ".", os.dup(directory_descriptor), before)
+        )
+        try:
+            entries = list(os.scandir(directory_descriptor))
+        except OSError as error:
+            raise CampaignError(f"{case} phase root inventory is unreadable") from error
+        for entry in entries:
+            relative = f"{prefix}/{entry.name}" if prefix else entry.name
+            try:
+                details = entry.stat(follow_symlinks=False)
+            except OSError as error:
+                raise CampaignError(
+                    f"{case} phase root inventory changed at {relative}"
+                ) from error
+            if stat.S_ISLNK(details.st_mode):
+                raise CampaignError(
+                    f"{case} phase root contains a symlink: {relative}"
+                )
+            if stat.S_ISDIR(details.st_mode):
+                try:
+                    child = os.open(
+                        entry.name,
+                        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                        dir_fd=directory_descriptor,
+                    )
+                except OSError as error:
+                    raise CampaignError(
+                        f"{case} phase root inventory changed at {relative}"
+                    ) from error
+                try:
+                    if stat_identity(os.fstat(child)) != stat_identity(details):
+                        raise CampaignError(
+                            f"{case} phase root inventory changed at {relative}"
+                        )
+                    directories.add(relative)
+                    visit(child, relative)
+                finally:
+                    os.close(child)
+            elif stat.S_ISREG(details.st_mode):
+                inode = (details.st_dev, details.st_ino)
+                if details.st_nlink != 1 or inode in seen_regular_inodes:
+                    raise CampaignError(
+                        f"{case} phase root contains a linked file: {relative}"
+                    )
+                seen_regular_inodes.add(inode)
+                files.add(relative)
+                identities[relative] = stat_identity(details)
+            else:
+                raise CampaignError(
+                    f"{case} phase root contains a special entry: {relative}"
+                )
+        if stat_identity(os.fstat(directory_descriptor)) != before:
+            raise CampaignError(f"{case} phase root changed during inventory")
+
+    try:
+        visit(root_descriptor, "")
+        for relative, descriptor, expected_identity in retained_directories:
+            if stat_identity(os.fstat(descriptor)) != expected_identity:
+                raise CampaignError(
+                    f"{case} phase root changed after inventory at {relative}"
+                )
+        return files, directories, identities
+    finally:
+        for _relative, descriptor, _identity in retained_directories:
+            os.close(descriptor)
+
+
+def parse_captured_json(case: str, relative: str, payload: bytes) -> Any:
+    try:
+        return json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise CampaignError(f"{case} sealed {relative} is not valid JSON") from error
+
+
+def ignored_source_identity_path(name: str) -> bool:
+    return name == MUTABLE_COMMAND_REPORT or (
+        name.startswith("bin/__pycache__/") and name.endswith(".pyc")
+    )
+
+
+def stable_source_identity(source: dict[str, Any]) -> dict[str, Any]:
+    files = source.get("worktree_files")
+    stable_files = (
+        {
+            name: identity
+            for name, identity in files.items()
+            if not ignored_source_identity_path(name)
+        }
+        if isinstance(files, dict)
+        else files
+    )
+    porcelain = source.get("porcelain")
+    stable_lines = (
+        [
+            line
+            for line in porcelain.splitlines()
+            if len(line) < 4
+            or not ignored_source_identity_path(line[3:])
+        ]
+        if isinstance(porcelain, str)
+        else None
+    )
+    stable_porcelain = (
+        "\n".join(stable_lines)
+        + ("\n" if stable_lines and porcelain.endswith("\n") else "")
+        if stable_lines is not None
+        else porcelain
+    )
+    return {
+        "commit": source.get("commit"),
+        "tree": source.get("tree"),
+        "porcelain": stable_porcelain,
+        "worktree_files": stable_files,
+    }
+
+
+def source_status_paths(source: dict[str, Any]) -> frozenset[str]:
+    porcelain = source.get("porcelain")
+    if not isinstance(porcelain, str):
+        raise CampaignError("source porcelain status is absent")
+    paths = set()
+    for line in porcelain.splitlines():
+        if len(line) < 4 or line[2] != " " or " -> " in line[3:]:
+            raise CampaignError("source porcelain status is unsupported")
+        name = line[3:]
+        if ignored_source_identity_path(name):
+            continue
+        if line[:2] != " M" or name in paths:
+            raise CampaignError("source porcelain status is unsupported")
+        paths.add(name)
+    return frozenset(paths)
+
+
+def validate_source_receipt(case: str, source: dict[str, Any]) -> None:
+    expected_fields = {
+        "commit",
+        "tree",
+        "tracked_diff_sha256",
+        "tracked_diff_bytes",
+        "porcelain_sha256",
+        "porcelain",
+        "worktree_files",
+    }
+    commit = source.get("commit")
+    tree = source.get("tree")
+    tracked_diff_sha256 = source.get("tracked_diff_sha256")
+    tracked_diff_bytes = source.get("tracked_diff_bytes")
+    porcelain_sha256 = source.get("porcelain_sha256")
+    porcelain = source.get("porcelain")
+    files = source.get("worktree_files")
+    if (
+        set(source) != expected_fields
+        or not isinstance(commit, str)
+        or len(commit) != 40
+        or any(character not in "0123456789abcdef" for character in commit)
+        or not isinstance(tree, str)
+        or len(tree) != 40
+        or any(character not in "0123456789abcdef" for character in tree)
+        or not isinstance(tracked_diff_sha256, str)
+        or len(tracked_diff_sha256) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in tracked_diff_sha256
+        )
+        or type(tracked_diff_bytes) is not int
+        or tracked_diff_bytes < 0
+        or not isinstance(porcelain_sha256, str)
+        or len(porcelain_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in porcelain_sha256)
+        or not isinstance(porcelain, str)
+        or sha256_bytes(porcelain.encode()) != porcelain_sha256
+        or not isinstance(files, dict)
+    ):
+        raise CampaignError(f"{case} source receipt is malformed")
+    stable_paths = set()
+    for name, identity in files.items():
+        relative = pathlib.PurePosixPath(name) if isinstance(name, str) else None
+        if (
+            relative is None
+            or not name
+            or relative.as_posix() != name
+            or relative.is_absolute()
+            or ".." in relative.parts
+            or not isinstance(identity, dict)
+            or set(identity) != {"bytes", "sha256"}
+            or type(identity.get("bytes")) is not int
+            or identity["bytes"] < 0
+            or not isinstance(identity.get("sha256"), str)
+            or len(identity["sha256"]) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in identity["sha256"]
+            )
+        ):
+            raise CampaignError(f"{case} source receipt is malformed")
+        if not ignored_source_identity_path(name):
+            stable_paths.add(name)
+    if source_status_paths(source) != stable_paths:
+        raise CampaignError(f"{case} source receipt does not link status to files")
+
+
+def staged_artifact_identity(
+    verified: dict[str, Any],
+    case: str,
+    name: str,
+) -> tuple[int, str]:
+    staged = verified[case].get("staged_artifacts")
+    if not isinstance(staged, dict):
+        raise CampaignError(f"{case} staged artifact receipt is absent")
+    artifacts = staged.get("artifacts")
+    if not isinstance(artifacts, dict):
+        raise CampaignError(f"{case} staged artifact receipt is malformed")
+    identity = artifacts.get(name)
+    if not isinstance(identity, dict):
+        raise CampaignError(f"{case} staged artifact {name} identity is absent")
+    if set(identity) not in (
+        {"bytes", "sha256"},
+        {"bytes", "sha256", "sealed_path"},
+    ):
+        raise CampaignError(f"{case} staged artifact {name} identity is malformed")
+    byte_count = identity.get("bytes")
+    digest = identity.get("sha256")
+    if (
+        type(byte_count) is not int
+        or byte_count <= 0
+        or not isinstance(digest, str)
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+    ):
+        raise CampaignError(f"{case} staged artifact {name} identity is malformed")
+    if "sealed_path" in identity:
+        sealed_path = identity["sealed_path"]
+        if (
+            type(sealed_path) is not str
+            or not sealed_path
+        ):
+            raise CampaignError(
+                f"{case} staged artifact {name} sealed path is malformed"
+            )
+        relative = pathlib.PurePosixPath(sealed_path)
+        if (
+            relative.as_posix() != sealed_path
+            or relative.is_absolute()
+            or ".." in relative.parts
+        ):
+            raise CampaignError(
+                f"{case} staged artifact {name} sealed path is malformed"
+            )
+        sealed_file_bytes = verified[case].get("_sealed_file_bytes")
+        manifest_digests = verified[case].get("_manifest_digests")
+        blob = (
+            sealed_file_bytes.get(sealed_path)
+            if isinstance(sealed_file_bytes, dict)
+            else None
+        )
+        if (
+            not isinstance(blob, bytes)
+            or not isinstance(manifest_digests, dict)
+            or manifest_digests.get(sealed_path) != digest
+            or len(blob) != byte_count
+            or sha256_bytes(blob) != digest
+        ):
+            raise CampaignError(
+                f"{case} staged artifact {name} sealed blob is invalid"
+            )
+    return byte_count, digest
+
+
+def verify_phase_lineage(
+    verified: dict[str, dict[str, Any]],
+    current_source: dict[str, Any],
+    current_coordinator: tuple[int, str],
+) -> dict[str, Any]:
+    if not isinstance(verified, dict) or set(verified) != set(SCORECARD_CASES):
+        raise CampaignError("phase lineage does not contain exactly P0-P7")
+    if (
+        not isinstance(current_coordinator, tuple)
+        or len(current_coordinator) != 2
+        or type(current_coordinator[0]) is not int
+        or current_coordinator[0] <= 0
+        or not isinstance(current_coordinator[1], str)
+        or len(current_coordinator[1]) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in current_coordinator[1]
+        )
+    ):
+        raise CampaignError("current coordinator identity is malformed")
+    if not isinstance(current_source, dict) or current_source.get("commit") != BUILD_COMMIT:
+        raise CampaignError("P8 source commit does not match the campaign build")
+    if any(
+        not isinstance(verified[case], dict)
+        or not isinstance(verified[case].get("source"), dict)
+        for case in SCORECARD_CASES
+    ):
+        raise CampaignError("P0-P7 source receipts are malformed")
+    current_identity = stable_source_identity(current_source)
+    phase_identities = {
+        case: stable_source_identity(verified[case]["source"])
+        for case in SCORECARD_CASES
+    }
+    for source in (
+        current_source,
+        *(verified[case]["source"] for case in SCORECARD_CASES),
+    ):
+        if source.get("porcelain") is not None:
+            source_status_paths(source)
+    validate_source_receipt("P8", current_source)
+    for case in SCORECARD_CASES:
+        validate_source_receipt(case, verified[case]["source"])
+    if any(
+        verified[case]["source"].get("commit") != BUILD_COMMIT
+        for case in SCORECARD_CASES
+    ):
+        raise CampaignError("P0-P7 source commits do not match the campaign build")
+
+    current_case = SCORECARD_CASES[-1]
+    if phase_identities[current_case] != current_identity:
+        raise CampaignError("P7 source fingerprint does not match the P8 source")
+
+    common_artifact_names = (
+        "mpla-speed-poc-v1",
+        "mpla-poc-oracle",
+        "sandbox-runtime-cli",
+        "sandbox-catalog-export",
+        "gateway.token",
+        "product-catalog.json",
+    )
+    sealed_phases: dict[str, Any] = {}
+    for case in SCORECARD_CASES:
+        raw_result_binding = verified[case].get("raw_result_binding")
+        if raw_result_binding != expected_raw_result_binding(case):
+            raise CampaignError(
+                f"{case} raw result binding proof is absent or malformed"
+            )
+        sealed_file_hashes = {}
+        for field, filename in (
+            ("source_sha256", "source.json"),
+            ("staged_artifacts_sha256", "staged-artifacts.json"),
+            ("receipt_sha256", "phase-receipt.json"),
+            ("environment_sha256", "environment.json"),
+        ):
+            digest = verified[case].get(field)
+            if (
+                not isinstance(digest, str)
+                or len(digest) != 64
+                or any(character not in "0123456789abcdef" for character in digest)
+            ):
+                raise CampaignError(f"{case} sealed {filename} linkage is malformed")
+            sealed_file_hashes[filename] = digest
+        manifest_sha256 = verified[case].get("manifest_sha256")
+        if (
+            not isinstance(manifest_sha256, str)
+            or len(manifest_sha256) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in manifest_sha256
+            )
+        ):
+            raise CampaignError(f"{case} sealed manifest identity is malformed")
+        staged = verified[case].get("staged_artifacts")
+        artifacts = staged.get("artifacts") if isinstance(staged, dict) else None
+        expected_names = set(common_artifact_names)
+        if case == "recovery":
+            expected_names.add("hv07_campaign")
+        if not isinstance(artifacts, dict) or set(artifacts) != expected_names:
+            raise CampaignError(f"{case} staged artifact inventory is not exact")
+        artifact_identities = {
+            name: staged_artifact_identity(verified, case, name)
+            for name in sorted(expected_names)
+        }
+        artifact_verification_level = (
+            "sealed-bytes"
+            if case == current_case
+            else "identity-receipt-only"
+        )
+        if case == current_case and any(
+            "sealed_path" not in artifacts[name] for name in expected_names
+        ):
+            raise CampaignError(
+                "P7 recovery artifacts do not retain every sealed blob"
+            )
+        sealed_phases[case] = {
+            "manifest_sha256": manifest_sha256,
+            "sealed_files": sealed_file_hashes,
+            "artifact_verification_level": artifact_verification_level,
+            "raw_result_binding": raw_result_binding,
+            "artifacts": {
+                name: {"bytes": identity[0], "sha256": identity[1]}
+                for name, identity in artifact_identities.items()
+            },
+        }
+
+    p7_coordinator = staged_artifact_identity(
+        verified,
+        current_case,
+        "mpla-speed-poc-v1",
+    )
+    if p7_coordinator != current_coordinator:
+        raise CampaignError("P7 coordinator identity does not match the P8 artifact")
+    return {
+        "mode": "sealed-phase-local-history-current-p7",
+        "preserved_cases": list(SCORECARD_CASES[:-1]),
+        "exact_current_cases": [current_case],
+        "historical_artifact_constraint": (
+            "P0-P6 artifact blobs were not retained by their sealed runs; "
+            "their artifact identities are receipt-only, while every listed "
+            "sealed evidence file was re-hashed from pinned captured bytes"
+        ),
+        "artifact_verification_levels": {
+            "P0-P6": "identity-receipt-only",
+            "P7": "sealed-bytes",
+        },
+        "raw_result_binding_levels": {
+            "P0/P1/P4/P6": "historical-indirect-kind-and-sealed-receipts",
+            "P2/P3/P5/P7": "explicit-raw-phase-runner",
+        },
+        "sealed_phases": sealed_phases,
+        "current_coordinator": {
+            "bytes": p7_coordinator[0],
+            "sha256": p7_coordinator[1],
+        },
+    }
 
 
 def write_new_json(path: pathlib.Path, value: Any) -> None:
@@ -364,8 +1375,8 @@ class Campaign:
         run_id: str,
         evidence_root: pathlib.Path,
         case: str,
-        phase_roots: dict[str, pathlib.Path] | None = None,
-        cold_cache_root: pathlib.Path | None = None,
+        phase_roots: dict[str, tuple[pathlib.Path, str]] | None = None,
+        cold_cache_root: tuple[pathlib.Path, str] | None = None,
     ) -> None:
         self.run_id = run_id
         self.evidence_root = evidence_root
@@ -378,9 +1389,11 @@ class Campaign:
         self.sandbox_ids: list[str] = []
         self.candidate_sandbox_id: str | None = None
         self.coordinator_sandbox_id: str | None = None
+        self.control_sandbox_ids: list[str] = []
         self.workspace_session_id: str | None = None
         self.phase_started_ns: int | None = None
         self.phase_elapsed_ns: int | None = None
+        self.p8_artifact_identity: dict[str, Any] | None = None
         self.baseline: dict[str, Any] | None = None
         self.cleanup: dict[str, Any] = {
             "destroy_attempts": [],
@@ -678,6 +1691,8 @@ class Campaign:
         required_stage_bytes = (
             int(fixture_manifest["logical_bytes"]) * 2 * 6 // 5
             if fixture_manifest is not None
+            else STREAM_REQUIRED_FREE_BYTES
+            if self.case == "stream"
             else 0
         )
         free_bytes = shutil.disk_usage(tempfile.gettempdir()).free
@@ -690,8 +1705,29 @@ class Campaign:
             tempfile.mkdtemp(prefix=f"eos-{self.run_id}-{self.case}-")
         )
         self.stage_root = root
+        stream_capacity_reservation = None
+        if self.case == "stream":
+            reservation_path = root / STREAM_CAPACITY_RESERVATION_FILE
+            stream_capacity_reservation = {
+                "expected_peak_bytes": STREAM_CHANGED_UPPER_BYTES,
+                "margin_percent": 20,
+                "required_free_bytes": STREAM_REQUIRED_FREE_BYTES,
+                "reserved_margin_bytes": STREAM_DISK_MARGIN_BYTES,
+                "reservation_path": str(reservation_path),
+                **reserve_dense_file(
+                    reservation_path,
+                    STREAM_DISK_MARGIN_BYTES,
+                ),
+                "scope": (
+                    "host staging filesystem safety margin retained until "
+                    "phase cleanup"
+                ),
+            }
         tools = root / "_campaign-tools"
         tools.mkdir()
+        sealed_artifact_root = self.evidence_root / "artifacts"
+        if self.case == "recovery":
+            sealed_artifact_root.mkdir()
         if fixture_manifest is not None:
             shutil.copytree(R0, root / "r0", symlinks=True)
         staged = {}
@@ -724,6 +1760,12 @@ class Campaign:
                 "bytes": target.stat().st_size,
                 "sha256": sha256_file(target),
             }
+            if self.case == "recovery":
+                sealed_path = sealed_artifact_root / target.name
+                shutil.copy2(target, sealed_path)
+                staged[target.name]["sealed_path"] = (
+                    sealed_path.relative_to(self.evidence_root).as_posix()
+                )
         catalog = command([str(NATIVE_EXPORTER)], timeout=120).stdout
         parsed = json.loads(catalog)
         if (
@@ -744,6 +1786,12 @@ class Campaign:
             "bytes": len(catalog),
             "sha256": sha256_bytes(catalog),
         }
+        if self.case == "recovery":
+            sealed_catalog = sealed_artifact_root / catalog_path.name
+            write_new_bytes(sealed_catalog, catalog)
+            staged[catalog_path.name]["sealed_path"] = (
+                sealed_catalog.relative_to(self.evidence_root).as_posix()
+            )
         write_new_json(
             self.evidence_root / "staged-artifacts.json",
             {
@@ -758,6 +1806,7 @@ class Campaign:
                 ),
                 "staging_free_bytes_before_copy": free_bytes,
                 "required_stage_bytes_with_margin": required_stage_bytes,
+                "stream_capacity_reservation": stream_capacity_reservation,
                 "scorecard_tool_freshness": scorecard_tool_freshness,
             },
         )
@@ -938,6 +1987,24 @@ class Campaign:
             result = json.loads(content)
         except json.JSONDecodeError as error:
             raise CampaignError("scorecard result is not valid JSON") from error
+        if case == "recovery":
+            if not isinstance(result, dict):
+                raise CampaignError("recovery scorecard result is not an object")
+            if (
+                ("phase" in result and result.get("phase") != case)
+                or (
+                    "runner" in result
+                    and result.get("runner") != CASE_RUNNERS[case]
+                )
+            ):
+                raise CampaignError(
+                    "recovery scorecard result has a conflicting phase identity"
+                )
+            result = {
+                **result,
+                "phase": case,
+                "runner": CASE_RUNNERS[case],
+            }
         self.write_case_record(case, "raw-result.json", result)
         return result, sha256_bytes(content.encode())
 
@@ -979,6 +2046,11 @@ class Campaign:
         coordinator = self.create_sandbox("coordinator")
         self.candidate_sandbox_id = candidate
         self.coordinator_sandbox_id = coordinator
+        if self.case == "publication":
+            self.control_sandbox_ids = [
+                self.create_sandbox(f"publication_control_{pair}")
+                for pair in range(1, PUBLICATION_CONTROL_BASE_COUNT + 1)
+            ]
         session = self.runtime(
             coordinator,
             ["create_workspace_session"],
@@ -989,6 +2061,25 @@ class Campaign:
         if not isinstance(workspace_session_id, str):
             raise CampaignError("coordinator workspace create omitted session ID")
         self.workspace_session_id = workspace_session_id
+
+    def publication_control_cli(self) -> str:
+        if (
+            self.case != "publication"
+            or len(self.control_sandbox_ids) != PUBLICATION_CONTROL_BASE_COUNT
+            or len(set(self.control_sandbox_ids))
+            != PUBLICATION_CONTROL_BASE_COUNT
+            or any(
+                sandbox_id not in self.sandbox_ids
+                for sandbox_id in self.control_sandbox_ids
+            )
+        ):
+            raise CampaignError(
+                "publication requires exactly three tracked control sandboxes"
+            )
+        return "".join(
+            f" --control-sandbox-id {sandbox_id}"
+            for sandbox_id in self.control_sandbox_ids
+        )
 
     def fixture_preparation_run_id(self) -> str:
         run_id = (
@@ -1137,6 +2228,14 @@ class Campaign:
             or type(summary.get("prepared_depth_one_candidates")) is not int
             or summary["prepared_depth_one_candidates"] != 3
             or summary.get("attachment_operation") != "attach_mpla_prepared_fixture"
+            or not isinstance(summary.get("result_sha256"), str)
+            or len(summary["result_sha256"]) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in summary["result_sha256"]
+            )
+            or type(summary.get("result_bytes")) is not int
+            or summary["result_bytes"] <= 0
             or type(summary.get("payload_bytes_copied")) is not int
             or summary["payload_bytes_copied"] != 0
             or type(summary.get("cached_allocation_count")) is not int
@@ -1174,6 +2273,240 @@ class Campaign:
             attachment_receipt,
         )
         self.write_case_record(self.case, "fixture-preparation-summary.json", summary)
+
+    def run_publication_control_preparation(self) -> None:
+        if (
+            self.case != "publication"
+            or self.candidate_sandbox_id is None
+            or self.coordinator_sandbox_id is None
+            or self.workspace_session_id is None
+        ):
+            raise CampaignError(
+                "publication control preparation requires a prepared publication case"
+            )
+        deadline_seconds = PUBLICATION_CONTROL_PREPARATION_DEADLINE_SECONDS
+        frozen = (
+            f"{STAGED_COORDINATOR_PATH} "
+            "prepare-publication-control "
+            f"--run-id {self.run_id} "
+            f"--candidate-sandbox-id {self.candidate_sandbox_id} "
+            f"--build-commit {BUILD_COMMIT} "
+            f"--fixture-profile {PREPARED_FIXTURE_PROFILE}"
+            f"{self.publication_control_cli()}"
+        )
+        initial = self.runtime(
+            self.coordinator_sandbox_id,
+            [
+                "--request-id",
+                f"{self.run_id}-publication-control-prepare",
+                "exec_command",
+                "--workspace-session-id",
+                self.workspace_session_id,
+                "--timeout-ms",
+                str(deadline_seconds * 1000),
+                "--yield-time-ms",
+                "0",
+                frozen,
+            ],
+            "start_publication_control_preparation",
+            SETUP_OPERATION_DEADLINE_SECONDS,
+        )
+        terminal = self.wait_command(
+            self.coordinator_sandbox_id,
+            initial,
+            deadline_seconds,
+        )
+        self.write_case_record(
+            self.case, "control-preparation-terminal.json", terminal
+        )
+        output = terminal.get("output")
+        if terminal.get("status") != "ok" or terminal.get("exit_code") != 0:
+            raise CampaignError(
+                "publication control preparation failed: "
+                f"status={terminal.get('status')!r}; "
+                f"exit_code={terminal.get('exit_code')!r}; "
+                "command_total_time_seconds="
+                f"{terminal.get('command_total_time_seconds')!r}; "
+                f"output={output!r}"
+            )
+        lines = [
+            line
+            for line in str(output).splitlines()
+            if line.startswith(RESULT_PREFIX) or line.startswith(ERROR_PREFIX)
+        ]
+        if len(lines) != 1 or not lines[0].startswith(RESULT_PREFIX):
+            raise CampaignError(
+                f"publication control preparation summary is malformed: {output}"
+            )
+        summary = json.loads(lines[0][len(RESULT_PREFIX) :])
+        if not isinstance(summary, dict):
+            raise CampaignError(
+                "publication control preparation summary is incomplete"
+            )
+        bases = summary.get("bases")
+
+        def valid_matched_publication(value: Any) -> bool:
+            if not isinstance(value, dict):
+                return False
+            span = value.get("span")
+            return (
+                set(value)
+                == {
+                    "start_boundary",
+                    "stop_boundary",
+                    "admission_gate_included",
+                    "durable_root_committed",
+                    "session_closed",
+                    "span",
+                }
+                and value.get("start_boundary")
+                == MATCHED_PUBLICATION_START_BOUNDARY
+                and value.get("stop_boundary")
+                == MATCHED_PUBLICATION_STOP_BOUNDARY
+                and value.get("admission_gate_included") is True
+                and value.get("durable_root_committed") is True
+                and value.get("session_closed") is True
+                and isinstance(span, dict)
+                and set(span)
+                == {
+                    "clock",
+                    "started_ns",
+                    "finished_ns",
+                    "elapsed_ns",
+                }
+                and span.get("clock") == "monotonic_raw"
+                and type(span.get("started_ns")) is int
+                and span["started_ns"] > 0
+                and type(span.get("finished_ns")) is int
+                and type(span.get("elapsed_ns")) is int
+                and span["elapsed_ns"] > 0
+                and span["finished_ns"] - span["started_ns"]
+                == span["elapsed_ns"]
+            )
+
+        valid_bases = (
+            isinstance(bases, list)
+            and len(bases) == PUBLICATION_CONTROL_BASE_COUNT
+            and all(
+                isinstance(base, dict)
+                and set(base)
+                == {
+                    "pair",
+                    "control_sandbox_id",
+                    "workspace_session_id",
+                    "manifest_version",
+                    "root_hash",
+                    "layer_count",
+                    "source_count",
+                    "ignored_count",
+                    "destroyed",
+                    "matched_publication",
+                    "publish_response_sha256",
+                }
+                and type(base.get("pair")) is int
+                and base.get("pair") == index
+                and base.get("control_sandbox_id")
+                == self.control_sandbox_ids[index - 1]
+                and isinstance(base.get("workspace_session_id"), str)
+                and bool(base["workspace_session_id"])
+                and type(base.get("manifest_version")) is int
+                and base["manifest_version"] == 2
+                and isinstance(base.get("root_hash"), str)
+                and len(base["root_hash"]) == 64
+                and all(
+                    character in "0123456789abcdef"
+                    for character in base["root_hash"]
+                )
+                and type(base.get("layer_count")) is int
+                and base["layer_count"] == 2
+                and type(base.get("source_count")) is int
+                and base["source_count"] == 1
+                and type(base.get("ignored_count")) is int
+                and base["ignored_count"] == 0
+                and base.get("destroyed") is True
+                and valid_matched_publication(base.get("matched_publication"))
+                and isinstance(base.get("publish_response_sha256"), str)
+                and len(base["publish_response_sha256"]) == 64
+                and all(
+                    character in "0123456789abcdef"
+                    for character in base["publish_response_sha256"]
+                )
+                for index, base in enumerate(bases, 1)
+            )
+            and len(
+                {
+                    base.get("control_sandbox_id")
+                    for base in bases
+                    if isinstance(base, dict)
+                }
+            )
+            == PUBLICATION_CONTROL_BASE_COUNT
+            and len({base["workspace_session_id"] for base in bases})
+            == PUBLICATION_CONTROL_BASE_COUNT
+        )
+        preparation_elapsed_ns = summary.get("preparation_elapsed_ns")
+        if (
+            summary.get("result_path")
+            != "/workspace/scorecard-publication-control-preparation.json"
+            or type(summary.get("schema_version")) is not int
+            or summary.get("schema_version") != 2
+            or summary.get("kind")
+            != "mpla_booster_publication_control_preparation_summary_v2"
+            or summary.get("run_id") != self.run_id
+            or summary.get("candidate_sandbox_id")
+            != self.candidate_sandbox_id
+            or summary.get("control_sandbox_ids")
+            != self.control_sandbox_ids
+            or summary.get("build_commit") != BUILD_COMMIT
+            or summary.get("fixture_profile") != PREPARED_FIXTURE_PROFILE
+            or type(summary.get("base_count")) is not int
+            or summary.get("base_count") != PUBLICATION_CONTROL_BASE_COUNT
+            or type(summary.get("base_logical_bytes")) is not int
+            or summary.get("base_logical_bytes")
+            != PUBLICATION_CONTROL_BASE_LOGICAL_BYTES
+            or type(summary.get("delta_file_count")) is not int
+            or summary.get("delta_file_count")
+            != PUBLICATION_CONTROL_DELTA_FILE_COUNT
+            or type(summary.get("delta_logical_bytes")) is not int
+            or summary.get("delta_logical_bytes")
+            != PUBLICATION_CONTROL_DELTA_LOGICAL_BYTES
+            or summary.get("base_source_manifest_sha256")
+            != PUBLICATION_CONTROL_BASE_SOURCE_MANIFEST_SHA256
+            or summary.get("delta_source_manifest_sha256")
+            != PUBLICATION_CONTROL_DELTA_SOURCE_MANIFEST_SHA256
+            or not isinstance(summary.get("result_sha256"), str)
+            or len(summary["result_sha256"]) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in summary["result_sha256"]
+            )
+            or type(summary.get("result_bytes")) is not int
+            or summary["result_bytes"] <= 0
+            or not isinstance(summary.get("receipt_checksum_sha256"), str)
+            or len(summary["receipt_checksum_sha256"]) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in summary["receipt_checksum_sha256"]
+            )
+            or type(preparation_elapsed_ns) is not int
+            or preparation_elapsed_ns <= 0
+            or preparation_elapsed_ns > deadline_seconds * 1_000_000_000
+            or not valid_bases
+        ):
+            raise CampaignError(
+                "publication control preparation summary is incomplete"
+            )
+        write_new_json(
+            self.evidence_root / "control-preparation.json",
+            {
+                **summary,
+                "preparation_liveness_cap_seconds": deadline_seconds,
+                "excluded_from_phase_operation_timer": True,
+            },
+        )
+        self.write_case_record(
+            self.case, "control-preparation-summary.json", summary
+        )
 
     def run_lifecycle_control_preparation(self) -> None:
         if (
@@ -1321,6 +2654,7 @@ class Campaign:
             "scorecard-case "
             f"--run-id {self.run_id} --case {case} "
             f"--candidate-sandbox-id {candidate} --build-commit {BUILD_COMMIT}"
+            f"{self.publication_control_cli() if case == 'publication' else ''}"
         )
         deadline_ms = self.coordinator_budget_ms()
         initial = self.runtime(
@@ -1377,6 +2711,22 @@ class Campaign:
         result, raw_result_sha256 = self.read_result(coordinator, case)
         if raw_result_sha256 != summary.get("result_sha256"):
             raise CampaignError("retrieved scorecard result hash does not match summary")
+        if case == "squash":
+            progress = self.read_progress(coordinator, case)
+            self.write_case_record(case, "coordinator-progress.json", progress)
+            self.validate_squash_phase_boundary(
+                result,
+                progress,
+                raw_result_sha256,
+            )
+        if case == "stream":
+            progress = self.read_progress(coordinator, case)
+            self.write_case_record(case, "coordinator-progress.json", progress)
+            self.validate_stream_phase_boundary(
+                result,
+                progress,
+                raw_result_sha256,
+            )
         if case in {"activation", "fork", "rollback"}:
             preparation = json.loads(
                 (self.evidence_root / "control-preparation.json").read_text()
@@ -1388,10 +2738,63 @@ class Campaign:
                 raise CampaignError(
                     "phase result does not bind the prepared lifecycle control receipt"
                 )
+        if case == "publication":
+            preparation = json.loads(
+                (self.evidence_root / "control-preparation.json").read_text()
+            )
+            if (
+                result.get("control_preparation", {}).get("checksum_sha256")
+                != preparation.get("receipt_checksum_sha256")
+            ):
+                raise CampaignError(
+                    "phase result does not bind the prepared publication control receipt"
+                )
         self.write_case_record(case, "summary.json", summary)
         return result
 
     def capture_coordinator_failure(self, case: str, coordinator: str) -> None:
+        if case == "recovery":
+            try:
+                result, producer_sha256 = self.read_result(coordinator, case)
+                fresh_sweep = result.get("fresh_sweep")
+                self.write_case_record(
+                    case,
+                    "coordinator-failure-result-capture.json",
+                    {
+                        "schema_version": 1,
+                        "kind": (
+                            "mpla_booster_coordinator_failure_result_capture_v1"
+                        ),
+                        "result_path": f"/workspace/{CASE_RESULT_FILES[case]}",
+                        "producer_sha256": producer_sha256,
+                        "result_kind": result.get("kind"),
+                        "test_exit_code": result.get("test_exit_code"),
+                        "fresh_sweep_passed": (
+                            fresh_sweep.get("passed")
+                            if isinstance(fresh_sweep, dict)
+                            else None
+                        ),
+                        "retrieved_before_cleanup": True,
+                        "scorecard_result_accepted": False,
+                        "diagnostic_only": True,
+                    },
+                )
+            except Exception as error:
+                self.write_case_record(
+                    case,
+                    "coordinator-failure-result-capture-error.json",
+                    {
+                        "schema_version": 1,
+                        "kind": (
+                            "mpla_booster_coordinator_failure_result_capture_error_v1"
+                        ),
+                        "result_path": f"/workspace/{CASE_RESULT_FILES[case]}",
+                        "error": str(error),
+                        "retrieved_before_cleanup": False,
+                        "scorecard_result_accepted": False,
+                        "diagnostic_only": True,
+                    },
+                )
         if case in CASE_PROGRESS_FILES:
             try:
                 self.write_case_record(
@@ -1419,10 +2822,13 @@ class Campaign:
             )
 
     def cleanup_execution(self, case: str) -> None:
-        if self.workspace_session_id is not None and self.sandbox_ids:
+        if (
+            self.workspace_session_id is not None
+            and self.coordinator_sandbox_id is not None
+        ):
             try:
                 response = self.runtime(
-                    self.sandbox_ids[-1],
+                    self.coordinator_sandbox_id,
                     [
                         "destroy_workspace_session",
                         "--workspace-session-id",
@@ -1461,6 +2867,7 @@ class Campaign:
         self.sandbox_ids = []
         self.candidate_sandbox_id = None
         self.coordinator_sandbox_id = None
+        self.control_sandbox_ids = []
         self.workspace_session_id = None
 
     def cleanup_all(self) -> None:
@@ -1525,7 +2932,7 @@ class Campaign:
             gates["AG-SQUASH"] = squash["squash_gate"]["required"]
         stream = results.get("stream")
         if stream is not None:
-            gates["AG-STREAM"] = stream["required"]
+            gates["AG-STREAM"] = stream.get("required") is True
         return gates
 
     def correctness_report(
@@ -1570,15 +2977,8 @@ class Campaign:
             and stream.get("no_second_payload_allocation") is True
         )
         chain_bounded = publication.get("final_chain_below_ten_gib") is True
-        hv07_sweep = (
-            recovery.get("fresh_sweep", {}).get("passed") is True
-            and recovery.get("fresh_sweep", {}).get("fixture_logical_bytes")
-            == 128 * 1024 * 1024
-            and recovery.get("fresh_sweep", {}).get("summary", {}).get(
-                "complete_for_requested_mode"
-            )
-            is True
-        )
+        hv07_validation_failures = validate_hv07_result(recovery)
+        hv07_sweep = not hv07_validation_failures
         baseline_matches = (
             cleanup_pass
             and self.baseline is not None
@@ -1588,29 +2988,9 @@ class Campaign:
             == self.cleanup.get("final_observability", {}).get("sandboxes")
         )
         resource_report = self.resources_report(results)
-        hv07_points = recovery.get("fresh_sweep", {}).get("points", [])
-        hv07_point_assertions = [
-            assertion
-            for point in hv07_points
-            if isinstance(point, dict)
-            for assertion in point.get("assertions", [])
-            if isinstance(assertion, dict)
-        ]
-        hv07_exact_owner = any(
-            assertion.get("name") == "same_operation_exact_replay"
-            and assertion.get("passed") is True
-            for assertion in hv07_point_assertions
-        )
-        hv07_old_or_new = any(
-            assertion.get("name") == "old_or_complete_new_visibility"
-            and assertion.get("passed") is True
-            for assertion in hv07_point_assertions
-        )
-        hv07_no_debt = any(
-            assertion.get("name") == "no_failed_attempts_or_unclassified_debt"
-            and assertion.get("passed") is True
-            for assertion in hv07_point_assertions
-        )
+        hv07_exact_owner = hv07_sweep
+        hv07_old_or_new = hv07_sweep
+        hv07_no_debt = hv07_sweep
         lifecycle_exact = all(
             result.get("candidate_checks", {}).get(field) is True
             for result in (activation, fork, rollback)
@@ -1692,7 +3072,11 @@ class Campaign:
             ),
             "hv07_crash_sweep": (
                 hv07_sweep,
-                "fresh physical HV-07 fault-point recovery receipt",
+                (
+                    "; ".join(hv07_validation_failures)
+                    if hv07_validation_failures
+                    else "exact fresh 46-point physical HV-07 recovery receipt"
+                ),
             ),
         }
         return {
@@ -1897,21 +3281,60 @@ class Campaign:
             },
         )
 
-    def seal_manifest(self) -> str:
+    def seal_manifest(
+        self,
+        expected_entries: dict[str, str] | None = None,
+    ) -> str:
         manifest_lines = []
+        manifest_entries = {}
         for path in sorted(self.evidence_root.rglob("*")):
             if path.is_file() and path.name != "manifest.sha256":
                 relative = path.relative_to(self.evidence_root).as_posix()
-                manifest_lines.append(f"{sha256_file(path)}  {relative}\n")
+                digest = (
+                    sha256_bytes(
+                        read_regular_path_once(
+                            path,
+                            f"final manifest bound entry {relative}",
+                        )
+                    )
+                    if expected_entries is not None
+                    and relative in expected_entries
+                    else sha256_file(path)
+                )
+                manifest_entries[relative] = digest
+                manifest_lines.append(f"{digest}  {relative}\n")
+        if expected_entries is not None and any(
+            manifest_entries.get(relative) != expected
+            for relative, expected in expected_entries.items()
+        ):
+            raise CampaignError(
+                "final manifest artifact digest does not match the P8 lineage"
+            )
         manifest_path = self.evidence_root / "manifest.sha256"
         write_new_bytes(manifest_path, "".join(manifest_lines).encode())
-        for line in manifest_path.read_text().splitlines():
+        manifest_bytes = read_regular_path_once(
+            manifest_path,
+            "fresh manifest.sha256",
+        )
+        try:
+            sealed_manifest = manifest_bytes.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise CampaignError("fresh manifest.sha256 is not UTF-8") from error
+        for line in sealed_manifest.splitlines():
             expected, relative = line.split("  ", 1)
-            if sha256_file(self.evidence_root / relative) != expected:
+            if (
+                sha256_bytes(
+                    read_regular_path_once(
+                        self.evidence_root / relative,
+                        f"fresh manifest entry {relative}",
+                    )
+                )
+                != expected
+            ):
                 raise CampaignError(
                     f"fresh manifest verification failed for {relative}"
                 )
-        manifest_sha256 = sha256_file(manifest_path)
+        manifest_sha256 = sha256_bytes(manifest_bytes)
         write_new_json(
             self.evidence_root / "manifest-verification.json",
             {
@@ -1924,6 +3347,662 @@ class Campaign:
             },
         )
         return manifest_sha256
+
+    @staticmethod
+    def validate_stream_semantic_resource_maxima(maxima: Any) -> None:
+        expected_fields = {
+            "application_pool_bytes",
+            "peak_managed_bytes",
+            "scan_window_bytes",
+            "spool_run_bytes",
+            "merge_fan_in",
+            "peak_open_data_fds",
+            "peak_data_workers",
+            "trie_fan_out",
+        }
+        if not isinstance(maxima, dict) or set(maxima) != expected_fields:
+            raise CampaignError(
+                "stream semantic resource maxima do not have the exact schema"
+            )
+        if any(type(maxima[field]) is not int for field in expected_fields):
+            raise CampaignError("stream semantic resource maxima are not integers")
+        eight_mib = 8 * 1024 * 1024
+        if (
+            maxima["application_pool_bytes"] != eight_mib
+            or not 0 <= maxima["peak_managed_bytes"] <= eight_mib
+            or not 0 < maxima["scan_window_bytes"] <= eight_mib
+            or maxima["spool_run_bytes"] != 4 * 1024 * 1024
+            or maxima["merge_fan_in"] != 8
+            or not 0 <= maxima["peak_open_data_fds"] <= 16
+            or not 0 < maxima["peak_data_workers"] <= 4
+            or maxima["trie_fan_out"] <= 0
+        ):
+            raise CampaignError("stream semantic resource envelope was exceeded")
+
+    @staticmethod
+    def validate_stream_stationary_path_binding(
+        stationary: dict[str, Any],
+        before: dict[str, Any],
+        after: dict[str, Any],
+        first: dict[str, Any],
+        second: dict[str, Any],
+    ) -> None:
+        path_before = stationary.get("allocation_path_before")
+        path_after = stationary.get("allocation_path_after")
+        if (
+            not isinstance(path_before, str)
+            or not path_before
+            or path_before != path_after
+            or path_before != before.get("allocation_path")
+            or path_after != after.get("allocation_path")
+            or first.get("allocation_root") != path_before
+            or second.get("allocation_root") != path_before
+            or first.get("physical") != before
+            or second.get("physical") != after
+        ):
+            raise CampaignError(
+                "stream stationary allocation path binding is invalid"
+            )
+
+    @staticmethod
+    def validate_stream_s2_fixture(fixture: Any) -> None:
+        files = fixture.get("files") if isinstance(fixture, dict) else None
+        if (
+            not isinstance(fixture, dict)
+            or fixture.get("schema_version") != 1
+            or fixture.get("kind")
+            != "mpla_s2_four_file_dense_deterministic_fixture_v1"
+            or fixture.get("creation_method") != "fallocate_zero_extents"
+            or fixture.get("logical_bytes") != STREAM_CHANGED_UPPER_BYTES
+            or fixture.get("data_bytes") != STREAM_CHANGED_UPPER_BYTES
+            or fixture.get("deterministic") is not True
+            or fixture.get("sparse") is not False
+            or not isinstance(files, list)
+            or len(files) != STREAM_FILE_COUNT
+        ):
+            raise CampaignError("stream result lacks the exact dense 1-GiB fixture")
+
+        allocated_total = 0
+        for index, file_receipt in enumerate(files):
+            digest = (
+                file_receipt.get("payload_sha256")
+                if isinstance(file_receipt, dict)
+                else None
+            )
+            logical_extent_operations = (
+                file_receipt.get("logical_extent_operations")
+                if isinstance(file_receipt, dict)
+                else None
+            )
+            if (
+                not isinstance(file_receipt, dict)
+                or file_receipt.get("name")
+                != f"changed-upper-s2-{index:02}.bin"
+                or file_receipt.get("logical_bytes") != STREAM_FILE_BYTES
+                or type(file_receipt.get("allocated_bytes")) is not int
+                or file_receipt["allocated_bytes"] < STREAM_FILE_BYTES
+                or digest
+                != "a6d72ac7690f53be6ae46ba88506bd97302a093f7108472bd9efc3cefda06484"
+                or not isinstance(logical_extent_operations, list)
+                or len(logical_extent_operations) != STREAM_EXTENTS_PER_FILE
+            ):
+                raise CampaignError("stream dense fixture file receipt is malformed")
+            for extent_index, operation in enumerate(logical_extent_operations):
+                if (
+                    not isinstance(operation, dict)
+                    or set(operation) != {"offset", "length"}
+                    or type(operation.get("offset")) is not int
+                    or type(operation.get("length")) is not int
+                    or operation["offset"] != extent_index * STREAM_EXTENT_BYTES
+                    or operation["length"] != STREAM_EXTENT_BYTES
+                ):
+                    raise CampaignError(
+                        "stream fixture logical extent operations are malformed"
+                    )
+            allocated_total += file_receipt["allocated_bytes"]
+        if fixture.get("allocated_bytes") != allocated_total:
+            raise CampaignError("stream fixture allocated-byte total is inconsistent")
+
+    @staticmethod
+    def validate_stream_result_boundary(result: dict[str, Any]) -> None:
+        if (
+            result.get("schema_version") != 1
+            or result.get("kind") != CASE_RESULT_KINDS["stream"]
+            or not isinstance(result.get("run_id"), str)
+            or not result["run_id"]
+            or not isinstance(result.get("candidate_sandbox_id"), str)
+            or not result["candidate_sandbox_id"]
+            or result.get("build_commit") != BUILD_COMMIT
+        ):
+            raise CampaignError("stream result identity is malformed")
+
+        fixture = result.get("s2_fixture")
+        Campaign.validate_stream_s2_fixture(fixture)
+        write_response = result.get("changed_upper_write", {}).get("response", {})
+        try:
+            write_fixture = json.loads(write_response.get("output", ""))
+        except (TypeError, json.JSONDecodeError) as error:
+            raise CampaignError("stream fixture write output is malformed") from error
+        if write_response.get("exit_code") != 0 or write_fixture != fixture:
+            raise CampaignError("stream fixture is not bound to its successful write")
+
+        storage_ns = result.get("storage_stable_callback_elapsed_ns")
+        semantic_ns = result.get("semantic_build_elapsed_ns")
+        elapsed_ns = result.get("stream_elapsed_ns")
+        if (
+            type(storage_ns) is not int
+            or storage_ns <= 0
+            or type(semantic_ns) is not int
+            or semantic_ns <= 0
+            or type(elapsed_ns) is not int
+            or elapsed_ns != storage_ns + semantic_ns
+            or result.get("changed_upper_bytes") != STREAM_CHANGED_UPPER_BYTES
+            or result.get("throughput_bytes") != STREAM_CHANGED_UPPER_BYTES
+        ):
+            raise CampaignError("stream timing or exact byte accounting is malformed")
+        throughput_floor = (
+            STREAM_CHANGED_UPPER_BYTES * 1_000_000_000 // elapsed_ns
+        )
+        if result.get("throughput_bytes_per_second_floor") != throughput_floor:
+            raise CampaignError("stream throughput floor was not independently reproduced")
+
+        publication = result.get("stream_publish")
+        response = publication.get("response") if isinstance(publication, dict) else None
+        semantic = response.get("semantic") if isinstance(response, dict) else None
+        stationary = response.get("stationary") if isinstance(response, dict) else None
+        phases = response.get("phase_elapsed_ns") if isinstance(response, dict) else None
+        roots = canonical_root_pair(response.get("roots")) if isinstance(response, dict) else None
+        semantic_roots = (
+            canonical_root_pair(semantic.get("roots"))
+            if isinstance(semantic, dict)
+            else None
+        )
+        digest = semantic.get("record_stream_sha256") if isinstance(semantic, dict) else None
+        if (
+            not isinstance(publication, dict)
+            or publication.get("operation") != "publish_mpla_workspace_session"
+            or not isinstance(publication.get("request_id"), str)
+            or not publication["request_id"]
+            or not isinstance(response, dict)
+            or response.get("affected_path_count") != STREAM_FILE_COUNT
+            or response.get("affected_payload_bytes_read")
+            != STREAM_CHANGED_UPPER_BYTES
+            or response.get("immutable_payload_bytes_read") != 0
+            or not isinstance(semantic, dict)
+            or type(semantic.get("bytes_read")) is not int
+            or semantic["bytes_read"] <= 0
+            or roots is None
+            or roots != semantic_roots
+            or not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+            or not isinstance(phases, dict)
+            or phases.get("storage_stable_callback") != storage_ns
+            or phases.get("semantic_build") != semantic_ns
+            or not isinstance(stationary, dict)
+            or stationary.get("representative_inodes_unchanged") is not True
+            or stationary.get("allocated_bytes_unchanged") is not True
+            or stationary.get("no_second_payload_allocation") is not True
+            or stationary.get("idempotent_replay") is not False
+        ):
+            raise CampaignError("stream publication receipt is incomplete")
+
+        maxima = semantic.get("resource_maxima")
+        Campaign.validate_stream_semantic_resource_maxima(maxima)
+        if (
+            result.get("semantic_resource_maxima") != maxima
+            or result.get("semantic_resource_bounds") is not True
+        ):
+            raise CampaignError("stream semantic maxima are not bound end to end")
+        durability = semantic.get("durability")
+        if not isinstance(durability, dict) or any(
+            durability.get(field) is not True
+            for field in (
+                "files_fsynced",
+                "object_directory_fsynced",
+                "manifest_fsynced",
+                "manifest_directory_fsynced",
+            )
+        ):
+            raise CampaignError("stream publication durability proof is incomplete")
+
+        stable = stationary.get("stable")
+        before = stable.get("before") if isinstance(stable, dict) else None
+        after = stable.get("after") if isinstance(stable, dict) else None
+        seal = stationary.get("seal")
+        first = seal.get("first_inventory") if isinstance(seal, dict) else None
+        second = seal.get("second_inventory") if isinstance(seal, dict) else None
+        adoption = stationary.get("adoption")
+        request = stationary.get("request")
+        activation_id = result.get("activation", {}).get("response", {}).get(
+            "fresh_allocation_id"
+        )
+        allocation = stable.get("allocation") if isinstance(stable, dict) else None
+        allocation_id = (
+            allocation.get("allocation_id") if isinstance(allocation, dict) else None
+        )
+        operation_id = publication["request_id"]
+        snapshots = (before, after)
+        inventories = (first, second)
+        if (
+            not isinstance(activation_id, str)
+            or not activation_id
+            or allocation_id != activation_id
+            or not isinstance(request, dict)
+            or request.get("operation_id") != operation_id
+            or not isinstance(adoption, dict)
+            or adoption.get("operation_id") != operation_id
+            or adoption.get("publication_id") != request.get("publication_id")
+            or adoption.get("allocation_id") != activation_id
+            or adoption.get("idempotent_replay") is not False
+            or stable.get("operation_id") != operation_id
+            or stable.get("sync_completed") is not True
+            or any(not isinstance(snapshot, dict) for snapshot in snapshots)
+            or any(snapshot.get("allocation_id") != activation_id for snapshot in snapshots)
+            or before.get("logical_bytes") != STREAM_CHANGED_UPPER_BYTES
+            or after.get("logical_bytes") != STREAM_CHANGED_UPPER_BYTES
+            or before.get("file_count") != STREAM_FILE_COUNT
+            or after.get("file_count") != STREAM_FILE_COUNT
+            or before.get("allocated_bytes") != after.get("allocated_bytes")
+            or before.get("allocated_bytes", 0) < STREAM_CHANGED_UPPER_BYTES
+            or any(not isinstance(inventory, dict) for inventory in inventories)
+            or any(inventory.get("allocation_id") != activation_id for inventory in inventories)
+            or first.get("inventory_sha256") != second.get("inventory_sha256")
+            or first.get("physical") != second.get("physical")
+            or first.get("entries") != second.get("entries")
+        ):
+            raise CampaignError("stream allocation identity or stationary seal is invalid")
+        Campaign.validate_stream_stationary_path_binding(
+            stationary,
+            before,
+            after,
+            first,
+            second,
+        )
+        initial_id = (
+            result.get("initial_publish", {})
+            .get("response", {})
+            .get("stationary", {})
+            .get("stable", {})
+            .get("allocation", {})
+            .get("allocation_id")
+        )
+        if not isinstance(initial_id, str) or initial_id == activation_id:
+            raise CampaignError("stream changed upper is not a fresh allocation")
+
+        oracle = result.get("oracle")
+        summary = oracle.get("summary") if isinstance(oracle, dict) else None
+        cleanup = oracle.get("storage_cleanup") if isinstance(oracle, dict) else None
+        if (
+            not isinstance(oracle, dict)
+            or oracle.get("exact_match") is not True
+            or not isinstance(summary, dict)
+            or summary.get("root_id") != roots[0]
+            or summary.get("attribution_root_id") != roots[1]
+            or summary.get("record_stream_sha256") != digest
+            or summary.get("entry_count") != semantic.get("entry_count")
+            or not isinstance(cleanup, list)
+            or len(cleanup) != 3
+            or [item.get("response", {}).get("action") for item in cleanup]
+            != ["quiesce", "strict_unmount", "cleanup"]
+            or oracle.get("destroy", {}).get("response", {}).get("destroyed")
+            is not True
+        ):
+            raise CampaignError("stream independent oracle or cleanup proof is invalid")
+
+        common = (
+            result.get("checksum_inside_timer") is True
+            and result.get("zero_immutable_payload_reads") is True
+            and result.get("no_second_payload_allocation") is True
+            and result.get("durable") is True
+            and result.get("oracle_exact_match") is True
+            and result.get("semantic_resource_bounds") is True
+        )
+        required = common and (
+            STREAM_CHANGED_UPPER_BYTES * 1_000_000_000
+            >= STREAM_CHANGED_UPPER_BYTES * elapsed_ns
+        )
+        preferred = common and (
+            STREAM_CHANGED_UPPER_BYTES * 1_000_000_000
+            >= 5 * STREAM_CHANGED_UPPER_BYTES * elapsed_ns
+        )
+        if result.get("required") is not required or result.get("preferred") is not preferred:
+            raise CampaignError("stream throughput decisions were not independently reproduced")
+        if required is not True:
+            raise CampaignError("AG-STREAM required 1-GiB/s threshold did not pass")
+
+    @classmethod
+    def validate_stream_phase_boundary(
+        cls,
+        result: dict[str, Any],
+        progress: dict[str, Any],
+        result_sha256: str,
+    ) -> None:
+        cls.validate_stream_result_boundary(result)
+        content = progress.get("file_read", {}).get("content")
+        try:
+            events = [json.loads(line) for line in content.splitlines() if line]
+        except (AttributeError, json.JSONDecodeError) as error:
+            raise CampaignError("stream progress evidence is not valid JSONL") from error
+        expected_stages = [
+            "started",
+            "dense_fixture_completed",
+            "stream_publication_completed",
+            "oracle_completed",
+            "resources_completed",
+            "result_completed",
+        ]
+        if (
+            progress.get("path") != "/workspace/scorecard-stream-progress.jsonl"
+            or len(events) != len(expected_stages)
+            or [event.get("stage") for event in events] != expected_stages
+            or any(
+                event.get("schema_version") != 1
+                or event.get("kind") != "mpla_booster_stream_progress_v1"
+                or not isinstance(event.get("details"), dict)
+                for event in events
+            )
+        ):
+            raise CampaignError("stream progress sequence or identity is not exact")
+        started, fixture, publication, oracle, resources, completed = [
+            event["details"] for event in events
+        ]
+        expected_started = {
+            "run_id": result["run_id"],
+            "candidate_sandbox_id": result["candidate_sandbox_id"],
+            "build_commit": BUILD_COMMIT,
+            "phase": "P6",
+            "runner": "mpla_stream_scorecard",
+            "suggested_budget_seconds": 20,
+            "multiplier": 2000,
+            "independent_cap_seconds": 40,
+            "bounded_work": {
+                "changed_upper_bytes": STREAM_CHANGED_UPPER_BYTES,
+                "file_count": STREAM_FILE_COUNT,
+                "file_bytes": STREAM_FILE_BYTES,
+                "dense": True,
+            },
+        }
+        response = result["stream_publish"]["response"]
+        if (
+            started != expected_started
+            or fixture
+            != {
+                "fixture_sha256": canonical_json_sha256(result["s2_fixture"]),
+                "logical_bytes": STREAM_CHANGED_UPPER_BYTES,
+                "data_bytes": STREAM_CHANGED_UPPER_BYTES,
+                "file_count": STREAM_FILE_COUNT,
+                "sparse": False,
+            }
+            or publication
+            != {
+                "request_id": result["stream_publish"]["request_id"],
+                "outer_elapsed_ns": result["stream_publish"]["outer_elapsed_ns"],
+                "response_sha256": canonical_json_sha256(response),
+                "roots": response["roots"],
+                "changed_upper_bytes": STREAM_CHANGED_UPPER_BYTES,
+                "semantic_resource_maxima": result["semantic_resource_maxima"],
+            }
+            or oracle
+            != {
+                "exact_match": True,
+                "summary_sha256": canonical_json_sha256(result["oracle"]["summary"]),
+            }
+            or resources
+            != {
+                "coordinator_resource_observation_sha256": canonical_json_sha256(
+                    result["resources"]
+                ),
+                "semantic_resource_maxima_sha256": canonical_json_sha256(
+                    result["semantic_resource_maxima"]
+                ),
+                "resource_bounds": result["resource_bounds"],
+            }
+            or completed.get("result_path")
+            != "/workspace/scorecard-stream-result.json"
+            or completed.get("result_sha256") != result_sha256
+            or completed.get("required") != result["required"]
+            or completed.get("preferred") != result["preferred"]
+            or completed.get("stream_elapsed_ns") != result["stream_elapsed_ns"]
+            or completed.get("throughput_bytes_per_second_floor")
+            != result["throughput_bytes_per_second_floor"]
+            or type(completed.get("result_bytes")) is not int
+            or completed["result_bytes"] <= 0
+        ):
+            raise CampaignError("stream progress ledger does not bind the result")
+
+    @staticmethod
+    def validate_squash_result_boundary(result: dict[str, Any]) -> None:
+        if result.get("candidate_prepared_before_phase") is not True:
+            raise CampaignError(
+                "squash result does not prove candidate preparation before the phase"
+            )
+        setup_elapsed_ns = result.get("squash_setup_elapsed_ns")
+        if type(setup_elapsed_ns) is not int or setup_elapsed_ns <= 0:
+            raise CampaignError(
+                "squash result lacks a positive separately timed setup receipt"
+            )
+        phase_timing = result.get("phase_timing")
+        if (
+            not isinstance(phase_timing, dict)
+            or type(phase_timing.get("elapsed_ns")) is not int
+            or phase_timing["elapsed_ns"] <= 0
+        ):
+            raise CampaignError("squash result lacks its scored phase elapsed time")
+        if (
+            phase_timing.get("measurement_scope")
+            != "exact sum of three public squash outer spans; durable journal syncs excluded"
+        ):
+            raise CampaignError("squash result has the wrong operation timer scope")
+        if not isinstance(result.get("baseline_activation"), dict):
+            raise CampaignError(
+                "squash result lacks the pre-phase baseline activation"
+            )
+        samples = result.get("squash_samples")
+        if not isinstance(samples, list) or len(samples) != 3:
+            raise CampaignError("squash result does not contain exactly three samples")
+        receipts = result.get("squash_sample_receipts")
+        if not isinstance(receipts, list) or len(receipts) != 3:
+            raise CampaignError(
+                "squash result does not contain exactly three durable sample receipts"
+            )
+        run_id = result.get("run_id")
+        if not isinstance(run_id, str) or not run_id:
+            raise CampaignError("squash result lacks its run ID")
+        for sample_number, (sample, receipt) in enumerate(zip(samples, receipts)):
+            if not isinstance(sample, dict) or not isinstance(receipt, dict):
+                raise CampaignError("squash result has a malformed sample receipt")
+            response = sample.get("response")
+            if not isinstance(response, dict):
+                raise CampaignError("squash result sample lacks its full response")
+            expected_request_id = f"{run_id}-squash-{sample_number:02}"
+            if (
+                sample.get("operation") != "squash_mpla_branch"
+                or sample.get("request_id") != expected_request_id
+            ):
+                raise CampaignError(
+                    "squash raw invocation envelope does not match its operation"
+                )
+            expected = {
+                "sample": sample_number,
+                "operation": "squash_mpla_branch",
+                "request_id": expected_request_id,
+                "outer_elapsed_ns": sample.get("outer_elapsed_ns"),
+                "service_elapsed_ns": response.get("service_elapsed_ns"),
+                "selected_ref": (
+                    response.get("lifecycle", {}).get("selected_ref")
+                    if isinstance(response.get("lifecycle"), dict)
+                    else None
+                ),
+                "roots": response.get("roots"),
+                "ref_sequence": response.get("ref_sequence"),
+                "full_response_sha256": canonical_json_sha256(response),
+            }
+            if receipt != expected:
+                raise CampaignError(
+                    "squash durable sample receipt does not match its raw response"
+                )
+        gate = result.get("squash_gate")
+        if not isinstance(gate, dict):
+            raise CampaignError("squash result lacks its absolute gate")
+        if gate.get("gate") != "AG-SQUASH":
+            raise CampaignError("squash result has the wrong gate identity")
+        for field in ("outer_ns", "service_ns"):
+            values = gate.get(field)
+            if (
+                not isinstance(values, list)
+                or len(values) != 3
+                or any(type(value) is not int or value < 0 for value in values)
+            ):
+                raise CampaignError(
+                    f"squash result {field} does not contain exactly three timings"
+                )
+        if gate["outer_ns"] != [
+            receipt["outer_elapsed_ns"] for receipt in receipts
+        ] or gate["service_ns"] != [
+            receipt["service_elapsed_ns"] for receipt in receipts
+        ]:
+            raise CampaignError(
+                "squash absolute gate timings do not match the durable receipts"
+            )
+        if phase_timing["elapsed_ns"] != sum(gate["outer_ns"]):
+            raise CampaignError(
+                "squash phase elapsed time is not the exact sum of public outer spans"
+            )
+        if (
+            gate.get("required") is not True
+            or any(value > SQUASH_OUTER_TARGET_NS for value in gate["outer_ns"])
+            or any(
+                value > SQUASH_SERVICE_TARGET_NS
+                for value in gate["service_ns"]
+            )
+        ):
+            raise CampaignError("squash absolute gate did not pass")
+        baseline_activation = result["baseline_activation"]
+        baseline_roots = canonical_root_pair(
+            (
+                baseline_activation.get("projection", {}).get("roots")
+                if isinstance(baseline_activation.get("projection"), dict)
+                else None
+            )
+        )
+        baseline_ref = parse_selected_ref(
+            baseline_activation.get("selected_ref"),
+            "main",
+        )
+        if baseline_roots is None or baseline_ref is None:
+            raise CampaignError(
+                "squash baseline lacks canonical roots or a valid selected ref"
+            )
+        baseline_sequence, baseline_digest = baseline_ref
+        digests = {baseline_digest}
+        for sample_number, sample in enumerate(samples):
+            response = sample["response"]
+            lifecycle = response.get("lifecycle")
+            expected_operation_id = f"{run_id}-squash-{sample_number:02}"
+            expected_sequence = baseline_sequence + sample_number + 1
+            selected_ref = (
+                lifecycle.get("selected_ref")
+                if isinstance(lifecycle, dict)
+                else None
+            )
+            parsed_ref = parse_selected_ref(selected_ref, "main")
+            if (
+                canonical_root_pair(response.get("roots")) != baseline_roots
+                or expected_sequence > U64_MAX
+                or response.get("ref_sequence") != expected_sequence
+                or response.get("run_id") != run_id
+                or response.get("branch") != "main"
+                or not isinstance(lifecycle, dict)
+                or lifecycle.get("operation_id") != expected_operation_id
+                or lifecycle.get("committed") is not True
+                or lifecycle.get("idempotent_replay") is not False
+                or lifecycle.get("service_elapsed_ns")
+                != response.get("service_elapsed_ns")
+                or parsed_ref is None
+                or parsed_ref[0] != expected_sequence
+                or parsed_ref[1] in digests
+            ):
+                raise CampaignError(
+                    "squash response does not preserve canonical roots "
+                    "and exact committed ref progression"
+                )
+            digests.add(parsed_ref[1])
+        if (
+            result.get("identity_and_attribution_stable") is not True
+            or result.get("public_outcomes_exact") is not True
+            or result.get("selected_ref_progression_exact") is not True
+        ):
+            raise CampaignError(
+                "squash result lacks a required continuity proof"
+            )
+
+    @classmethod
+    def validate_squash_phase_boundary(
+        cls,
+        result: dict[str, Any],
+        progress: dict[str, Any],
+        result_sha256: str,
+    ) -> None:
+        cls.validate_squash_result_boundary(result)
+        content = progress.get("file_read", {}).get("content")
+        if not isinstance(content, str):
+            raise CampaignError("squash progress evidence lacks JSONL content")
+        events = []
+        try:
+            for line in content.splitlines():
+                if line:
+                    events.append(json.loads(line))
+        except json.JSONDecodeError as error:
+            raise CampaignError("squash progress evidence is not valid JSONL") from error
+        if not events or any(
+            event.get("schema_version") != 1
+            or event.get("kind") != "mpla_booster_squash_progress_v1"
+            or not isinstance(event.get("stage"), str)
+            or not isinstance(event.get("details"), dict)
+            for event in events
+        ):
+            raise CampaignError("squash progress evidence has invalid event identity")
+        stages = [event["stage"] for event in events]
+        if "candidate_prepared_in_phase" in stages:
+            raise CampaignError("squash progress records candidate preparation in phase")
+        setup_indices = [
+            index
+            for index, stage in enumerate(stages)
+            if stage == "squash_setup_completed_before_phase"
+        ]
+        squash_indices = [
+            index for index, stage in enumerate(stages) if stage == "squash_completed"
+        ]
+        if len(setup_indices) != 1 or len(squash_indices) != 3:
+            raise CampaignError(
+                "squash progress lacks one pre-phase setup and three completed samples"
+            )
+        if setup_indices[0] >= squash_indices[0]:
+            raise CampaignError("squash setup was not completed before scored samples")
+        setup = events[setup_indices[0]]["details"]
+        if setup.get("setup_elapsed_ns") != result["squash_setup_elapsed_ns"]:
+            raise CampaignError(
+                "squash progress setup timing does not match the result receipt"
+            )
+        if [
+            events[index]["details"].get("sample") for index in squash_indices
+        ] != [0, 1, 2]:
+            raise CampaignError("squash progress sample sequence is not exact")
+        if [
+            events[index]["details"] for index in squash_indices
+        ] != result["squash_sample_receipts"]:
+            raise CampaignError(
+                "squash progress sample ledger does not match the raw result"
+            )
+        completed = events[-1]
+        if (
+            completed["stage"] != "completed"
+            or completed["details"].get("result_sha256") != result_sha256
+        ):
+            raise CampaignError(
+                "squash progress does not close over the retrieved result hash"
+            )
 
     def phase_pass(
         self,
@@ -1960,9 +4039,18 @@ class Campaign:
             if not attachment_path.is_file():
                 failures.append("P0-WARM fixture attachment receipt is absent")
         elif self.case == "recovery":
-            if result.get("fresh_sweep", {}).get("passed") is not True:
-                failures.append("HV-07 fresh crash sweep did not pass")
+            failures.extend(validate_hv07_result(result))
         else:
+            if self.case == "squash":
+                try:
+                    self.validate_squash_result_boundary(result)
+                except CampaignError as error:
+                    failures.append(str(error))
+            if self.case == "stream":
+                try:
+                    self.validate_stream_result_boundary(result)
+                except CampaignError as error:
+                    failures.append(str(error))
             gates = self.result_gates({self.case: result})
             for gate in CASE_GATES[self.case]:
                 if gates.get(gate) is not True:
@@ -2064,96 +4152,462 @@ class Campaign:
         }
 
     @staticmethod
-    def verify_phase_root(case: str, root: pathlib.Path) -> dict[str, Any]:
-        if not root.is_dir():
-            raise CampaignError(f"{case} phase root is absent: {root}")
-        manifest_path = root / "manifest.sha256"
-        verification_path = root / "manifest-verification.json"
-        if not manifest_path.is_file() or not verification_path.is_file():
-            raise CampaignError(f"{case} phase root is not sealed")
-        listed = set()
-        for line in manifest_path.read_text().splitlines():
-            expected, separator, relative = line.partition("  ")
-            if (
-                not separator
-                or not expected
-                or pathlib.PurePosixPath(relative).is_absolute()
-                or ".." in pathlib.PurePosixPath(relative).parts
-                or relative in listed
-            ):
-                raise CampaignError(f"{case} manifest entry is malformed")
-            path = root / relative
-            if not path.is_file() or sha256_file(path) != expected:
-                raise CampaignError(
-                    f"{case} manifest verification failed for {relative}"
+    def verify_phase_root(
+        case: str,
+        root: pathlib.Path,
+        expected_manifest_sha256: str,
+    ) -> dict[str, Any]:
+        if not is_sha256(expected_manifest_sha256):
+            raise CampaignError(f"{case} external manifest pin is malformed")
+        try:
+            root_descriptor = os.open(
+                root,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            )
+        except OSError as error:
+            raise CampaignError(f"{case} phase root is absent: {root}") from error
+        root_before = stat_identity(os.fstat(root_descriptor))
+        try:
+            try:
+                manifest_bytes, manifest_identity = open_relative_regular_once(
+                    root_descriptor,
+                    "manifest.sha256",
+                    f"{case} manifest.sha256",
                 )
-            listed.add(relative)
-        actual = {
-            path.relative_to(root).as_posix()
-            for path in root.rglob("*")
-            if path.is_file()
+                verification_bytes, verification_identity = (
+                    open_relative_regular_once(
+                        root_descriptor,
+                        "manifest-verification.json",
+                        f"{case} manifest-verification.json",
+                    )
+                )
+            except CampaignError as error:
+                raise CampaignError(f"{case} phase root is not sealed") from error
+            actual_manifest_sha256 = sha256_bytes(manifest_bytes)
+            if actual_manifest_sha256 != expected_manifest_sha256:
+                raise CampaignError(f"{case} external manifest pin mismatch")
+            try:
+                manifest_text = manifest_bytes.decode("utf-8")
+            except UnicodeDecodeError as error:
+                raise CampaignError(f"{case} manifest entry is malformed") from error
+            manifest_digests: dict[str, str] = {}
+            for line in manifest_text.splitlines():
+                expected, separator, relative = line.partition("  ")
+                relative_path = pathlib.PurePosixPath(relative)
+                if (
+                    not separator
+                    or not is_sha256(expected)
+                    or not relative
+                    or relative_path.as_posix() != relative
+                    or relative_path.is_absolute()
+                    or ".." in relative_path.parts
+                    or relative in manifest_digests
+                    or relative
+                    in {"manifest.sha256", "manifest-verification.json"}
+                ):
+                    raise CampaignError(f"{case} manifest entry is malformed")
+                manifest_digests[relative] = expected
+            captured_bytes: dict[str, bytes] = {}
+            captured_identities: dict[str, tuple[int, ...]] = {}
+            for relative, expected in manifest_digests.items():
+                payload, identity = open_relative_regular_once(
+                    root_descriptor,
+                    relative,
+                    f"{case} {relative}",
+                )
+                if sha256_bytes(payload) != expected:
+                    raise CampaignError(
+                        f"{case} manifest verification failed for {relative}"
+                    )
+                captured_bytes[relative] = payload
+                captured_identities[relative] = identity
+            expected_files = set(manifest_digests) | {
+                "manifest.sha256",
+                "manifest-verification.json",
+            }
+            expected_directories = {
+                parent.as_posix()
+                for relative in expected_files
+                for parent in pathlib.PurePosixPath(relative).parents
+                if parent.as_posix() != "."
+            }
+            actual_files, actual_directories, inventory_identities = (
+                inventory_phase_root(root_descriptor, case)
+            )
+            if (
+                actual_files != expected_files
+                or actual_directories != expected_directories
+            ):
+                raise CampaignError(
+                    f"{case} phase root has unsealed extra or missing entries"
+                )
+            captured_identities["manifest.sha256"] = manifest_identity
+            captured_identities["manifest-verification.json"] = (
+                verification_identity
+            )
+            if any(
+                inventory_identities.get(relative) != identity
+                for relative, identity in captured_identities.items()
+            ):
+                raise CampaignError(
+                    f"{case} phase root changed after evidence capture"
+                )
+            try:
+                path_identity = stat_identity(
+                    os.stat(root, follow_symlinks=False)
+                )
+            except OSError as error:
+                raise CampaignError(
+                    f"{case} phase root path changed during evidence capture"
+                ) from error
+            if path_identity != root_before:
+                raise CampaignError(
+                    f"{case} phase root path changed during evidence capture"
+                )
+            if stat_identity(os.fstat(root_descriptor)) != root_before:
+                raise CampaignError(
+                    f"{case} phase root changed during evidence capture"
+                )
+        finally:
+            os.close(root_descriptor)
+        listed = set(manifest_digests)
+        required_receipts = {
+            "decision.json",
+            "environment.json",
+            "phase-declaration.json",
+            "phase-receipt.json",
+            "source.json",
+            "staged-artifacts.json",
         }
-        expected_actual = listed | {
-            "manifest.sha256",
+        if not required_receipts.issubset(listed):
+            raise CampaignError(f"{case} phase root omits a required sealed receipt")
+        verification = parse_captured_json(
+            case,
             "manifest-verification.json",
-        }
-        if actual != expected_actual:
-            raise CampaignError(f"{case} phase root has unsealed extra files")
-        verification = json.loads(verification_path.read_text())
+            verification_bytes,
+        )
         if (
-            verification.get("verified") is not True
-            or verification.get("manifest_sha256") != sha256_file(manifest_path)
+            not isinstance(verification, dict)
+            or set(verification)
+            != {
+                "schema_version",
+                "kind",
+                "manifest",
+                "manifest_sha256",
+                "verified",
+                "coverage",
+            }
+            or type(verification.get("schema_version")) is not int
+            or verification["schema_version"] != 1
+            or verification.get("kind")
+            != "mpla_booster_manifest_verification_v1"
+            or verification.get("manifest") != "manifest.sha256"
+            or verification.get("verified") is not True
+            or verification.get("manifest_sha256") != actual_manifest_sha256
+            or not isinstance(verification.get("coverage"), str)
+            or not verification["coverage"]
         ):
             raise CampaignError(f"{case} manifest verification receipt is invalid")
-        decision = json.loads((root / "decision.json").read_text())
-        receipt = json.loads((root / "phase-receipt.json").read_text())
-        declaration = json.loads((root / "phase-declaration.json").read_text())
-        environment = json.loads((root / "environment.json").read_text())
-        if (
-            not isinstance(environment.get("run_id"), str)
-            or not environment["run_id"]
-            or decision.get("run_id") != environment["run_id"]
-            or receipt.get("run_id") != environment["run_id"]
-            or declaration.get("run_id") != environment["run_id"]
-            or
-            decision.get("phase") != case
-            or decision.get("status") != "PASS"
-            or receipt.get("phase") != case
-            or receipt.get("status") != "PASS"
-            or receipt.get("cap_pass") is not True
-            or receipt.get("cleanup_pass") is not True
-            or receipt.get("deadline_carryover_seconds") != 0
-            or receipt.get("runner") != CASE_RUNNERS[case]
-            or declaration.get("phase") != case
-            or declaration.get("runner") != CASE_RUNNERS[case]
-            or declaration.get("deadline_carryover_seconds") != 0
-            or declaration.get("suggested_budget_seconds")
-            != CASE_SUGGESTED_BUDGET_SECONDS[case]
-            or declaration.get("calculated_phase_cap_seconds")
-            != CASE_DEADLINES_SECONDS[case]
-            or environment.get("case") != case
-            or environment.get("build_commit") != BUILD_COMMIT
+        decision = parse_captured_json(case, "decision.json", captured_bytes["decision.json"])
+        receipt = parse_captured_json(
+            case,
+            "phase-receipt.json",
+            captured_bytes["phase-receipt.json"],
+        )
+        declaration = parse_captured_json(
+            case,
+            "phase-declaration.json",
+            captured_bytes["phase-declaration.json"],
+        )
+        environment = parse_captured_json(
+            case,
+            "environment.json",
+            captured_bytes["environment.json"],
+        )
+        source = parse_captured_json(case, "source.json", captured_bytes["source.json"])
+        staged_artifacts = parse_captured_json(
+            case,
+            "staged-artifacts.json",
+            captured_bytes["staged-artifacts.json"],
+        )
+        if not all(
+            isinstance(value, dict)
+            for value in (
+                decision,
+                receipt,
+                declaration,
+                environment,
+                source,
+                staged_artifacts,
+            )
         ):
             raise CampaignError(f"{case} phase eligibility receipt is invalid")
+        validate_source_receipt(case, source)
+        artifacts = staged_artifacts.get("artifacts")
+        expected_artifact_names = {
+            "mpla-speed-poc-v1",
+            "mpla-poc-oracle",
+            "sandbox-runtime-cli",
+            "sandbox-catalog-export",
+            "gateway.token",
+            "product-catalog.json",
+        }
+        if case == "recovery":
+            expected_artifact_names.add("hv07_campaign")
+        if (
+            not isinstance(artifacts, dict)
+            or set(artifacts) != expected_artifact_names
+        ):
+            raise CampaignError(f"{case} staged artifact inventory is not exact")
+        phase_artifacts = {
+            case: {
+                "staged_artifacts": staged_artifacts,
+                "_sealed_file_bytes": captured_bytes,
+                "_manifest_digests": manifest_digests,
+            }
+        }
+        for artifact_name in expected_artifact_names:
+            staged_artifact_identity(phase_artifacts, case, artifact_name)
+            if (
+                case == "recovery"
+                and "sealed_path" not in artifacts[artifact_name]
+            ):
+                raise CampaignError(
+                    f"{case} staged artifact {artifact_name} requires sealed_path"
+                )
+
+        expected_decision_fields = {
+            "schema_version",
+            "kind",
+            "run_id",
+            "phase",
+            "status",
+            "gates",
+        }
+        expected_receipt_fields = {
+            "schema_version",
+            "kind",
+            "run_id",
+            "phase",
+            "runner",
+            "suggested_budget_seconds",
+            "selected_multiplier_milli",
+            "calculated_phase_cap_seconds",
+            "deadline_carryover_seconds",
+            "clock",
+            "elapsed_wall_ns",
+            "total_harness_wall_ns",
+            "timer_scope",
+            "cap_pass",
+            "cleanup_pass",
+            "status",
+            "failures",
+        }
+        expected_declaration_fields = {
+            "schema_version",
+            "kind",
+            "run_id",
+            "phase",
+            "runner",
+            "suggested_budget_seconds",
+            "selected_multiplier_milli",
+            "calculated_phase_cap_seconds",
+            "deadline_carryover_seconds",
+            "bounded_work",
+            "declared_utc",
+        }
+        expected_environment_fields = {
+            "run_id",
+            "case",
+            "image",
+            "platform",
+            "gateway_socket",
+            "gateway_config",
+            "r0",
+            "build_commit",
+            "created_utc",
+        }
+        suggested_budget = CASE_SUGGESTED_BUDGET_SECONDS[case]
+        phase_cap = CASE_DEADLINES_SECONDS[case]
+        selected_multiplier_milli = phase_cap * 1_000 // suggested_budget
+        run_id = environment.get("run_id")
+        elapsed_wall_ns = receipt.get("elapsed_wall_ns")
+        total_harness_wall_ns = receipt.get("total_harness_wall_ns")
+        derived_cap_pass = (
+            type(elapsed_wall_ns) is int
+            and elapsed_wall_ns >= 0
+            and elapsed_wall_ns <= phase_cap * 1_000_000_000
+        )
+        if (
+            set(decision) != expected_decision_fields
+            or set(receipt) != expected_receipt_fields
+            or set(declaration) != expected_declaration_fields
+            or set(environment) != expected_environment_fields
+            or type(run_id) is not str
+            or not run_id
+            or any(
+                item.get("run_id") != run_id
+                for item in (decision, receipt, declaration)
+            )
+            or type(decision.get("schema_version")) is not int
+            or decision["schema_version"] != 1
+            or decision.get("kind") != "mpla_booster_phase_decision_v1"
+            or decision.get("phase") != case
+            or type(receipt.get("schema_version")) is not int
+            or receipt["schema_version"] != 1
+            or receipt.get("kind") != "mpla_booster_phase_receipt_v1"
+            or receipt.get("phase") != case
+            or receipt.get("runner") != CASE_RUNNERS[case]
+            or type(receipt.get("suggested_budget_seconds")) is not int
+            or receipt["suggested_budget_seconds"] != suggested_budget
+            or type(receipt.get("selected_multiplier_milli")) is not int
+            or receipt["selected_multiplier_milli"] != selected_multiplier_milli
+            or type(receipt.get("calculated_phase_cap_seconds")) is not int
+            or receipt["calculated_phase_cap_seconds"] != phase_cap
+            or type(receipt.get("deadline_carryover_seconds")) is not int
+            or receipt["deadline_carryover_seconds"] != 0
+            or receipt.get("clock") != "CLOCK_MONOTONIC"
+            or type(total_harness_wall_ns) is not int
+            or total_harness_wall_ns < 0
+            or type(elapsed_wall_ns) is not int
+            or elapsed_wall_ns < 0
+            or total_harness_wall_ns < elapsed_wall_ns
+            or receipt.get("timer_scope")
+            != "focused coordinator operation and matched controls only"
+            or type(receipt.get("cap_pass")) is not bool
+            or receipt["cap_pass"] is not derived_cap_pass
+            or receipt["cap_pass"] is not True
+            or receipt.get("cleanup_pass") is not True
+            or type(receipt.get("cleanup_pass")) is not bool
+            or type(receipt.get("failures")) is not list
+            or any(
+                type(failure) is not str or not failure
+                for failure in receipt["failures"]
+            )
+            or type(declaration.get("schema_version")) is not int
+            or declaration["schema_version"] != 1
+            or declaration.get("kind")
+            != "mpla_booster_phase_declaration_v1"
+            or declaration.get("phase") != case
+            or declaration.get("runner") != CASE_RUNNERS[case]
+            or type(declaration.get("suggested_budget_seconds")) is not int
+            or declaration["suggested_budget_seconds"] != suggested_budget
+            or type(declaration.get("selected_multiplier_milli")) is not int
+            or declaration["selected_multiplier_milli"]
+            != selected_multiplier_milli
+            or type(declaration.get("calculated_phase_cap_seconds")) is not int
+            or declaration["calculated_phase_cap_seconds"] != phase_cap
+            or type(declaration.get("deadline_carryover_seconds")) is not int
+            or declaration["deadline_carryover_seconds"] != 0
+            or declaration.get("bounded_work")
+            != f"one fresh {case} scorecard process and cleanup"
+            or environment.get("case") != case
+            or environment.get("image") != IMAGE
+            or environment.get("platform") != "linux/arm64"
+            or environment.get("gateway_socket") != GATEWAY_SOCKET
+            or environment.get("gateway_config") != str(M3_SCORECARD_CONFIG)
+            or environment.get("r0") != str(R0)
+            or environment.get("build_commit") != BUILD_COMMIT
+            or source.get("commit") != environment.get("build_commit")
+        ):
+            raise CampaignError(f"{case} phase eligibility receipt is invalid")
+        declared = parse_utc_instant(
+            declaration["declared_utc"],
+            f"{case} phase declaration timestamp",
+        )
+        created = parse_utc_instant(
+            environment["created_utc"],
+            f"{case} environment timestamp",
+        )
+        if created > declared:
+            raise CampaignError(
+                f"{case} phase timestamps are not chronological"
+            )
         raw_paths = [
-            root / "cases" / gate / "raw-result.json"
+            f"cases/{gate}/raw-result.json"
             for gate in CASE_GATES[case]
-        ] or [root / "cases" / case / "raw-result.json"]
-        results = [json.loads(path.read_text()) for path in raw_paths]
+        ] or [f"cases/{case}/raw-result.json"]
+        results = [
+            parse_captured_json(case, relative, captured_bytes[relative])
+            for relative in raw_paths
+        ]
         if any(result != results[0] for result in results[1:]):
             raise CampaignError(f"{case} duplicated gate results disagree")
+        result = results[0]
+        if (
+            not isinstance(result, dict)
+            or result.get("run_id") != run_id
+            or result.get("build_commit") != environment["build_commit"]
+            or type(result.get("run_id")) is not str
+            or type(result.get("build_commit")) is not str
+            or (
+                case not in HISTORICAL_INDIRECT_RAW_RESULT_CASES
+                and (
+                    result.get("phase") != case
+                    or result.get("runner") != CASE_RUNNERS[case]
+                )
+            )
+            or (
+                case in HISTORICAL_INDIRECT_RAW_RESULT_CASES
+                and (
+                    ("phase" in result and result.get("phase") != case)
+                    or (
+                        "runner" in result
+                        and result.get("runner") != CASE_RUNNERS[case]
+                    )
+                )
+            )
+        ):
+            raise CampaignError(f"{case} raw phase result identity is invalid")
+        expected_gates = phase_result_gates(case, result)
+        expected_status = (
+            "PASS"
+            if case != "publication" or all(expected_gates.values())
+            else "FAIL"
+        )
+        if (
+            not isinstance(decision.get("gates"), dict)
+            or set(decision["gates"]) != set(expected_gates)
+            or any(
+                type(value) is not bool
+                for value in decision["gates"].values()
+            )
+            or decision.get("gates") != expected_gates
+            or decision.get("status") != expected_status
+            or receipt.get("status") != expected_status
+            or decision.get("status") != receipt.get("status")
+            or (expected_status == "PASS" and receipt["failures"] != [])
+            or (expected_status == "FAIL" and not receipt["failures"])
+            or (
+                case != "publication"
+                and expected_gates
+                and not all(expected_gates.values())
+            )
+        ):
+            raise CampaignError(f"{case} phase eligibility receipt is invalid")
         return {
-            "root": str(root.resolve()),
-            "manifest_sha256": sha256_file(manifest_path),
-            "source": json.loads((root / "source.json").read_text()),
+            "root": os.path.abspath(root),
+            "_root_identity": root_before[:2],
+            "_sealed_file_bytes": captured_bytes,
+            "_manifest_digests": manifest_digests,
+            "manifest_sha256": actual_manifest_sha256,
+            "expected_manifest_sha256": expected_manifest_sha256,
+            "source": source,
+            "source_sha256": sha256_bytes(captured_bytes["source.json"]),
             "environment": environment,
-            "staged_artifacts": (
-                json.loads((root / "staged-artifacts.json").read_text())
-                if (root / "staged-artifacts.json").is_file()
-                else None
+            "environment_sha256": sha256_bytes(captured_bytes["environment.json"]),
+            "declaration": declaration,
+            "declaration_sha256": sha256_bytes(
+                captured_bytes["phase-declaration.json"]
+            ),
+            "staged_artifacts": staged_artifacts,
+            "staged_artifacts_sha256": sha256_bytes(
+                captured_bytes["staged-artifacts.json"]
             ),
             "receipt": receipt,
-            "result": results[0],
+            "receipt_sha256": sha256_bytes(captured_bytes["phase-receipt.json"]),
+            "result": result,
+            "raw_result_binding": expected_raw_result_binding(case),
         }
 
     @staticmethod
@@ -2172,20 +4626,66 @@ class Campaign:
         return elapsed_ns
 
     @staticmethod
-    def verify_cold_cache_root(root: pathlib.Path) -> dict[str, Any]:
-        if not root.is_dir():
-            raise CampaignError(f"F0-COLD cache root is absent: {root}")
-        receipt_path = root / COLD_CACHE_RECEIPT_FILE
-        if not receipt_path.is_file() or receipt_path.is_symlink():
-            raise CampaignError(
-                f"F0-COLD construction receipt is absent: {receipt_path}"
-            )
+    def verify_cold_cache_root(
+        root: pathlib.Path,
+        expected_receipt_sha256: str,
+    ) -> dict[str, Any]:
+        if not is_sha256(expected_receipt_sha256):
+            raise CampaignError("F0-COLD external receipt pin is malformed")
         try:
-            receipt = json.loads(receipt_path.read_text())
-        except (OSError, json.JSONDecodeError) as error:
-            raise CampaignError(
-                "F0-COLD construction receipt is not valid JSON"
-            ) from error
+            root_descriptor = os.open(
+                root,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            )
+        except OSError as error:
+            raise CampaignError(f"F0-COLD cache root is absent: {root}") from error
+        root_before = stat_identity(os.fstat(root_descriptor))
+        try:
+            receipt_bytes, receipt_identity = open_relative_regular_once(
+                root_descriptor,
+                COLD_CACHE_RECEIPT_FILE,
+                "F0-COLD construction receipt",
+            )
+            actual_receipt_sha256 = sha256_bytes(receipt_bytes)
+            if actual_receipt_sha256 != expected_receipt_sha256:
+                raise CampaignError("F0-COLD external receipt pin mismatch")
+            actual_files, actual_directories, inventory_identities = (
+                inventory_phase_root(root_descriptor, "F0-COLD")
+            )
+            if (
+                actual_files != {COLD_CACHE_RECEIPT_FILE}
+                or actual_directories
+            ):
+                raise CampaignError(
+                    "F0-COLD cache root must contain exactly one regular receipt"
+                )
+            if inventory_identities.get(COLD_CACHE_RECEIPT_FILE) != receipt_identity:
+                raise CampaignError(
+                    "F0-COLD cache root changed after receipt capture"
+                )
+            if stat_identity(os.fstat(root_descriptor)) != root_before:
+                raise CampaignError(
+                    "F0-COLD cache root changed during receipt capture"
+                )
+            try:
+                path_identity = stat_identity(
+                    os.stat(root, follow_symlinks=False)
+                )
+            except OSError as error:
+                raise CampaignError(
+                    "F0-COLD cache root path changed during receipt capture"
+                ) from error
+            if path_identity != root_before:
+                raise CampaignError(
+                    "F0-COLD cache root path changed during receipt capture"
+                )
+        finally:
+            os.close(root_descriptor)
+        receipt = parse_captured_json(
+            "F0-COLD",
+            COLD_CACHE_RECEIPT_FILE,
+            receipt_bytes,
+        )
         expected_fields = {
             "schema_version",
             "phase",
@@ -2214,11 +4714,16 @@ class Campaign:
             "manifest_path",
             "chain_depth",
             "logical_bytes",
+            "control_source_logical_bytes",
             "allocation_count",
             "allocated_bytes",
             "payload_bytes_read",
             "payload_bytes_copied",
+            "recovered",
+            "removed_fixture_owned_paths",
             "builder_elapsed_ns",
+            "layer_timings",
+            "pre_seal_validation",
         }
         if (
             not isinstance(service_result, dict)
@@ -2242,6 +4747,9 @@ class Campaign:
             ),
             "chain_depth": 8,
             "logical_bytes": PREPARED_FIXTURE_LOGICAL_BYTES,
+            "control_source_logical_bytes": (
+                PREPARED_FIXTURE_CONTROL_SOURCE_BYTES
+            ),
             "allocation_count": PREPARED_FIXTURE_ALLOCATION_COUNT,
             "allocated_bytes": 0,
             "payload_bytes_read": 0,
@@ -2259,6 +4767,118 @@ class Campaign:
             raise CampaignError(
                 "F0-COLD construction receipt does not attest the fixed fixture"
             )
+        layer_timings = service_result.get("layer_timings")
+        recovered = service_result.get("recovered")
+        removed_paths = service_result.get("removed_fixture_owned_paths")
+        if (
+            type(recovered) is not bool
+            or not isinstance(removed_paths, list)
+            or any(type(path) is not str for path in removed_paths)
+            or len(removed_paths) != len(set(removed_paths))
+            or not set(removed_paths).issubset(PREPARED_FIXTURE_RECOVERY_PATHS)
+            or recovered is not bool(removed_paths)
+            or not isinstance(layer_timings, list)
+            or len(layer_timings) != PREPARED_FIXTURE_ALLOCATION_COUNT
+        ):
+            raise CampaignError(
+                "F0-COLD service result has invalid recovery or layer evidence"
+            )
+        pre_seal = service_result.get("pre_seal_validation")
+        expected_pre_seal_fields = {
+            "read_only_reopen",
+            "exact_branch_count",
+            "branches",
+            "paired_ref",
+        }
+        expected_branch_fields = {
+            "branch",
+            "chain_depth",
+            "semantic_roots",
+            "semantic_attribution",
+            "root_manifest",
+            "projection_roots",
+            "projection_lower_allocation_ids_newest_first",
+            "projection_kernel_lower_count",
+            "locator_allocation_id",
+            "locator_extent_count",
+            "locator_accounted_bytes",
+        }
+        expected_branches = [
+            ("fixture-depth-1", 1, 1 * 1024 * 1024 * 1024),
+            ("fixture-depth-5", 5, 5 * 1024 * 1024 * 1024),
+            ("fixture-depth-8", 8, PREPARED_FIXTURE_LOGICAL_BYTES),
+        ]
+        if (
+            not isinstance(pre_seal, dict)
+            or set(pre_seal) != expected_pre_seal_fields
+            or pre_seal.get("read_only_reopen") is not True
+            or pre_seal.get("exact_branch_count") != len(expected_branches)
+            or not isinstance(pre_seal.get("branches"), list)
+            or len(pre_seal["branches"]) != len(expected_branches)
+        ):
+            raise CampaignError(
+                "F0-COLD pre-seal validation does not prove an exact read-only reopen"
+            )
+        for branch, (expected_name, expected_depth, expected_bytes) in zip(
+            pre_seal["branches"], expected_branches, strict=True
+        ):
+            if (
+                not isinstance(branch, dict)
+                or set(branch) != expected_branch_fields
+                or branch.get("branch") != expected_name
+                or branch.get("chain_depth") != expected_depth
+                or branch.get("locator_accounted_bytes") != expected_bytes
+                or not isinstance(branch.get("semantic_roots"), dict)
+                or not isinstance(branch.get("semantic_attribution"), dict)
+                or not isinstance(branch.get("root_manifest"), dict)
+                or not isinstance(branch.get("projection_roots"), dict)
+                or not isinstance(
+                    branch.get("projection_lower_allocation_ids_newest_first"),
+                    list,
+                )
+                or type(branch.get("projection_kernel_lower_count")) is not int
+                or branch["projection_kernel_lower_count"] != expected_depth
+                or not isinstance(branch.get("locator_allocation_id"), str)
+                or not branch["locator_allocation_id"]
+                or type(branch.get("locator_extent_count")) is not int
+                or branch["locator_extent_count"] != expected_depth
+            ):
+                raise CampaignError(
+                    "F0-COLD pre-seal branch validation is malformed"
+                )
+        paired_ref = pre_seal.get("paired_ref")
+        expected_paired_ref_fields = {
+            "format",
+            "journal_data_bytes",
+            "journal_total_bytes",
+            "cursor_generation",
+            "cursor_slot",
+            "logical_end",
+            "record_count",
+            "last_record_hash",
+        }
+        if (
+            not isinstance(paired_ref, dict)
+            or set(paired_ref) != expected_paired_ref_fields
+            or paired_ref.get("format") != "mpla-poc-paired-ref-layout-v3"
+            or paired_ref.get("journal_data_bytes") != 64 * 1024 * 1024
+            or paired_ref.get("journal_total_bytes") != 64 * 1024 * 1024 + 8192
+            or type(paired_ref.get("cursor_generation")) is not int
+            or paired_ref["cursor_generation"] <= 0
+            or paired_ref.get("cursor_slot") not in {0, 1}
+            or type(paired_ref.get("logical_end")) is not int
+            or not 0 < paired_ref["logical_end"] <= paired_ref["journal_data_bytes"]
+            or paired_ref.get("record_count") != PREPARED_FIXTURE_REF_RECORD_COUNT
+            or not isinstance(paired_ref.get("last_record_hash"), str)
+            or len(paired_ref["last_record_hash"]) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in paired_ref["last_record_hash"]
+            )
+        ):
+            raise CampaignError(
+                "F0-COLD pre-seal paired-ref v3 identity is malformed"
+            )
         phase_cap_seconds = receipt.get("phase_liveness_cap_seconds")
         service_elapsed_ns = service_result.get("builder_elapsed_ns")
         staging_root = receipt.get("staging_root")
@@ -2274,6 +4894,98 @@ class Campaign:
         ):
             raise CampaignError(
                 "F0-COLD construction receipt lacks a successful bounded build"
+            )
+        operation_elapsed_total_ns = 0
+        for layer, timing in enumerate(layer_timings):
+            operation_names = (
+                ("create", "mount", "write", "publication")
+                if layer == 0
+                else ("activation", "write", "publication")
+            )
+            if (
+                not isinstance(timing, dict)
+                or set(timing) != {"layer", *operation_names}
+                or type(timing.get("layer")) is not int
+                or timing["layer"] != layer
+            ):
+                raise CampaignError(
+                    "F0-COLD layer timing inventory is malformed"
+                )
+            for operation_name in operation_names:
+                operation = timing.get(operation_name)
+                if not isinstance(operation, dict) or set(operation) != {
+                    "outer_elapsed_ns",
+                    "service_elapsed_ns",
+                    "phase_elapsed_ns",
+                    "semantic_phase_spans",
+                }:
+                    raise CampaignError(
+                        "F0-COLD layer operation timing is malformed"
+                    )
+                outer_ns = operation.get("outer_elapsed_ns")
+                service_ns = operation.get("service_elapsed_ns")
+                phase_ns = operation.get("phase_elapsed_ns")
+                if (
+                    type(outer_ns) is not int
+                    or not 0 < outer_ns <= service_elapsed_ns
+                    or (
+                        service_ns is not None
+                        and (
+                            type(service_ns) is not int
+                            or not 0 <= service_ns <= outer_ns
+                        )
+                    )
+                ):
+                    raise CampaignError(
+                        "F0-COLD layer operation elapsed time is invalid"
+                    )
+                if isinstance(phase_ns, dict):
+                    if (
+                        not 1 <= len(phase_ns) <= 32
+                        or any(
+                            not isinstance(name, str)
+                            or not 1 <= len(name) <= 64
+                            or any(
+                                character
+                                not in "abcdefghijklmnopqrstuvwxyz0123456789_-"
+                                for character in name
+                            )
+                            or type(elapsed_ns) is not int
+                            or not 0 <= elapsed_ns <= outer_ns
+                            for name, elapsed_ns in phase_ns.items()
+                        )
+                    ):
+                        raise CampaignError(
+                            "F0-COLD phase operation timing map is malformed"
+                        )
+                elif phase_ns is not None and (
+                    type(phase_ns) is not int
+                    or not 0 <= phase_ns <= outer_ns
+                ):
+                    raise CampaignError(
+                        "F0-COLD phase operation elapsed time is invalid"
+                    )
+                spans = operation.get("semantic_phase_spans")
+                if spans is not None and (
+                    not isinstance(spans, list)
+                    or len(spans) > 16
+                    or any(
+                        not isinstance(span, dict)
+                        or set(span) != {"phase", "elapsed_ns"}
+                        or not isinstance(span.get("phase"), str)
+                        or not span["phase"]
+                        or type(span.get("elapsed_ns")) is not int
+                        or span["elapsed_ns"] < 0
+                        for span in spans
+                    )
+                ):
+                    raise CampaignError(
+                        "F0-COLD semantic phase timing is malformed"
+                    )
+                operation_elapsed_total_ns += outer_ns
+        if operation_elapsed_total_ns > service_elapsed_ns:
+            raise CampaignError(
+                "F0-COLD layer timings exceed the builder elapsed time"
             )
         measured_service_ns = Campaign.receipt_ms_as_ns(
             receipt, "cold_build_service_elapsed_ms"
@@ -2307,9 +5019,10 @@ class Campaign:
                 "F0-COLD construction receipt timings are inconsistent"
             )
         return {
-            "root": str(root.resolve()),
+            "root": os.path.abspath(root),
             "receipt_path": COLD_CACHE_RECEIPT_FILE,
-            "receipt_sha256": sha256_file(receipt_path),
+            "expected_receipt_sha256": expected_receipt_sha256,
+            "receipt_sha256": actual_receipt_sha256,
             "receipt": receipt,
         }
 
@@ -2317,20 +5030,35 @@ class Campaign:
     def verify_warm_cache_receipt(
         qualification: dict[str, Any],
     ) -> dict[str, Any]:
-        root = pathlib.Path(qualification["root"])
-        receipt_path = root / WARM_CACHE_RECEIPT_FILE
-        if not receipt_path.is_file() or receipt_path.is_symlink():
+        captured_bytes = qualification.get("_sealed_file_bytes")
+        manifest_digests = qualification.get("_manifest_digests")
+        receipt_path = WARM_CACHE_RECEIPT_FILE
+        summary_relative = (
+            "cases/qualification/fixture-preparation-summary.json"
+        )
+        summary_path = summary_relative
+        if (
+            not isinstance(captured_bytes, dict)
+            or receipt_path not in captured_bytes
+        ):
             raise CampaignError(
                 "P0-WARM attachment receipt is absent from the qualification root"
             )
+        if not isinstance(captured_bytes, dict) or summary_path not in captured_bytes:
+            raise CampaignError(
+                "P0-WARM qualification preparation summary is absent"
+            )
         try:
-            receipt = json.loads(receipt_path.read_text())
+            receipt = json.loads(captured_bytes[receipt_path].decode("utf-8"))
+            summary = json.loads(captured_bytes[summary_relative].decode("utf-8"))
         except (OSError, json.JSONDecodeError) as error:
             raise CampaignError(
-                "P0-WARM attachment receipt is not valid JSON"
+                "P0-WARM attachment evidence is not valid JSON"
             ) from error
         expected_fields = {
             "result_path",
+            "result_sha256",
+            "result_bytes",
             "fixture_profile",
             "fixture_logical_bytes",
             "chain_depth",
@@ -2350,6 +5078,17 @@ class Campaign:
             "attachment_run_id",
             "phase_run_id",
         }
+        host_fields = {
+            "schema_version",
+            "phase",
+            "phase_liveness_cap_seconds",
+            "attachment_service_target_ns",
+            "fixture_preparation_target_ns",
+            "payload_bytes_were_copied",
+            "attachment_run_id",
+            "phase_run_id",
+        }
+        summary_fields = expected_fields - host_fields
         phase_run_id = qualification["environment"]["run_id"]
         exact_values = {
             "result_path": "/workspace/scorecard-publication-preparation.json",
@@ -2386,6 +5125,30 @@ class Campaign:
             raise CampaignError(
                 "P0-WARM attachment receipt does not attest an exact read-only attachment"
             )
+        if (
+            not isinstance(summary, dict)
+            or set(summary) != summary_fields
+            or summary
+            != {field: receipt[field] for field in summary_fields}
+        ):
+            raise CampaignError(
+                "P0-WARM receipt disagrees with the qualification preparation summary"
+            )
+        result_sha256 = receipt.get("result_sha256")
+        result_bytes = receipt.get("result_bytes")
+        if (
+            not isinstance(result_sha256, str)
+            or len(result_sha256) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in result_sha256
+            )
+            or type(result_bytes) is not int
+            or result_bytes <= 0
+        ):
+            raise CampaignError(
+                "P0-WARM attachment receipt result identity is malformed"
+            )
         attachment_elapsed_ns = receipt.get("attachment_service_elapsed_ns")
         preparation_elapsed_ns = receipt.get("fixture_preparation_elapsed_ns")
         if (
@@ -2399,23 +5162,92 @@ class Campaign:
             raise CampaignError(
                 "P0-WARM attachment receipt exceeded its acceptance target"
             )
-        receipt_digest = sha256_file(receipt_path)
-        manifest_digest = None
-        for line in (root / "manifest.sha256").read_text().splitlines():
-            digest, separator, relative = line.partition("  ")
-            if separator and relative == WARM_CACHE_RECEIPT_FILE:
-                manifest_digest = digest
-                break
-        if manifest_digest != receipt_digest:
+        receipt_digest = sha256_bytes(captured_bytes[receipt_path])
+        summary_digest = sha256_bytes(captured_bytes[summary_path])
+        if (
+            not isinstance(manifest_digests, dict)
+            or manifest_digests.get(WARM_CACHE_RECEIPT_FILE) != receipt_digest
+            or manifest_digests.get(summary_relative) != summary_digest
+        ):
             raise CampaignError(
-                "P0-WARM attachment receipt is not bound by the qualification manifest"
+                "P0-WARM attachment evidence is not bound by the qualification manifest"
             )
         return {
             "root": qualification["root"],
             "manifest_sha256": qualification["manifest_sha256"],
             "receipt_path": WARM_CACHE_RECEIPT_FILE,
             "receipt_sha256": receipt_digest,
+            "summary_path": summary_relative,
+            "summary_sha256": summary_digest,
             "receipt": receipt,
+        }
+
+    @staticmethod
+    def verify_fixture_generation_equivalence(
+        cold_cache_input: dict[str, Any],
+        warm_cache_input: dict[str, Any],
+    ) -> dict[str, Any]:
+        cold_receipt = cold_cache_input["receipt"]
+        cold_service = cold_receipt["service_result"]
+        cold_pre_seal = cold_service["pre_seal_validation"]
+        warm_receipt = warm_cache_input["receipt"]
+        common_contract = {
+            "fixture_profile": PREPARED_FIXTURE_PROFILE,
+            "chain_depth": 8,
+            "logical_bytes": PREPARED_FIXTURE_LOGICAL_BYTES,
+            "allocation_count": PREPARED_FIXTURE_ALLOCATION_COUNT,
+            "branches": PREPARED_FIXTURE_BRANCHES,
+            "payload_bytes_copied": 0,
+        }
+        cold_contract = {
+            "fixture_profile": cold_service.get("fixture_profile"),
+            "chain_depth": cold_service.get("chain_depth"),
+            "logical_bytes": cold_service.get("logical_bytes"),
+            "allocation_count": cold_service.get("allocation_count"),
+            "branches": [
+                branch.get("branch")
+                for branch in cold_pre_seal.get("branches", [])
+                if isinstance(branch, dict)
+            ],
+            "payload_bytes_copied": cold_service.get("payload_bytes_copied"),
+        }
+        warm_contract = {
+            "fixture_profile": warm_receipt.get("fixture_profile"),
+            "chain_depth": warm_receipt.get("chain_depth"),
+            "logical_bytes": warm_receipt.get("fixture_logical_bytes"),
+            "allocation_count": warm_receipt.get("cached_allocation_count"),
+            "branches": warm_receipt.get("attached_branches"),
+            "payload_bytes_copied": warm_receipt.get("payload_bytes_copied"),
+        }
+        if cold_contract != common_contract or warm_contract != common_contract:
+            raise CampaignError(
+                "F0-COLD and P0-WARM do not prove the same fixture contract"
+            )
+        return {
+            "schema_version": 1,
+            "status": "PASS",
+            "proof_scope": (
+                "semantic fixture contract across independently sealed "
+                "cache generations"
+            ),
+            "ref_transport_identity_required": False,
+            "cold_cache_receipt_sha256": cold_cache_input["receipt_sha256"],
+            "warm_cache_receipt_sha256": warm_cache_input["receipt_sha256"],
+            "common_fixture_contract": common_contract,
+            "cold_pre_seal": {
+                "format": cold_pre_seal["paired_ref"]["format"],
+                "read_only_reopen": cold_pre_seal["read_only_reopen"],
+                "exact_branch_count": cold_pre_seal["exact_branch_count"],
+            },
+            "warm_read_only_attachment": {
+                "operation": warm_receipt["attachment_operation"],
+                "service_elapsed_ns": warm_receipt[
+                    "attachment_service_elapsed_ns"
+                ],
+                "service_target_ns": warm_receipt[
+                    "attachment_service_target_ns"
+                ],
+            },
         }
 
     def load_phase_results(
@@ -2423,122 +5255,184 @@ class Campaign:
     ) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
         if self.cold_cache_root is None:
             raise CampaignError("P8 requires one --cold-cache-root for F0-COLD")
+        if (
+            not isinstance(self.cold_cache_root, tuple)
+            or len(self.cold_cache_root) != 2
+            or not isinstance(self.cold_cache_root[0], pathlib.Path)
+            or not is_sha256(self.cold_cache_root[1])
+        ):
+            raise CampaignError(
+                "P8 cold-cache root requires an external receipt SHA-256 pin"
+            )
         if set(self.phase_roots) != set(SCORECARD_CASES):
             raise CampaignError("P8 requires exactly one root for every P0-P7 phase")
+        if any(
+            not isinstance(phase_input, tuple)
+            or len(phase_input) != 2
+            or not isinstance(phase_input[0], pathlib.Path)
+            or not is_sha256(phase_input[1])
+            for phase_input in self.phase_roots.values()
+        ):
+            raise CampaignError(
+                "P8 phase roots require an external manifest SHA-256 pin"
+            )
         resolved = [
-            self.cold_cache_root.resolve(),
-            *(root.resolve() for root in self.phase_roots.values()),
+            os.path.abspath(self.cold_cache_root[0]),
+            *(
+                os.path.abspath(phase_input[0])
+                for phase_input in self.phase_roots.values()
+            ),
         ]
         if len(set(resolved)) != len(resolved):
             raise CampaignError("P8 cold-cache and phase roots must be distinct")
-        cold_cache_input = self.verify_cold_cache_root(self.cold_cache_root)
+        cold_cache_input = self.verify_cold_cache_root(*self.cold_cache_root)
         verified = {
-            case: self.verify_phase_root(case, self.phase_roots[case])
+            case: self.verify_phase_root(case, *self.phase_roots[case])
             for case in SCORECARD_CASES
         }
+        if len(
+            {item["_root_identity"] for item in verified.values()}
+        ) != len(verified):
+            raise CampaignError("P8 phase roots must be distinct")
         warm_cache_input = self.verify_warm_cache_receipt(
             verified["qualification"]
+        )
+        cache_generation_equivalence = (
+            self.verify_fixture_generation_equivalence(
+                cold_cache_input,
+                warm_cache_input,
+            )
         )
         if any(
             item["source"].get("commit") != BUILD_COMMIT
             for item in verified.values()
         ):
             raise CampaignError("P0-P7 source commits do not match the P8 build")
-        current_source = json.loads(
-            (self.evidence_root / "source.json").read_text()
+        current_source = json.loads((self.evidence_root / "source.json").read_text())
+        current_coordinator_bytes = read_regular_path_once(
+            COORDINATOR,
+            "P8 current coordinator artifact",
         )
-        mutable_command_report = (
-            "crates/e2e-test/test-reports/TEST-REPORT.md"
+        current_coordinator = (
+            len(current_coordinator_bytes),
+            sha256_bytes(current_coordinator_bytes),
         )
-
-        def stable_source_identity(source: dict[str, Any]) -> dict[str, Any]:
-            files = source.get("worktree_files")
-            stable_files = (
+        p8_artifact_root = self.evidence_root / "artifacts"
+        p8_artifact_root.mkdir()
+        p8_coordinator_path = p8_artifact_root / "mpla-speed-poc-v1"
+        write_new_bytes(p8_coordinator_path, current_coordinator_bytes)
+        lineage = verify_phase_lineage(
+            verified,
+            current_source,
+            current_coordinator,
+        )
+        phase_sequence = []
+        sequence_instants = []
+        run_ids = set()
+        for case in SCORECARD_CASES:
+            environment = verified[case]["environment"]
+            declaration = verified[case]["declaration"]
+            created_utc = environment["created_utc"]
+            declared_utc = declaration["declared_utc"]
+            run_id = environment["run_id"]
+            created = parse_utc_instant(
+                created_utc,
+                f"{case} environment timestamp",
+            )
+            declared = parse_utc_instant(
+                declared_utc,
+                f"{case} phase declaration timestamp",
+            )
+            if run_id in run_ids:
+                raise CampaignError(
+                    "P0-P7 roots do not prove unique sequential phase creation"
+                )
+            run_ids.add(run_id)
+            sequence_instants.append((created, declared))
+            phase_sequence.append(
                 {
-                    name: identity
-                    for name, identity in files.items()
-                    if name != mutable_command_report
+                    "phase": case,
+                    "run_id": run_id,
+                    "created_utc": created_utc,
+                    "declared_utc": declared_utc,
+                    "build_commit": environment["build_commit"],
                 }
-                if isinstance(files, dict)
-                else files
             )
-            return {
-                "commit": source.get("commit"),
-                "tree": source.get("tree"),
-                "porcelain": source.get("porcelain"),
-                "worktree_files": stable_files,
-            }
-
-        current_identity = stable_source_identity(current_source)
-        if any(
-            stable_source_identity(item["source"]) != current_identity
-            for item in verified.values()
-        ):
-            raise CampaignError(
-                "P0-P7 source fingerprints do not match the P8 source"
-            )
-        created = [
-            verified[case]["environment"].get("created_utc")
-            for case in SCORECARD_CASES
-        ]
-        if (
-            any(not isinstance(value, str) for value in created)
-            or created != sorted(created)
-            or len(set(created)) != len(created)
-        ):
-            raise CampaignError(
-                "P0-P7 roots do not prove unique sequential phase creation"
-            )
-        common_artifact_names = (
-            "mpla-speed-poc-v1",
-            "mpla-poc-oracle",
-            "sandbox-runtime-cli",
-            "sandbox-catalog-export",
+        p8_environment = json.loads(
+            (self.evidence_root / "environment.json").read_text()
         )
-        artifact_identities: dict[str, set[tuple[int, str]]] = {
-            name: set() for name in common_artifact_names
-        }
-        for item in verified.values():
-            staged = item["staged_artifacts"]
-            if not isinstance(staged, dict):
-                raise CampaignError("P0-P7 staged artifact receipt is absent")
-            artifacts = staged.get("artifacts")
-            if not isinstance(artifacts, dict):
-                raise CampaignError("P0-P7 staged artifact receipt is malformed")
-            for name in common_artifact_names:
-                identity = artifacts.get(name)
-                if not isinstance(identity, dict):
-                    raise CampaignError(
-                        f"P0-P7 staged artifact {name} identity is absent"
-                    )
-                byte_count = identity.get("bytes")
-                digest = identity.get("sha256")
-                if (
-                    type(byte_count) is not int
-                    or byte_count <= 0
-                    or not isinstance(digest, str)
-                    or len(digest) != 64
-                ):
-                    raise CampaignError(
-                        f"P0-P7 staged artifact {name} identity is malformed"
-                    )
-                artifact_identities[name].add((byte_count, digest))
-        if any(len(identities) != 1 for identities in artifact_identities.values()):
+        p8_declaration = json.loads(
+            (self.evidence_root / "phase-declaration.json").read_text()
+        )
+        p8_created_utc = p8_environment.get("created_utc")
+        p8_declared_utc = p8_declaration.get("declared_utc")
+        p8_created = parse_utc_instant(p8_created_utc, "P8 environment timestamp")
+        p8_declared = parse_utc_instant(p8_declared_utc, "P8 declaration timestamp")
+        if (
+            p8_environment.get("run_id") != self.run_id
+            or p8_declaration.get("run_id") != self.run_id
+            or p8_environment.get("case") != "sealing"
+            or p8_declaration.get("phase") != "sealing"
+            or p8_declaration.get("runner") != CASE_RUNNERS["sealing"]
+            or p8_environment.get("build_commit") != BUILD_COMMIT
+            or self.run_id in run_ids
+        ):
+            raise CampaignError("P8 run identity is not bound to the phase sequence")
+        sequence_instants.append((p8_created, p8_declared))
+        phase_sequence.append(
+            {
+                "phase": "sealing",
+                "run_id": self.run_id,
+                "created_utc": p8_created_utc,
+                "declared_utc": p8_declared_utc,
+                "build_commit": BUILD_COMMIT,
+            }
+        )
+        if any(created > declared for created, declared in sequence_instants) or any(
+            earlier_declared >= later_created
+            for (_earlier_created, earlier_declared), (later_created, _later_declared)
+            in zip(sequence_instants, sequence_instants[1:])
+        ):
             raise CampaignError(
-                "P0-P7 common staged artifact identities do not agree"
+                "P0-P8 roots do not prove unique sequential phase creation"
             )
+        lineage["phase_sequence"] = phase_sequence
+        lineage["phase_sequence_proof"] = {
+            "scope": "P0-P8",
+            "run_ids_unique": True,
+            "each_created_not_after_declared": True,
+            "each_prior_declaration_before_next_creation": True,
+        }
+        p8_artifact_identity = {
+            "bytes": current_coordinator[0],
+            "sha256": current_coordinator[1],
+            "sealed_path": p8_coordinator_path.relative_to(
+                self.evidence_root
+            ).as_posix(),
+            "verification_level": "sealed-bytes",
+        }
+        lineage["p8_artifact"] = p8_artifact_identity
+        self.p8_artifact_identity = dict(p8_artifact_identity)
         write_new_json(
             self.evidence_root / "phase-inputs.json",
             {
                 "F0-COLD": cold_cache_input,
                 "P0-WARM": warm_cache_input,
+                "P8-ARTIFACT": p8_artifact_identity,
+                "cache_generation_equivalence": (
+                    cache_generation_equivalence
+                ),
+                "lineage": lineage,
                 **{
-                case: {
-                    "root": item["root"],
-                    "manifest_sha256": item["manifest_sha256"],
-                    "receipt": item["receipt"],
-                }
-                for case, item in verified.items()
+                    case: {
+                        "root": item["root"],
+                        "expected_manifest_sha256": item[
+                            "expected_manifest_sha256"
+                        ],
+                        "manifest_sha256": item["manifest_sha256"],
+                        "receipt": item["receipt"],
+                    }
+                    for case, item in verified.items()
                 },
             },
         )
@@ -2546,6 +5440,100 @@ class Campaign:
             {case: item["result"] for case, item in verified.items()},
             verified,
         )
+
+    def p8_manifest_artifact_binding(self) -> dict[str, str]:
+        if self.case != "sealing" or not isinstance(
+            self.p8_artifact_identity,
+            dict,
+        ):
+            raise CampaignError("P8 artifact lineage is absent before sealing")
+        try:
+            root_descriptor = os.open(
+                self.evidence_root,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            )
+        except OSError as error:
+            raise CampaignError("P8 evidence root is absent before sealing") from error
+        root_before = stat_identity(os.fstat(root_descriptor))
+        try:
+            phase_inputs_bytes, _phase_inputs_identity = (
+                open_relative_regular_once(
+                    root_descriptor,
+                    "phase-inputs.json",
+                    "P8 phase-inputs.json",
+                )
+            )
+            phase_inputs = parse_captured_json(
+                "P8",
+                "phase-inputs.json",
+                phase_inputs_bytes,
+            )
+            lineage = (
+                phase_inputs.get("lineage")
+                if isinstance(phase_inputs, dict)
+                else None
+            )
+            lineage_identity = (
+                lineage.get("p8_artifact")
+                if isinstance(lineage, dict)
+                else None
+            )
+            recorded_identity = (
+                phase_inputs.get("P8-ARTIFACT")
+                if isinstance(phase_inputs, dict)
+                else None
+            )
+            expected = self.p8_artifact_identity
+            if (
+                set(expected)
+                != {"bytes", "sha256", "sealed_path", "verification_level"}
+                or expected.get("verification_level") != "sealed-bytes"
+            ):
+                raise CampaignError("P8 artifact lineage identity is malformed")
+            if lineage_identity != expected or recorded_identity != expected:
+                raise CampaignError(
+                    "P8 artifact digest is not identical across lineage and "
+                    "phase-inputs"
+                )
+            sealed_path = expected.get("sealed_path")
+            if sealed_path != "artifacts/mpla-speed-poc-v1":
+                raise CampaignError("P8 artifact sealed path is invalid")
+            artifact_bytes, _artifact_identity = open_relative_regular_once(
+                root_descriptor,
+                sealed_path,
+                "P8 retained coordinator artifact",
+            )
+            if (
+                type(expected.get("bytes")) is not int
+                or len(artifact_bytes) != expected["bytes"]
+                or not is_sha256(expected.get("sha256"))
+                or sha256_bytes(artifact_bytes) != expected["sha256"]
+            ):
+                raise CampaignError(
+                    "P8 retained coordinator artifact does not match its lineage"
+                )
+            if stat_identity(os.fstat(root_descriptor)) != root_before:
+                raise CampaignError(
+                    "P8 evidence root changed during artifact binding"
+                )
+            try:
+                path_identity = stat_identity(
+                    os.stat(self.evidence_root, follow_symlinks=False)
+                )
+            except OSError as error:
+                raise CampaignError(
+                    "P8 evidence root path changed during artifact binding"
+                ) from error
+            if path_identity != root_before:
+                raise CampaignError(
+                    "P8 evidence root path changed during artifact binding"
+                )
+        finally:
+            os.close(root_descriptor)
+        return {
+            "phase-inputs.json": sha256_bytes(phase_inputs_bytes),
+            sealed_path: expected["sha256"],
+        }
 
     def finalize_evidence(
         self,
@@ -2584,11 +5572,15 @@ class Campaign:
         supported_100x = correctness is True and all(
             value is True for value in booster_required
         )
-        supported_500x = supported_100x and len(preferred) == 5 and all(preferred)
+        supported_500x = (
+            supported_100x
+            and len(preferred) == 5
+            and all(value is True for value in preferred)
+        )
         partial_500x = (
             supported_100x
             and len(preferred) == 5
-            and any(preferred)
+            and any(value is True for value in preferred)
             and not supported_500x
         )
         decision = {
@@ -2641,7 +5633,12 @@ class Campaign:
             f"AG_STREAM_{decision['AG_STREAM']}\n"
         )
         write_new_bytes(self.evidence_root / "report.md", report.encode())
-        manifest_sha256 = self.seal_manifest()
+        expected_manifest_entries = (
+            self.p8_manifest_artifact_binding()
+            if self.case == "sealing"
+            else None
+        )
+        manifest_sha256 = self.seal_manifest(expected_manifest_entries)
         return {
             **scorecard,
             "manifest_sha256": manifest_sha256,
@@ -2687,6 +5684,21 @@ class Campaign:
                     "cap_pass": elapsed_ns
                     <= CASE_DEADLINES_SECONDS["sealing"] * 1_000_000_000,
                     "cleanup_pass": cleanup_pass,
+                    "artifact_verification_levels": {
+                        "P0-P6": "identity-receipt-only",
+                        "P7": "sealed-bytes",
+                        "P8": "sealed-bytes",
+                    },
+                    "raw_result_binding_levels": {
+                        "P0/P1/P4/P6": (
+                            "historical-indirect-kind-and-sealed-receipts"
+                        ),
+                        "P2/P3/P5/P7": "explicit-raw-phase-runner",
+                    },
+                    "historical_artifact_constraint": (
+                        "P0-P6 did not retain artifact blobs; their artifact "
+                        "claims remain identity-receipt-only without reruns"
+                    ),
                     "status": "PASS"
                     if cleanup_pass
                     and elapsed_ns
@@ -2713,6 +5725,8 @@ class Campaign:
                 self.prepare_execution()
                 if self.case in {"qualification", "publication"}:
                     self.run_publication_preparation()
+                if self.case == "publication":
+                    self.run_publication_control_preparation()
                 if self.case in {"activation", "fork", "rollback"}:
                     self.run_lifecycle_control_preparation()
                 self.phase_started_ns = time.monotonic_ns()
@@ -2755,21 +5769,39 @@ class Campaign:
         return finalized
 
 
-def parse_phase_roots(values: list[str]) -> dict[str, pathlib.Path]:
+def parse_phase_roots(
+    values: list[str],
+) -> dict[str, tuple[pathlib.Path, str]]:
     roots = {}
     for value in values:
-        case, separator, raw_path = value.partition("=")
+        case, separator, raw_input = value.partition("=")
+        raw_path, pin_separator, expected_manifest_sha256 = raw_input.rpartition("@")
         if (
             not separator
+            or not pin_separator
             or case not in SCORECARD_CASES
             or not raw_path
+            or not is_sha256(expected_manifest_sha256)
             or case in roots
         ):
             raise argparse.ArgumentTypeError(
-                "--phase-root must be a unique CASE=PATH for P0-P7"
+                "--phase-root must be a unique CASE=PATH@SHA256 for P0-P7"
             )
-        roots[case] = pathlib.Path(raw_path)
+        roots[case] = (pathlib.Path(raw_path), expected_manifest_sha256)
     return roots
+
+
+def parse_cold_cache_root(value: str) -> tuple[pathlib.Path, str]:
+    raw_path, separator, expected_receipt_sha256 = value.rpartition("@")
+    if (
+        not separator
+        or not raw_path
+        or not is_sha256(expected_receipt_sha256)
+    ):
+        raise argparse.ArgumentTypeError(
+            "--cold-cache-root must be PATH@SHA256"
+        )
+    return pathlib.Path(raw_path), expected_receipt_sha256
 
 
 def parse_args() -> argparse.Namespace:
@@ -2778,23 +5810,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--evidence-root", type=pathlib.Path, required=True)
     parser.add_argument("--case", choices=PHASE_CASES, required=True)
     parser.add_argument("--phase-root", action="append", default=[])
-    parser.add_argument("--cold-cache-root", type=pathlib.Path)
+    parser.add_argument("--cold-cache-root", type=parse_cold_cache_root)
     return parser.parse_args()
 
 
 def validate_cli_phase_inputs(
     case: str,
-    phase_roots: dict[str, pathlib.Path],
-    cold_cache_root: pathlib.Path | None,
+    phase_roots: dict[str, tuple[pathlib.Path, str]],
+    cold_cache_root: tuple[pathlib.Path, str] | None,
 ) -> None:
     if case == "sealing":
         if set(phase_roots) != set(SCORECARD_CASES):
             raise CampaignError(
-                "sealing requires exactly one --phase-root CASE=PATH for every P0-P7 phase"
+                "sealing requires exactly one --phase-root CASE=PATH@SHA256 for every P0-P7 phase"
             )
         if cold_cache_root is None:
             raise CampaignError(
-                "sealing requires one --cold-cache-root containing the F0-COLD receipt"
+                "sealing requires one --cold-cache-root PATH@SHA256 for the F0-COLD receipt"
             )
         return
     if phase_roots:

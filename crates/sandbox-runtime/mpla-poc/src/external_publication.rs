@@ -7,7 +7,7 @@ use crate::inventory::AllocationInventory;
 use crate::publication::{PublicationOperationRecord, StationaryPublicationRequest};
 use crate::session::PreparedExternalSession;
 use crate::{
-    durable, lease, owner, AdoptionReceipt, AllocationHandle, MutableLease, OwnerTransitionRequest,
+    durable, lease, AdoptionReceipt, AllocationHandle, MutableLease, OwnerTransitionRequest,
     PocError, PocResult, PublicationPhase, StableAllocationReceipt, StorageAdminAction,
     StorageAdminOutcome, StorageAdminReceipt, INTERFACE_VERSION, SCHEMA_VERSION,
     STORAGE_ADMIN_PRIVILEGED_SYSCALLS, STORAGE_ADMIN_TRUSTED_EXECUTABLE,
@@ -138,18 +138,14 @@ fn complete_stationary_adoption(
         expected_lease_epoch: lease.lease_epoch,
         expected_owner_epoch: lease.owner_epoch,
     };
-    let adoption = owner::compare_and_adopt_after_intent(
-        &allocation.allocation_root,
-        &stable,
-        &owner_request,
-        || faults.hit(FaultPoint::AfterOwnerIntent, true),
-    )?;
+    let adoption =
+        prepared.compare_and_adopt_after_intent(allocation, &stable, &owner_request, || {
+            faults.hit(FaultPoint::AfterOwnerIntent, true)
+        })?;
     faults.hit(FaultPoint::AfterOwnerAdoption, true)?;
 
-    let stale_writer_rejected =
-        lease::validate_writer(&allocation.allocation_root, &lease.writer).is_err();
-    let stale_deleter_rejected =
-        lease::validate_deleter(&allocation.allocation_root, &lease.deleter).is_err();
+    let (stale_writer_rejected, stale_deleter_rejected) =
+        prepared.stale_capabilities_rejected(allocation, lease)?;
     if !stale_writer_rejected || !stale_deleter_rejected {
         return Err(PocError::Integrity(
             "external adoption did not terminally fence both stale capabilities".to_owned(),

@@ -1,6 +1,11 @@
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "linux")]
+use std::{
+    cell::RefCell,
+    os::fd::{AsRawFd, OwnedFd},
+};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -12,6 +17,47 @@ use crate::{
     OperationId, OwnerGeneration, OwnerSubject, OwnerTransitionRequest, PocError, PocResult,
     StableAllocationReceipt, SCHEMA_VERSION,
 };
+
+#[cfg(target_os = "linux")]
+thread_local! {
+    static PINNED_OWNER_DIRECTORY: RefCell<Vec<(PathBuf, PathBuf)>> = const { RefCell::new(Vec::new()) };
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn with_pinned_owner_directory<T>(
+    allocation_root: &Path,
+    owner: &OwnedFd,
+    operation: impl FnOnce() -> PocResult<T>,
+) -> PocResult<T> {
+    struct Scope;
+    impl Drop for Scope {
+        fn drop(&mut self) {
+            PINNED_OWNER_DIRECTORY.with(|stack| {
+                stack.borrow_mut().pop();
+            });
+        }
+    }
+
+    let owner_root = PathBuf::from("/proc/self/fd").join(owner.as_raw_fd().to_string());
+    PINNED_OWNER_DIRECTORY.with(|stack| {
+        stack
+            .borrow_mut()
+            .push((allocation_root.to_path_buf(), owner_root));
+    });
+    let _scope = Scope;
+    operation()
+}
+
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn with_pinned_owner_directory<T>(
+    _allocation_root: &Path,
+    _owner: &std::os::fd::OwnedFd,
+    _operation: impl FnOnce() -> PocResult<T>,
+) -> PocResult<T> {
+    Err(PocError::Unsupported(
+        "descriptor-pinned owner operations require Linux proc descriptors".to_owned(),
+    ))
+}
 
 const JOURNAL_MAGIC: [u8; 4] = *b"MPLJ";
 const JOURNAL_FRAME_VERSION: u32 = 1;
@@ -96,9 +142,48 @@ pub(crate) fn compare_and_adopt_after_intent(
     request: &OwnerTransitionRequest,
     after_durable_intent: impl FnOnce() -> PocResult<()>,
 ) -> PocResult<AdoptionReceipt> {
+    compare_and_adopt_after_intent_with_authority(
+        allocation_root,
+        stable,
+        request,
+        after_durable_intent,
+        || Ok(()),
+    )
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn compare_and_adopt_anchored_after_intent(
+    allocation_root: &OwnedFd,
+    owner: &OwnedFd,
+    stable: &StableAllocationReceipt,
+    request: &OwnerTransitionRequest,
+    after_durable_intent: impl FnOnce() -> PocResult<()>,
+    verify_authority: impl FnMut() -> PocResult<()>,
+) -> PocResult<AdoptionReceipt> {
+    let root = PathBuf::from("/proc/self/fd").join(allocation_root.as_raw_fd().to_string());
+    with_pinned_owner_directory(&root, owner, || {
+        compare_and_adopt_after_intent_with_authority(
+            &root,
+            stable,
+            request,
+            after_durable_intent,
+            verify_authority,
+        )
+    })
+}
+
+fn compare_and_adopt_after_intent_with_authority(
+    allocation_root: &Path,
+    stable: &StableAllocationReceipt,
+    request: &OwnerTransitionRequest,
+    after_durable_intent: impl FnOnce() -> PocResult<()>,
+    mut verify_authority: impl FnMut() -> PocResult<()>,
+) -> PocResult<AdoptionReceipt> {
+    verify_authority()?;
     validate_transition_inputs(allocation_root, stable, request)?;
     validate_path_component(request.operation_id.as_str(), "operation ID")?;
     let _lock = FileLock::exclusive(&owner_lock_path(allocation_root))?;
+    verify_authority()?;
     let mut named_faults = NamedFaultInjector::default().with_physical_context(
         request.operation_id.as_str(),
         [
@@ -108,75 +193,83 @@ pub(crate) fn compare_and_adopt_after_intent(
         ],
     );
 
-    if let Some(receipt) = read_receipt(allocation_root, &request.operation_id)? {
-        validate_receipt(&receipt, request)?;
-        let mut replay = receipt;
-        replay.idempotent_replay = true;
-        return Ok(replay);
-    }
+    let result: PocResult<AdoptionReceipt> = (|| {
+        if let Some(receipt) = read_receipt(allocation_root, &request.operation_id)? {
+            validate_receipt(&receipt, request)?;
+            let mut replay = receipt;
+            replay.idempotent_replay = true;
+            return Ok(replay);
+        }
 
-    let current = current_owner_locked(allocation_root)?
-        .ok_or_else(|| PocError::OwnerConflict("allocation is not workspace-owned".to_owned()))?;
-    match &current.subject {
-        OwnerSubject::PayloadOwned { publication_id } => {
-            if current.operation_id != request.operation_id
-                || *publication_id != request.publication_id
-            {
-                return Err(PocError::OwnerConflict(format!(
-                    "allocation {} is already payload-owned by another operation",
-                    request.allocation_id
-                )));
+        let current = current_owner_locked(allocation_root)?.ok_or_else(|| {
+            PocError::OwnerConflict("allocation is not workspace-owned".to_owned())
+        })?;
+        match &current.subject {
+            OwnerSubject::PayloadOwned { publication_id } => {
+                if current.operation_id != request.operation_id
+                    || *publication_id != request.publication_id
+                {
+                    return Err(PocError::OwnerConflict(format!(
+                        "allocation {} is already payload-owned by another operation",
+                        request.allocation_id
+                    )));
+                }
+                let journal = read_journal(&journal_path(allocation_root))?;
+                let committed = find_adoption_commit(&journal.records, request)?;
+                let receipt = receipt_from_commit(committed, request, true)?;
+                persist_receipt_named(
+                    allocation_root,
+                    &receipt,
+                    &allocation_root.join("upper"),
+                    &mut named_faults,
+                )?;
+                Ok(receipt)
             }
-            let journal = read_journal(&journal_path(allocation_root))?;
-            let committed = find_adoption_commit(&journal.records, request)?;
-            let receipt = receipt_from_commit(committed, request, true)?;
-            persist_receipt_named(
-                allocation_root,
-                &receipt,
-                &allocation_root.join("upper"),
-                &mut named_faults,
-            )?;
-            Ok(receipt)
-        }
-        OwnerSubject::WorkspaceOwned {
-            session_id,
-            lease_epoch,
-        } => {
-            if *session_id != request.session_id
-                || *lease_epoch != request.expected_lease_epoch
-                || current.owner_epoch != request.expected_owner_epoch
-            {
-                return Err(PocError::OwnerConflict(format!(
-                    "expected WorkspaceOwned({}, lease {}, owner {}), observed owner epoch {}",
-                    request.session_id,
-                    request.expected_lease_epoch,
-                    request.expected_owner_epoch,
-                    current.owner_epoch
-                )));
+            OwnerSubject::WorkspaceOwned {
+                session_id,
+                lease_epoch,
+            } => {
+                if *session_id != request.session_id
+                    || *lease_epoch != request.expected_lease_epoch
+                    || current.owner_epoch != request.expected_owner_epoch
+                {
+                    return Err(PocError::OwnerConflict(format!(
+                        "expected WorkspaceOwned({}, lease {}, owner {}), observed owner epoch {}",
+                        request.session_id,
+                        request.expected_lease_epoch,
+                        request.expected_owner_epoch,
+                        current.owner_epoch
+                    )));
+                }
+                adopt_workspace_owner(
+                    allocation_root,
+                    stable,
+                    request,
+                    current,
+                    &mut named_faults,
+                    after_durable_intent,
+                )
             }
-            adopt_workspace_owner(
-                allocation_root,
-                stable,
-                request,
-                current,
-                &mut named_faults,
-                after_durable_intent,
-            )
+            OwnerSubject::RecoveryRequired {
+                operation_id,
+                phase,
+            } => Err(PocError::RecoveryRequired(format!(
+                "owner recovery required for operation {operation_id} at {phase}"
+            ))),
+            OwnerSubject::TerminalError { operation_id, code } => Err(PocError::RecoveryRequired(
+                format!("terminal owner error for operation {operation_id}: {code}"),
+            )),
+            OwnerSubject::OwnerTransitionIntent { operation_id, .. } => {
+                Err(PocError::RecoveryRequired(format!(
+                    "selected owner transition intent for operation {operation_id}"
+                )))
+            }
         }
-        OwnerSubject::RecoveryRequired {
-            operation_id,
-            phase,
-        } => Err(PocError::RecoveryRequired(format!(
-            "owner recovery required for operation {operation_id} at {phase}"
-        ))),
-        OwnerSubject::TerminalError { operation_id, code } => Err(PocError::RecoveryRequired(
-            format!("terminal owner error for operation {operation_id}: {code}"),
-        )),
-        OwnerSubject::OwnerTransitionIntent { operation_id, .. } => {
-            Err(PocError::RecoveryRequired(format!(
-                "selected owner transition intent for operation {operation_id}"
-            )))
-        }
+    })();
+    let authority = verify_authority();
+    match (result, authority) {
+        (_, Err(error)) => Err(error),
+        (result, Ok(())) => result,
     }
 }
 
@@ -251,6 +344,15 @@ pub(crate) fn selected_owner_locked(allocation_root: &Path) -> PocResult<Option<
     };
     validate_selector(&allocation_id, &selector, &journal.records, allocation_root)?;
     load_generation(allocation_root, selector.owner_epoch).map(Some)
+}
+
+pub(crate) fn selected_owner_locked_anchored(
+    allocation_root: &Path,
+    owner: &std::os::fd::OwnedFd,
+) -> PocResult<Option<OwnerGeneration>> {
+    with_pinned_owner_directory(allocation_root, owner, || {
+        selected_owner_locked(allocation_root)
+    })
 }
 
 pub(crate) fn initialize_workspace_owner_locked(
@@ -999,7 +1101,18 @@ fn validate_path_component(value: &str, label: &str) -> PocResult<()> {
     }
 }
 
-fn owner_dir(allocation_root: &Path) -> PathBuf {
+pub(crate) fn owner_dir(allocation_root: &Path) -> PathBuf {
+    #[cfg(target_os = "linux")]
+    if let Some(pinned) = PINNED_OWNER_DIRECTORY.with(|stack| {
+        stack
+            .borrow()
+            .iter()
+            .rev()
+            .find(|(root, _)| root == allocation_root)
+            .map(|(_, owner)| owner.clone())
+    }) {
+        return pinned;
+    }
     allocation_root.join("owner")
 }
 

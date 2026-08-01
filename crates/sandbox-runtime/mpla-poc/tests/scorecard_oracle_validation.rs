@@ -31,6 +31,10 @@ fn cgroup_contains_self(_cgroup_dir: &Path) -> BenchResult<bool> {
     unreachable!("oracle comparator tests do not inspect cgroup membership")
 }
 
+fn process_rss_bytes() -> BenchResult<u64> {
+    unreachable!("oracle comparator tests do not inspect process RSS")
+}
+
 // This module includes only the scorecard helper.  Keep its newly shared
 // resource-monitor boundary type-checkable without starting a monitor: these
 // oracle/routing tests never call `run`.
@@ -86,6 +90,47 @@ fn matching_oracle() -> Value {
         "record_stream_sha256": "stream-1",
         "entry_count": 3
     })
+}
+
+#[test]
+fn rollback_sample_accepts_the_public_rollback_response_schema() -> BenchResult {
+    let sample = mpla_speed_scorecard::rollback_sample(
+        "rollback-00",
+        mpla_speed_scorecard::CliInvocation {
+            operation: "rollback_workspace_session".to_owned(),
+            request_id: Some("rollback-sample-test".to_owned()),
+            outer_elapsed_ns: 17,
+            response: json!({
+                "workspace_session_id": "session-1",
+                "fresh_allocation_id": "allocation-1",
+                "run_id": "run-1",
+                "branch": "main",
+                "target_branch": "rollback-target",
+                "projection": {
+                    "roots": {
+                        "root_id": "root-1",
+                        "attribution_root_id": "attribution-1",
+                    },
+                },
+                "timings": {
+                    "projection_elapsed_ns": 1,
+                    "session_create_elapsed_ns": 2,
+                    "storage_mount_elapsed_ns": 3,
+                },
+                "lifecycle": {
+                    "selected_ref": "ref-1",
+                },
+                "service_elapsed_ns": 11,
+            }),
+        },
+    )?;
+    let sample = serde_json::to_value(sample)?;
+
+    assert_eq!(sample["label"], "rollback-00");
+    assert_eq!(sample["service_elapsed_ns"], 11);
+    assert_eq!(sample["selected_ref"], "ref-1");
+    assert_eq!(sample["timings"]["session_create_elapsed_ns"], 2);
+    Ok(())
 }
 
 #[test]

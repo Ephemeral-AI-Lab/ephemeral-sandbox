@@ -89,6 +89,7 @@ enum Mode {
     ScorecardCase(ScorecardCaseArgs),
     PrepareLifecycleControl(LifecycleControlPreparationArgs),
     PreparePublicationFixture(PublicationPreparationArgs),
+    PreparePublicationControl(PublicationControlPreparationArgs),
     BuildPublicationFixtureCache(PublicationFixtureCacheBuildArgs),
     InspectPreparedFixtureCache,
 }
@@ -119,6 +120,8 @@ struct ScorecardCaseArgs {
     case: String,
     #[arg(long)]
     candidate_sandbox_id: String,
+    #[arg(long = "control-sandbox-id")]
+    control_sandbox_ids: Vec<String>,
     #[arg(long)]
     build_commit: String,
 }
@@ -141,6 +144,20 @@ struct PublicationPreparationArgs {
     run_id: String,
     #[arg(long)]
     candidate_sandbox_id: String,
+    #[arg(long)]
+    build_commit: String,
+    #[arg(long, value_parser = [PREPARED_FIXTURE_PROFILE])]
+    fixture_profile: String,
+}
+
+#[derive(Debug, ClapArgs)]
+struct PublicationControlPreparationArgs {
+    #[arg(long)]
+    run_id: String,
+    #[arg(long)]
+    candidate_sandbox_id: String,
+    #[arg(long = "control-sandbox-id")]
+    control_sandbox_ids: Vec<String>,
     #[arg(long)]
     build_commit: String,
     #[arg(long, value_parser = [PREPARED_FIXTURE_PROFILE])]
@@ -317,6 +334,7 @@ fn main() -> ExitCode {
         Mode::ScorecardCase(args) => run_scorecard_case_command(&args),
         Mode::PrepareLifecycleControl(args) => run_prepare_lifecycle_control_command(&args),
         Mode::PreparePublicationFixture(args) => run_prepare_publication_fixture_command(&args),
+        Mode::PreparePublicationControl(args) => run_prepare_publication_control_command(&args),
         Mode::BuildPublicationFixtureCache(args) => {
             run_build_publication_fixture_cache_command(&args)
         }
@@ -403,6 +421,28 @@ fn run_prepare_publication_fixture_command(args: &PublicationPreparationArgs) ->
     }
 }
 
+fn run_prepare_publication_control_command(args: &PublicationControlPreparationArgs) -> ExitCode {
+    match mpla_publication_scorecard::prepare_control_bases(
+        &args.run_id,
+        &args.candidate_sandbox_id,
+        &args.control_sandbox_ids,
+        &args.build_commit,
+        &args.fixture_profile,
+    ) {
+        Ok(result) => {
+            println!("MPLA_SCORECARD_RESULT {}", compact_json(&result));
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            println!(
+                "MPLA_SCORECARD_ERROR {}",
+                compact_json(&json!({"error": error.to_string()}))
+            );
+            ExitCode::from(2)
+        }
+    }
+}
+
 fn run_scorecard_case_command(args: &ScorecardCaseArgs) -> ExitCode {
     let result = match args.case.as_str() {
         "activation" => mpla_activation_scorecard::run(
@@ -421,6 +461,7 @@ fn run_scorecard_case_command(args: &ScorecardCaseArgs) -> ExitCode {
         "publication" => mpla_publication_scorecard::run(
             &args.run_id,
             &args.candidate_sandbox_id,
+            &args.control_sandbox_ids,
             &args.build_commit,
         ),
         "stream" => {

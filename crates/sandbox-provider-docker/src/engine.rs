@@ -97,7 +97,7 @@ pub(crate) struct ContainerResourceMetrics {
 type ResourceMetricsBatch = Vec<Result<ContainerResourceMetrics, DockerError>>;
 
 pub(crate) struct ResourceMetricsExecutor {
-    runtime: tokio::runtime::Runtime,
+    runtime: Option<tokio::runtime::Runtime>,
     docker: Docker,
 }
 
@@ -112,14 +112,29 @@ impl ResourceMetricsExecutor {
                 ))
             })?;
         let docker = connect(endpoint.as_deref(), connect_timeout_s)?;
-        Ok(Self { runtime, docker })
+        Ok(Self {
+            runtime: Some(runtime),
+            docker,
+        })
     }
 
     fn read(&self, containers: Vec<String>) -> Result<ResourceMetricsBatch, DockerError> {
-        Ok(self.runtime.block_on(read_container_resource_metrics_batch(
-            &self.docker,
-            containers,
-        )))
+        Ok(self
+            .runtime
+            .as_ref()
+            .expect("resource metrics runtime remains available until executor drop")
+            .block_on(read_container_resource_metrics_batch(
+                &self.docker,
+                containers,
+            )))
+    }
+}
+
+impl Drop for ResourceMetricsExecutor {
+    fn drop(&mut self) {
+        if let Some(runtime) = self.runtime.take() {
+            runtime.shutdown_background();
+        }
     }
 }
 

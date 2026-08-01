@@ -12,7 +12,7 @@ use sandbox_runtime_mpla_poc::recovery::{
     RealOperationWitness, RecoveryReplayWitness, SelectedVisibility,
 };
 use sandbox_runtime_mpla_poc::{
-    AllocationId, NamedFaultPoint, OperationId, OwnerGeneration, OwnerSubject,
+    AllocationId, NamedFaultInjector, NamedFaultPoint, OperationId, OwnerGeneration, OwnerSubject,
     OwnerTransitionRequest, PhysicalSnapshot, PocError, PublicationId, StableAllocationReceipt,
     SCHEMA_VERSION,
 };
@@ -34,6 +34,18 @@ impl Drop for TestRoot {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.path);
     }
+}
+
+#[test]
+fn physical_fault_context_preserves_the_exact_stationary_payload_path() {
+    let expected = PathBuf::from("/arena/aa/allocation/upper");
+    let faults =
+        NamedFaultInjector::default().with_physical_stationary_payload_path(expected.clone());
+
+    assert_eq!(
+        faults.physical_stationary_payload_path(),
+        Some(expected.as_path())
+    );
 }
 
 #[test]
@@ -224,6 +236,23 @@ fn marker_only_forged_and_missing_witnesses_cannot_pass() {
     let record = ledger
         .record(copied_payload)
         .expect("copied-payload attempt");
+    assert!(!record.passed);
+    assert!(record
+        .failures
+        .iter()
+        .any(|failure| failure.contains("moved or copied")));
+
+    let mut missing_stationary_payload =
+        passing_observation(point, phase, true, 6, CrashExecutionMode::HostInjection);
+    let witness = missing_stationary_payload
+        .real_operation_witness
+        .as_mut()
+        .expect("real operation witness");
+    witness.stationary_payload_path_before = None;
+    witness.stationary_payload_path_after = None;
+    let record = ledger
+        .record(missing_stationary_payload)
+        .expect("missing stationary-payload attempt");
     assert!(!record.passed);
     assert!(record
         .failures
@@ -433,7 +462,7 @@ fn passing_observation(
             durable_boundary: binding.durable_boundary.to_owned(),
             operation_id: operation_id.clone(),
             durable_state_paths: vec![PathBuf::from("durable-operation-state")],
-            operation_state_parent_synced: true,
+            operation_state_parent_synced: false,
             stationary_payload_path_before: Some(PathBuf::from("allocation/upper")),
             stationary_payload_path_after: Some(PathBuf::from("allocation/upper")),
             payload_bytes_moved: 0,

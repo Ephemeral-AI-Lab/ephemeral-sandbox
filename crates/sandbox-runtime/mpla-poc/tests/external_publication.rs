@@ -1,4 +1,11 @@
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "linux")]
+use std::{
+    fs::{self, File, OpenOptions},
+    os::fd::AsRawFd,
+    thread,
+    time::{Duration, Instant},
+};
 
 use sandbox_runtime_mpla_poc::allocation::{create_allocation, open_allocation};
 use sandbox_runtime_mpla_poc::durable;
@@ -55,6 +62,7 @@ fn fresh_allocation_durability_batch_commits_a_reopenable_exact_session() {
     assert_eq!(record.workspace_root, prepared.workspace_root());
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn external_stationary_adoption_commits_once_and_replays() {
     let fixture = Fixture::new();
@@ -99,6 +107,69 @@ fn external_stationary_adoption_commits_once_and_replays() {
         fixture.operation_record().phase,
         PublicationPhase::PayloadOwned
     );
+}
+
+#[cfg(not(target_os = "linux"))]
+#[test]
+fn external_stationary_adoption_fails_closed_without_descriptor_authority() {
+    let fixture = Fixture::new();
+    assert!(matches!(
+        fixture.publish(fixture.seal.clone()),
+        Err(PocError::Unsupported(_))
+    ));
+    assert!(matches!(
+        current_owner(&fixture.allocation.allocation_root)
+            .expect("workspace owner")
+            .subject,
+        OwnerSubject::WorkspaceOwned { .. }
+    ));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn external_adoption_rejects_allocation_root_replacement_while_waiting_for_owner_lock() {
+    let fixture = Fixture::new();
+    let lock = hold_owner_lock(&fixture.allocation.owner_dir.join("LOCK"));
+    let worker = spawn_publication(&fixture);
+    wait_for_stable_allocation_phase(&fixture, &worker);
+
+    let allocation_root = fixture.allocation.allocation_root.clone();
+    let displaced = allocation_root.with_extension("pinned-original");
+    fs::rename(&allocation_root, &displaced).expect("displace pinned allocation root");
+    copy_tree(&displaced, &allocation_root);
+    release_owner_lock(lock);
+
+    assert!(worker
+        .join()
+        .expect("join allocation-root replacement publication"));
+    assert_workspace_owner_unchanged(&allocation_root, &fixture.request.operation_id);
+    assert_workspace_owner_unchanged(&displaced, &fixture.request.operation_id);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn external_adoption_rejects_owner_replacement_while_waiting_for_owner_lock() {
+    let fixture = Fixture::new();
+    let owner_dir = fixture.allocation.owner_dir.clone();
+    let lock = hold_owner_lock(&owner_dir.join("LOCK"));
+    let worker = spawn_publication(&fixture);
+    wait_for_stable_allocation_phase(&fixture, &worker);
+
+    let displaced = owner_dir.with_extension("pinned-original");
+    fs::rename(&owner_dir, &displaced).expect("displace pinned owner directory");
+    copy_tree(&displaced, &owner_dir);
+    release_owner_lock(lock);
+
+    assert!(worker.join().expect("join owner replacement publication"));
+    assert_workspace_owner_unchanged(
+        &fixture.allocation.allocation_root,
+        &fixture.request.operation_id,
+    );
+    assert!(!displaced
+        .join("receipts")
+        .join(format!("{}.json", fixture.request.operation_id.as_str()))
+        .exists());
+    assert!(!displaced.join("generations/2.json").exists());
 }
 
 #[test]
@@ -178,6 +249,113 @@ fn assert_pre_adoption_rejected(fixture: &Fixture, seal: ExternalStationarySeal)
         fixture.session_record().phase,
         SessionPhase::RecoveryRequired
     );
+}
+
+#[cfg(target_os = "linux")]
+fn spawn_publication(fixture: &Fixture) -> thread::JoinHandle<bool> {
+    let prepared = fixture.prepared.clone();
+    let allocation = fixture.allocation.clone();
+    let lease = fixture.lease.clone();
+    let request = fixture.request.clone();
+    let operations_root = fixture.operations_root.clone();
+    let seal = fixture.seal.clone();
+    thread::spawn(move || {
+        matches!(
+            stationary_adopt_prepared(
+                &prepared,
+                &allocation,
+                &lease,
+                &request,
+                &operations_root,
+                seal,
+                &mut FaultInjector::default(),
+            ),
+            Err(PocError::RecoveryRequired(_))
+        )
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn wait_for_stable_allocation_phase(fixture: &Fixture, worker: &thread::JoinHandle<bool>) {
+    let operation_path = fixture
+        .operations_root
+        .join("publication")
+        .join(fixture.request.operation_id.as_str())
+        .join("OPERATION.json");
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        if let Ok(record) = durable::read_json::<sandbox_runtime_mpla_poc::PublicationOperationRecord>(
+            &operation_path,
+        ) {
+            if record.phase == PublicationPhase::StableAllocation {
+                return;
+            }
+        }
+        assert!(
+            !worker.is_finished(),
+            "publication exited before owner compare"
+        );
+        assert!(
+            Instant::now() < deadline,
+            "publication did not reach stable allocation before owner compare"
+        );
+        thread::sleep(Duration::from_millis(1));
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn hold_owner_lock(path: &Path) -> File {
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .expect("open owner lock");
+    // SAFETY: `file` remains open until the matching unlock and owns this descriptor.
+    let status = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
+    assert_eq!(status, 0, "hold owner lock");
+    file
+}
+
+#[cfg(target_os = "linux")]
+fn release_owner_lock(file: File) {
+    // SAFETY: `file` still owns the locked descriptor and is dropped immediately afterward.
+    let status = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_UN) };
+    assert_eq!(status, 0, "release owner lock");
+}
+
+#[cfg(target_os = "linux")]
+fn copy_tree(source: &Path, destination: &Path) {
+    fs::create_dir(destination).expect("create replacement directory");
+    for entry in fs::read_dir(source).expect("read source directory") {
+        let entry = entry.expect("read source entry");
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        let file_type = entry.file_type().expect("read source entry type");
+        if file_type.is_dir() {
+            copy_tree(&source_path, &destination_path);
+        } else {
+            assert!(
+                file_type.is_file(),
+                "replacement fixture contains special entry"
+            );
+            fs::copy(&source_path, &destination_path).expect("copy replacement file");
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn assert_workspace_owner_unchanged(allocation_root: &Path, operation_id: &OperationId) {
+    assert!(matches!(
+        current_owner(allocation_root)
+            .expect("read unchanged workspace owner")
+            .subject,
+        OwnerSubject::WorkspaceOwned { .. }
+    ));
+    assert!(!allocation_root
+        .join("owner/receipts")
+        .join(format!("{}.json", operation_id.as_str()))
+        .exists());
+    assert!(!allocation_root.join("owner/generations/2.json").exists());
 }
 
 struct Fixture {

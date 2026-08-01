@@ -11,18 +11,18 @@ use sandbox_runtime_mpla_poc::publication_qualification::{
     MATCHED_PUBLICATION_TIMING_BASIS,
 };
 use sandbox_runtime_mpla_poc::{
-    bind_product_catalog, collect_control_changes, prepared_fixture_storage_requirement,
-    read_prepared_fixture_manifest, run_current_i2_closing, validate_prepared_fixture_cache_layout,
-    write_prepared_fixture_manifest, CatalogBinding, ControlCacheMatch, ControlChangeSet,
-    ControlCollectionLimits, ControlOperationReceipt, ControlSourceProfile,
-    CurrentI2ClosingRequest, PreparedFixtureBranch, PreparedFixtureControlSource,
-    PreparedFixtureManifest, SemanticBuildReceipt, MATCHED_PUBLICATION_START_BOUNDARY,
-    MATCHED_PUBLICATION_STOP_BOUNDARY, PREPARED_FIXTURE_ALLOCATION_COUNT,
-    PREPARED_FIXTURE_BASE_SHA256, PREPARED_FIXTURE_CHAIN_DEPTH, PREPARED_FIXTURE_CONTROL_ROOT,
-    PREPARED_FIXTURE_CONTROL_SOURCE, PREPARED_FIXTURE_CONTROL_SOURCE_MANIFEST_SHA256,
-    PREPARED_FIXTURE_DEPTH_EIGHT_BYTES, PREPARED_FIXTURE_DEPTH_FIVE_BYTES,
-    PREPARED_FIXTURE_MANIFEST, PREPARED_FIXTURE_MARKER_LAYER_BYTES, PREPARED_FIXTURE_PROFILE,
-    PREPARED_FIXTURE_ROOT, PREPARED_FIXTURE_RUN_ID, PREPARED_FIXTURE_SINGLE_FILE_LAYER_BYTES,
+    bind_product_catalog, prepared_fixture_storage_requirement, read_prepared_fixture_manifest,
+    validate_prepared_fixture_cache_layout, write_prepared_fixture_manifest, CatalogBinding,
+    CatalogCoverageReceipt, ControlApiCoverage, ControlCacheMatch, ControlChangeSet, ControlIntent,
+    ControlOperationReceipt, ControlPublicationOutcome, ControlSourceProfile, ControlVerdict,
+    PreparedFixtureBranch, PreparedFixtureControlSource, PreparedFixtureManifest,
+    SemanticBuildReceipt, MATCHED_PUBLICATION_START_BOUNDARY, MATCHED_PUBLICATION_STOP_BOUNDARY,
+    PREPARED_FIXTURE_ALLOCATION_COUNT, PREPARED_FIXTURE_BASE_SHA256, PREPARED_FIXTURE_CHAIN_DEPTH,
+    PREPARED_FIXTURE_CONTROL_ROOT, PREPARED_FIXTURE_CONTROL_SOURCE,
+    PREPARED_FIXTURE_CONTROL_SOURCE_MANIFEST_SHA256, PREPARED_FIXTURE_DEPTH_EIGHT_BYTES,
+    PREPARED_FIXTURE_DEPTH_FIVE_BYTES, PREPARED_FIXTURE_MANIFEST,
+    PREPARED_FIXTURE_MARKER_LAYER_BYTES, PREPARED_FIXTURE_PROFILE, PREPARED_FIXTURE_ROOT,
+    PREPARED_FIXTURE_RUN_ID, PREPARED_FIXTURE_SINGLE_FILE_LAYER_BYTES,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -39,8 +39,14 @@ type PublicationResult<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
 
 const GIB: u64 = 1024 * 1024 * 1024;
 const MIB: u64 = 1024 * 1024;
+const PREPARED_FIXTURE_BUILD_BRANCH: &str = "fixture-depth-8";
 const PREPARATION_PATH: &str = "/workspace/scorecard-publication-preparation.json";
+const CONTROL_PREPARATION_PATH: &str = "/workspace/scorecard-publication-control-preparation.json";
 const PROGRESS_PATH: &str = "/workspace/scorecard-publication-progress.jsonl";
+const PREPARED_CONTROL_BASE_SOURCE_MANIFEST_SHA256: &str =
+    "7e8c0a26242671839f21c7f228696a981d6a0e50018d2140f7beef87df82ab0d";
+const PREPARED_CONTROL_DELTA_SOURCE_MANIFEST_SHA256: &str =
+    "9755b23ced9873adb986a1234783a5f6c618145c31a185cde62ff6abf6ee2beb";
 const LAYER_STACK_BOOTSTRAP_DIRECTORIES: [&str; 4] =
     [".layer-metadata", "base", "layers", "staging"];
 const LAYER_STACK_BOOTSTRAP_FILES: [&str; 3] =
@@ -74,11 +80,41 @@ pub(super) fn inspect_prepared_fixture_cache() -> PublicationResult<Value> {
     let cache_run_root = Path::new(PREPARED_FIXTURE_CONTROL_ROOT)
         .join("runs")
         .join(PREPARED_FIXTURE_RUN_ID);
+    let (branches, _) = inspect_sealed_prepared_fixture(&manifest, &cache_run_root, false)?;
+    Ok(json!({
+        "fixture_profile": manifest.profile,
+        "fixture_run_id": manifest.run_id,
+        "layout": layout,
+        "branches": branches,
+    }))
+}
+
+fn inspect_sealed_prepared_fixture(
+    manifest: &PreparedFixtureManifest,
+    cache_run_root: &Path,
+    require_v3: bool,
+) -> PublicationResult<(
+    Vec<Value>,
+    Option<sandbox_runtime_mpla_poc::ref_store::SealedPairedRefLayoutReceipt>,
+)> {
     require_prepared_fixture_cache_layout(&cache_run_root)?;
-    let locator_store =
-        sandbox_runtime_mpla_poc::locator::LocatorStore::open(cache_run_root.join("locators"))?;
-    let ref_store =
-        sandbox_runtime_mpla_poc::ref_store::PairedRefStore::open(cache_run_root.join("refs"))?;
+    let locator_store = sandbox_runtime_mpla_poc::locator::SealedLocatorStore::open(
+        cache_run_root.join("locators"),
+    )?;
+    let ref_store = sandbox_runtime_mpla_poc::ref_store::SealedPairedRefStore::open(
+        cache_run_root.join("refs"),
+    )?;
+    let paired_ref_v3 = require_v3
+        .then(|| ref_store.require_v3_layout())
+        .transpose()?;
+    let manifest_branches = manifest
+        .branches
+        .iter()
+        .map(|branch| branch.branch.clone())
+        .collect::<Vec<_>>();
+    if ref_store.branch_names() != manifest_branches {
+        return Err("prepared fixture paired refs do not have the exact manifest branches".into());
+    }
     let mut branches = Vec::with_capacity(manifest.branches.len());
     for branch in &manifest.branches {
         let resolved = ref_store
@@ -134,12 +170,7 @@ pub(super) fn inspect_prepared_fixture_cache() -> PublicationResult<Value> {
             "locator_accounted_bytes": accounted_bytes,
         }));
     }
-    Ok(json!({
-        "fixture_profile": manifest.profile,
-        "fixture_run_id": manifest.run_id,
-        "layout": layout,
-        "branches": branches,
-    }))
+    Ok((branches, paired_ref_v3))
 }
 
 fn require_prepared_fixture_cache_layout(cache_run_root: &Path) -> PublicationResult {
@@ -200,7 +231,8 @@ struct MatchedPair {
     pair: u8,
     order: [&'static str; 2],
     candidate: CandidateSample,
-    control: ControlOperationReceipt,
+    control_base: PreparedControlBase,
+    control: MatchedControlSample,
     ratio_numerator: u64,
     ratio_denominator: u64,
 }
@@ -249,6 +281,7 @@ struct PublicationEvidence {
     fixture_preparation_path: String,
     fixture_preparation_elapsed_ns: u64,
     fixture_preparation_outside_measured_interval: bool,
+    control_preparation: ControlPreparationBinding,
     fixture_profile: Option<String>,
     fixture_attachment: Option<CliInvocation>,
     initial: Option<MountedSession>,
@@ -275,6 +308,8 @@ struct PublicationFixture {
     base_sha256: String,
     delta_sha256: Vec<String>,
     control_source_manifest_sha256: String,
+    control_base_source_manifest_sha256: String,
+    control_delta_source_manifest_sha256: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -295,6 +330,77 @@ struct PreparedPublicationFixture {
     depth_five: PreparedCandidate,
     maximum_depth: PreparedCandidate,
     preparation_elapsed_ns: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct PublicPublicationOutcome {
+    workspace_session_id: String,
+    manifest_version: u64,
+    root_hash: String,
+    layer_count: u64,
+    source_count: u64,
+    ignored_count: u64,
+    destroyed: bool,
+    matched_publication: MatchedPublicationReceipt,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct PreparedControlBase {
+    pair: u8,
+    control_sandbox_id: String,
+    workspace_session_id: String,
+    create: CliInvocation,
+    write: CliInvocation,
+    publication: CliInvocation,
+    outcome: PublicPublicationOutcome,
+    publish_response_sha256: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct MatchedControlSample {
+    pair: u8,
+    control_sandbox_id: String,
+    base_workspace_session_id: String,
+    workspace_session_id: String,
+    create: CliInvocation,
+    base_verification: CliInvocation,
+    delta_write: CliInvocation,
+    publication: CliInvocation,
+    outcome: PublicPublicationOutcome,
+    fixture_verification_create: CliInvocation,
+    fixture_verification: CliInvocation,
+    fixture_verification_destroy: CliInvocation,
+    publish_response_sha256: String,
+    receipt: ControlOperationReceipt,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct PreparedPublicationControls {
+    schema_version: u32,
+    kind: String,
+    run_id: String,
+    candidate_sandbox_id: String,
+    control_sandbox_ids: Vec<String>,
+    build_commit: String,
+    fixture_profile: String,
+    base_logical_bytes: u64,
+    delta_file_count: u64,
+    delta_logical_bytes: u64,
+    base_source_manifest_sha256: String,
+    delta_source_manifest_sha256: String,
+    bases: Vec<PreparedControlBase>,
+    preparation_elapsed_ns: u64,
+    receipt_checksum_sha256: String,
+}
+
+#[derive(Debug, Serialize)]
+struct ControlPreparationBinding {
+    checksum_sha256: String,
+}
+
+struct CachedControlSourceSets {
+    base: ControlChangeSet,
+    delta: ControlChangeSet,
 }
 
 struct ProgressLedger {
@@ -514,6 +620,190 @@ fn prepare_cached_fixture(
     write_prepared_publication_fixture(&mut progress, &prepared)
 }
 
+/// Prepare the three independent public workspace-session bases used by the
+/// matched P4 controls. This is a distinct, pre-clock setup operation: each
+/// control sandbox durably publishes one exact sparse one-GiB base, while the
+/// measured P4 control later publishes the exact ten-file/one-MiB delta
+/// through the normal public workspace-session operation.
+pub fn prepare_control_bases(
+    run_id: &str,
+    candidate_sandbox_id: &str,
+    control_sandbox_ids: &[String],
+    build_commit: &str,
+    fixture_profile: &str,
+) -> PublicationResult<Value> {
+    validate_identifier(run_id, "run_id")?;
+    validate_identifier(candidate_sandbox_id, "candidate_sandbox_id")?;
+    require_control_sandbox_ids(control_sandbox_ids, candidate_sandbox_id)?;
+    validate_build_commit(build_commit)?;
+    if fixture_profile != PREPARED_FIXTURE_PROFILE {
+        return Err("publication control preparation requires the sealed fixture profile".into());
+    }
+    if Path::new(CONTROL_PREPARATION_PATH).exists() {
+        return Err(format!(
+            "publication control preparation already exists: {CONTROL_PREPARATION_PATH}"
+        )
+        .into());
+    }
+
+    let prepared_fixture: PreparedPublicationFixture =
+        serde_json::from_slice(&fs::read(PREPARATION_PATH)?)?;
+    require_prepared_publication_fixture_identity(
+        &prepared_fixture,
+        run_id,
+        candidate_sandbox_id,
+        build_commit,
+    )?;
+    let run_root =
+        Path::new("/eos/workspace/mpla-poc/scorecard").join(format!("{run_id}-publication"));
+    if !run_root.is_dir() {
+        return Err("publication control preparation lacks the prepared run root".into());
+    }
+
+    let manifest = read_prepared_fixture_manifest()?;
+    validate_prepared_fixture_cache_layout(&manifest)?;
+    let fixture = fixture_from_prepared_manifest(&manifest)?;
+
+    let preparation_started = Instant::now();
+    let mut bases = Vec::with_capacity(3);
+    for (index, control_sandbox_id) in control_sandbox_ids.iter().enumerate() {
+        let pair = u8::try_from(index + 1)?;
+        bases.push(prepare_control_base(
+            run_id,
+            pair,
+            control_sandbox_id,
+            &fixture,
+        )?);
+    }
+    let preparation_elapsed_ns = preparation_elapsed_ns(preparation_started)?;
+    let receipt_checksum_sha256 = control_bases_checksum(&bases)?;
+    let prepared = PreparedPublicationControls {
+        schema_version: 2,
+        kind: "mpla_booster_prepared_public_workspace_controls_v2".to_owned(),
+        run_id: run_id.to_owned(),
+        candidate_sandbox_id: candidate_sandbox_id.to_owned(),
+        control_sandbox_ids: control_sandbox_ids.to_vec(),
+        build_commit: build_commit.to_owned(),
+        fixture_profile: fixture_profile.to_owned(),
+        base_logical_bytes: GIB,
+        delta_file_count: 10,
+        delta_logical_bytes: MIB,
+        base_source_manifest_sha256: fixture.control_base_source_manifest_sha256.clone(),
+        delta_source_manifest_sha256: fixture.control_delta_source_manifest_sha256.clone(),
+        bases,
+        preparation_elapsed_ns,
+        receipt_checksum_sha256,
+    };
+    write_prepared_publication_controls(&prepared)
+}
+
+fn prepare_control_base(
+    run_id: &str,
+    pair: u8,
+    control_sandbox_id: &str,
+    fixture: &PublicationFixture,
+) -> PublicationResult<PreparedControlBase> {
+    let client = RuntimeClient::new(control_sandbox_id)?;
+    let create = create_public_workspace_session(
+        &client,
+        &format!("{run_id}-publication-control-{pair}-base-create"),
+    )?;
+    let workspace_session_id = require_public_workspace_create(&create, "control base create")?;
+    let write = write_large_layer(
+        &client,
+        &workspace_session_id,
+        "layer-000.bin",
+        GIB,
+        "write control base",
+    )?;
+    let publication = publish_public_workspace_session(
+        &client,
+        &format!("{run_id}-publication-control-{pair}-base-publish"),
+        &workspace_session_id,
+    )?;
+    let outcome = require_public_workspace_publication(&publication, "control base publication")?;
+    if outcome.workspace_session_id != workspace_session_id
+        || outcome.source_count != 1
+        || outcome.ignored_count != 0
+        || outcome.manifest_version == 0
+        || outcome.layer_count == 0
+    {
+        return Err(format!("public control base publication is invalid for pair {pair}").into());
+    }
+    if fixture.base_sha256 != PREPARED_FIXTURE_BASE_SHA256 {
+        return Err("public control base fixture digest changed".into());
+    }
+    let publish_response_sha256 = sha256_serialized(&publication.response)?;
+    Ok(PreparedControlBase {
+        pair,
+        control_sandbox_id: control_sandbox_id.to_owned(),
+        workspace_session_id,
+        create,
+        write,
+        publication,
+        outcome,
+        publish_response_sha256,
+    })
+}
+
+fn write_prepared_publication_controls(
+    prepared: &PreparedPublicationControls,
+) -> PublicationResult<Value> {
+    let bytes = serde_json::to_vec_pretty(prepared)?;
+    let result_sha256 = format!("{:x}", Sha256::digest(&bytes));
+    let mut file = File::options()
+        .create_new(true)
+        .write(true)
+        .open(CONTROL_PREPARATION_PATH)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    sync_directory(
+        Path::new(CONTROL_PREPARATION_PATH)
+            .parent()
+            .ok_or("publication control preparation path lacks a parent")?,
+    )?;
+    let bases = prepared
+        .bases
+        .iter()
+        .map(|base| {
+            json!({
+                "pair": base.pair,
+                "control_sandbox_id": base.control_sandbox_id,
+                "workspace_session_id": base.workspace_session_id,
+                "manifest_version": base.outcome.manifest_version,
+                "root_hash": base.outcome.root_hash,
+                "layer_count": base.outcome.layer_count,
+                "source_count": base.outcome.source_count,
+                "ignored_count": base.outcome.ignored_count,
+                "destroyed": base.outcome.destroyed,
+                "matched_publication": base.outcome.matched_publication,
+                "publish_response_sha256": base.publish_response_sha256,
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "schema_version": 2,
+        "kind": "mpla_booster_publication_control_preparation_summary_v2",
+        "result_path": CONTROL_PREPARATION_PATH,
+        "result_sha256": result_sha256,
+        "result_bytes": bytes.len(),
+        "run_id": prepared.run_id,
+        "candidate_sandbox_id": prepared.candidate_sandbox_id,
+        "control_sandbox_ids": prepared.control_sandbox_ids,
+        "build_commit": prepared.build_commit,
+        "fixture_profile": prepared.fixture_profile,
+        "base_count": prepared.bases.len(),
+        "base_logical_bytes": prepared.base_logical_bytes,
+        "delta_file_count": prepared.delta_file_count,
+        "delta_logical_bytes": prepared.delta_logical_bytes,
+        "base_source_manifest_sha256": prepared.base_source_manifest_sha256,
+        "delta_source_manifest_sha256": prepared.delta_source_manifest_sha256,
+        "bases": bases,
+        "preparation_elapsed_ns": prepared.preparation_elapsed_ns,
+        "receipt_checksum_sha256": prepared.receipt_checksum_sha256,
+    }))
+}
+
 /// Build the closed, server-owned cache exactly once. This command is only
 /// useful while the fixture-builder gateway configuration has its dedicated
 /// persistent volume mounted read/write. Qualifying scorecards mount the same
@@ -588,7 +878,7 @@ pub fn build_prepared_fixture_cache(
         PREPARED_FIXTURE_RUN_ID,
         "fixture-base-publish",
         &initial.workspace_session_id,
-        "main",
+        PREPARED_FIXTURE_BUILD_BRANCH,
     )
     .map_err(|error| format!("fixture builder initial publication: {error}"))?;
     let depth_one_semantic = require_closed_sparse_fixture_publication(&initial_publish, 1, 0, GIB)
@@ -611,9 +901,13 @@ pub fn build_prepared_fixture_cache(
         )
         .map_err(|error| format!("fixture builder initial-layer progress mark: {error}"))?;
     layer_timings.push(initial_timing);
-    let depth_one_fork =
-        fork_fixture_branch(&client, PREPARED_FIXTURE_RUN_ID, "main", "fixture-depth-1")
-            .map_err(|error| format!("fixture builder depth-one branch fork: {error}"))?;
+    let depth_one_fork = fork_fixture_branch(
+        &client,
+        PREPARED_FIXTURE_RUN_ID,
+        PREPARED_FIXTURE_BUILD_BRANCH,
+        "fixture-depth-1",
+    )
+    .map_err(|error| format!("fixture builder depth-one branch fork: {error}"))?;
     progress
         .mark(
             "prepared_fixture_cache_branch_forked",
@@ -637,8 +931,12 @@ pub fn build_prepared_fixture_cache(
         layer_timings.push(built.timing);
         depth_five_semantic = built.semantic;
     }
-    let depth_five_fork =
-        fork_fixture_branch(&client, PREPARED_FIXTURE_RUN_ID, "main", "fixture-depth-5")?;
+    let depth_five_fork = fork_fixture_branch(
+        &client,
+        PREPARED_FIXTURE_RUN_ID,
+        PREPARED_FIXTURE_BUILD_BRANCH,
+        "fixture-depth-5",
+    )?;
     progress.mark(
         "prepared_fixture_cache_branch_forked",
         fixture_fork_timing("fixture-depth-5", &depth_five_fork),
@@ -659,13 +957,6 @@ pub fn build_prepared_fixture_cache(
         layer_timings.push(built.timing);
         depth_eight_semantic = built.semantic;
     }
-    let depth_eight_fork =
-        fork_fixture_branch(&client, PREPARED_FIXTURE_RUN_ID, "main", "fixture-depth-8")?;
-    progress.mark(
-        "prepared_fixture_cache_branch_forked",
-        fixture_fork_timing("fixture-depth-8", &depth_eight_fork),
-    )?;
-
     let cache_run_root = Path::new(PREPARED_FIXTURE_CONTROL_ROOT)
         .join("runs")
         .join(PREPARED_FIXTURE_RUN_ID);
@@ -719,8 +1010,19 @@ pub fn build_prepared_fixture_cache(
         },
         branches,
     );
+    drop(ref_store);
+    drop(locator_store);
     sync_fixture_filesystem(cache_root)?;
     let layout = validate_prepared_fixture_cache_layout(&manifest)?;
+    let (sealed_branches, paired_ref_v3) =
+        inspect_sealed_prepared_fixture(&manifest, &cache_run_root, true)?;
+    let pre_seal_validation = json!({
+        "read_only_reopen": true,
+        "exact_branch_count": sealed_branches.len(),
+        "branches": sealed_branches,
+        "paired_ref": paired_ref_v3
+            .ok_or("prepared fixture pre-seal validation omitted paired-ref v3 identity")?,
+    });
     write_prepared_fixture_manifest(&manifest)?;
     let elapsed_ns = preparation_elapsed_ns(started)?;
     progress.mark(
@@ -735,6 +1037,7 @@ pub fn build_prepared_fixture_cache(
             "payload_bytes_read": layout.payload_bytes_read,
             "payload_bytes_copied": 0,
             "builder_elapsed_ns": elapsed_ns,
+            "pre_seal_validation": pre_seal_validation.clone(),
         }),
     )?;
     progress.sync()?;
@@ -752,6 +1055,7 @@ pub fn build_prepared_fixture_cache(
         "removed_fixture_owned_paths": &recovered_paths,
         "builder_elapsed_ns": elapsed_ns,
         "layer_timings": layer_timings,
+        "pre_seal_validation": pre_seal_validation,
     }))
 }
 
@@ -1341,7 +1645,7 @@ fn grow_sparse_single_file_fixture_layer(
             "--run-id".to_owned(),
             PREPARED_FIXTURE_RUN_ID.to_owned(),
             "--branch".to_owned(),
-            "main".to_owned(),
+            PREPARED_FIXTURE_BUILD_BRANCH.to_owned(),
         ],
     )?;
     let workspace_session_id = required_string(
@@ -1361,7 +1665,7 @@ fn grow_sparse_single_file_fixture_layer(
         PREPARED_FIXTURE_RUN_ID,
         &format!("layer-{layer:03}-publish"),
         &workspace_session_id,
-        "main",
+        PREPARED_FIXTURE_BUILD_BRANCH,
     )?;
     let semantic = validate_fixture_layer_publication(
         &publication,
@@ -1391,7 +1695,7 @@ fn grow_marker_fixture_layer(
             "--run-id".to_owned(),
             PREPARED_FIXTURE_RUN_ID.to_owned(),
             "--branch".to_owned(),
-            "main".to_owned(),
+            PREPARED_FIXTURE_BUILD_BRANCH.to_owned(),
         ],
     )?;
     let workspace_session_id = required_string(
@@ -1406,7 +1710,7 @@ fn grow_marker_fixture_layer(
         PREPARED_FIXTURE_RUN_ID,
         &format!("layer-{layer:03}-publish"),
         &workspace_session_id,
-        "main",
+        PREPARED_FIXTURE_BUILD_BRANCH,
     )?;
     let semantic = validate_fixture_layer_publication(
         &publication,
@@ -1471,13 +1775,34 @@ fn fixture_invocation_timing(invocation: &CliInvocation) -> Value {
     })
 }
 
+fn require_control_sandbox_ids(
+    control_sandbox_ids: &[String],
+    candidate_sandbox_id: &str,
+) -> PublicationResult {
+    if control_sandbox_ids.len() != 3 {
+        return Err("publication requires exactly three control sandbox IDs".into());
+    }
+    for (index, sandbox_id) in control_sandbox_ids.iter().enumerate() {
+        validate_identifier(sandbox_id, "control_sandbox_id")?;
+        if sandbox_id == candidate_sandbox_id {
+            return Err("control sandbox IDs must differ from the candidate sandbox ID".into());
+        }
+        if control_sandbox_ids[..index].contains(sandbox_id) {
+            return Err("publication control sandbox IDs must be distinct".into());
+        }
+    }
+    Ok(())
+}
+
 pub fn run(
     run_id: &str,
     candidate_sandbox_id: &str,
+    control_sandbox_ids: &[String],
     build_commit: &str,
 ) -> PublicationResult<Value> {
     validate_identifier(run_id, "run_id")?;
     validate_identifier(candidate_sandbox_id, "candidate_sandbox_id")?;
+    require_control_sandbox_ids(control_sandbox_ids, candidate_sandbox_id)?;
     validate_build_commit(build_commit)?;
     let tools = campaign_tools()?;
 
@@ -1501,25 +1826,14 @@ pub fn run(
 
     let prepared_bytes = fs::read(PREPARATION_PATH)?;
     let prepared: PreparedPublicationFixture = serde_json::from_slice(&prepared_bytes)?;
-    let uses_prepared_cache = prepared.fixture_profile.as_deref() == Some(PREPARED_FIXTURE_PROFILE);
-    let valid_cached_shape = prepared.schema_version == 2
-        && uses_prepared_cache
-        && prepared.fixture_attachment.is_some()
-        && prepared.initial.is_none()
-        && prepared.initial_write.is_none()
-        && prepared.initial_publish.is_none()
-        && prepared.chain_layers.is_empty();
-    if !valid_cached_shape
-        || prepared.kind != "mpla_booster_prepared_s4_chain_v1"
-        || prepared.run_id != run_id
-        || prepared.candidate_sandbox_id != candidate_sandbox_id
-        || prepared.build_commit != build_commit
-        || prepared.prepared_depth_one.len() != 3
-        || prepared.depth_five.chain_depth != 5
-        || prepared.maximum_depth.chain_depth != PREPARED_FIXTURE_CHAIN_DEPTH
-    {
-        return Err("publication preparation identity or chain shape is invalid".into());
-    }
+    require_prepared_publication_fixture_identity(
+        &prepared,
+        run_id,
+        candidate_sandbox_id,
+        build_commit,
+    )?;
+    let prepared_controls: PreparedPublicationControls =
+        serde_json::from_slice(&fs::read(CONTROL_PREPARATION_PATH)?)?;
     let mut progress = ProgressLedger::open()?;
     progress.mark(
         "measurement_started",
@@ -1544,11 +1858,20 @@ pub fn run(
         build_commit,
     )?;
     let fixture = prepared.fixture;
-    let control_changes = if uses_prepared_cache {
-        collect_cached_control_source(&fixture)?
-    } else {
-        collect_prepared_control_source(&run_root, &fixture)?
-    };
+    require_prepared_publication_controls(
+        &prepared_controls,
+        run_id,
+        candidate_sandbox_id,
+        control_sandbox_ids,
+        build_commit,
+        &fixture,
+    )?;
+    let control_preparation_checksum = prepared_controls.receipt_checksum_sha256.clone();
+    let mut prepared_control_bases = prepared_controls
+        .bases
+        .into_iter()
+        .map(Some)
+        .collect::<Vec<_>>();
     let client = RuntimeClient::new(candidate_sandbox_id)?;
     let initial = prepared.initial;
     let initial_write = prepared.initial_write;
@@ -1568,6 +1891,9 @@ pub fn run(
     for pair in 1..=3_u8 {
         let index = usize::from(pair - 1);
         let order = orders[index];
+        let control_base = prepared_control_bases[index]
+            .take()
+            .ok_or("publication control base was already consumed")?;
         let mut candidate = None;
         let mut control = None;
         for arm in order {
@@ -1585,9 +1911,9 @@ pub fn run(
                 }
                 "control" => {
                     control = Some(run_control(
-                        &run_root,
+                        run_id,
                         pair,
-                        &control_changes,
+                        &control_base,
                         &catalog_binding,
                         &fixture,
                     )?);
@@ -1597,27 +1923,27 @@ pub fn run(
         }
         let candidate = candidate.ok_or("publication pair omitted candidate")?;
         let control = control.ok_or("publication pair omitted control")?;
-        validate_matched_control_boundary(&control)?;
-        if control.span.clock != candidate.matched_publication.span.clock {
+        validate_matched_control_boundary(&control.receipt)?;
+        if control.receipt.span.clock != candidate.matched_publication.span.clock {
             return Err("publication candidate/control clocks do not match".into());
         }
-        let control_ns = control.span.elapsed_ns;
+        let control_ns = control.receipt.span.elapsed_ns;
         let ratio_numerator = control_ns;
         let ratio_denominator = candidate.matched_publication.span.elapsed_ns;
         matched_pairs.push(MatchedPair {
             pair,
             order,
             candidate,
+            control_base,
             control,
             ratio_numerator,
             ratio_denominator,
         });
         progress.mark(
             "depth_one_pair_complete",
-            json!({"pair": pair, "candidate_elapsed_ns": matched_pairs.last().map(|value| value.candidate.outer_elapsed_ns), "control_elapsed_ns": matched_pairs.last().map(|value| value.control.span.elapsed_ns)}),
+            json!({"pair": pair, "candidate_elapsed_ns": matched_pairs.last().map(|value| value.candidate.outer_elapsed_ns), "control_elapsed_ns": matched_pairs.last().map(|value| value.control.receipt.span.elapsed_ns)}),
         )?;
     }
-    sandbox_runtime_layerstack::reset_process_state_for_tests();
 
     let depth_five =
         run_small_candidate(&client, run_id, prepared.depth_five, "depth-5", &fixture)?;
@@ -1643,7 +1969,7 @@ pub fn run(
         .collect::<Vec<_>>();
     let controls = matched_pairs
         .iter()
-        .map(|pair| pair.control.clone())
+        .map(|pair| pair.control.receipt.clone())
         .collect::<Vec<_>>();
     let depth_five_timing = PublicationCandidateTiming {
         outer_elapsed_ns: depth_five.outer_elapsed_ns,
@@ -1695,7 +2021,7 @@ pub fn run(
         .all(|sample| fixture_receipt_matches(&sample.fixture_verification, &fixture));
     let all_matched_controls_use_expected_fixture = matched_pairs
         .iter()
-        .all(|pair| control_uses_fixture(&pair.control, &fixture));
+        .all(|pair| control_uses_fixture(&pair.control_base, &pair.control, &fixture));
     let common_preconditions = all_zero_immutable_payload_reads
         && all_no_second_payload_allocation
         && all_durable
@@ -1747,6 +2073,9 @@ pub fn run(
         fixture_preparation_path: PREPARATION_PATH.to_owned(),
         fixture_preparation_elapsed_ns: prepared.preparation_elapsed_ns,
         fixture_preparation_outside_measured_interval: true,
+        control_preparation: ControlPreparationBinding {
+            checksum_sha256: control_preparation_checksum,
+        },
         fixture_profile: prepared.fixture_profile,
         fixture_attachment: prepared.fixture_attachment,
         initial,
@@ -1825,6 +2154,10 @@ fn prepare_control_source_at(
         base_sha256,
         delta_sha256,
         control_source_manifest_sha256: PREPARED_FIXTURE_CONTROL_SOURCE_MANIFEST_SHA256.to_owned(),
+        control_base_source_manifest_sha256: PREPARED_CONTROL_BASE_SOURCE_MANIFEST_SHA256
+            .to_owned(),
+        control_delta_source_manifest_sha256: PREPARED_CONTROL_DELTA_SOURCE_MANIFEST_SHA256
+            .to_owned(),
     };
     let changes = collect_cached_control_source_at(source, &fixture)?;
     Ok((changes, fixture))
@@ -1859,13 +2192,14 @@ fn fixture_from_prepared_manifest(
         base_sha256: control_source.base_sha256.clone(),
         delta_sha256: control_source.delta_sha256.clone(),
         control_source_manifest_sha256: control_source.source_manifest_sha256.clone(),
+        control_base_source_manifest_sha256: PREPARED_CONTROL_BASE_SOURCE_MANIFEST_SHA256
+            .to_owned(),
+        control_delta_source_manifest_sha256: PREPARED_CONTROL_DELTA_SOURCE_MANIFEST_SHA256
+            .to_owned(),
     })
 }
 
-/// Recreate the closed eleven-file control list without rereading a GiB. The
-/// build validates that every source remains a hole-only sparse zero file and
-/// the matched control still processes the full logical fixture inside its
-/// measured interval.
+/// Recreate the closed eleven-file builder list without rereading a GiB.
 fn collect_cached_control_source(
     fixture: &PublicationFixture,
 ) -> PublicationResult<ControlChangeSet> {
@@ -1877,20 +2211,117 @@ fn collect_cached_control_source_at(
     fixture: &PublicationFixture,
 ) -> PublicationResult<ControlChangeSet> {
     let source_root = fs::canonicalize(source)?;
-    let expected = std::iter::once(("layer-000.bin".to_owned(), GIB))
-        .chain((0..10).map(|index| (format!("delta-{index:02}.bin"), delta_bytes(index))))
+    let expected = expected_control_source_files();
+    require_exact_cached_control_source_inventory(&source_root, &expected)?;
+    cached_control_changes(
+        &source_root,
+        &expected,
+        fixture.control_source_manifest_sha256.clone(),
+    )
+}
+
+fn collect_cached_control_source_sets(
+    fixture: &PublicationFixture,
+) -> PublicationResult<CachedControlSourceSets> {
+    collect_cached_control_source_sets_at(Path::new(PREPARED_FIXTURE_CONTROL_SOURCE), fixture)
+}
+
+fn collect_cached_control_source_sets_at(
+    source: &Path,
+    fixture: &PublicationFixture,
+) -> PublicationResult<CachedControlSourceSets> {
+    let source_root = fs::canonicalize(source)?;
+    let base_expected = expected_control_base_files();
+    let delta_expected = expected_control_delta_files();
+    let full_expected = expected_control_source_files();
+    require_exact_cached_control_source_inventory(&source_root, &full_expected)?;
+    Ok(CachedControlSourceSets {
+        base: cached_control_changes(
+            &source_root,
+            &base_expected,
+            fixture.control_base_source_manifest_sha256.clone(),
+        )?,
+        delta: cached_control_changes(
+            &source_root,
+            &delta_expected,
+            fixture.control_delta_source_manifest_sha256.clone(),
+        )?,
+    })
+}
+
+fn expected_control_base_files() -> Vec<(String, u64)> {
+    vec![("layer-000.bin".to_owned(), GIB)]
+}
+
+fn expected_control_delta_files() -> Vec<(String, u64)> {
+    (0..10)
+        .map(|index| (format!("delta-{index:02}.bin"), delta_bytes(index)))
+        .collect()
+}
+
+fn expected_control_source_files() -> Vec<(String, u64)> {
+    expected_control_base_files()
+        .into_iter()
+        .chain(expected_control_delta_files())
+        .collect()
+}
+
+fn require_exact_cached_control_source_inventory(
+    source_root: &Path,
+    expected: &[(String, u64)],
+) -> PublicationResult {
+    let mut observed = fs::read_dir(source_root)?
+        .map(|entry| {
+            let entry = entry?;
+            let name = entry
+                .file_name()
+                .into_string()
+                .map_err(|_| "prepared control cache contains a non-UTF-8 name")?;
+            if !entry.file_type()?.is_file() {
+                return Err(format!(
+                    "prepared control cache entry is not a real regular file: {}",
+                    entry.path().display()
+                )
+                .into());
+            }
+            Ok(name)
+        })
+        .collect::<PublicationResult<Vec<_>>>()?;
+    observed.sort();
+    let mut expected_names = expected
+        .iter()
+        .map(|(name, _)| name.clone())
         .collect::<Vec<_>>();
+    expected_names.sort();
+    if observed != expected_names {
+        return Err("prepared control cache inventory differs from the sealed fixture".into());
+    }
+    Ok(())
+}
+
+fn cached_control_changes(
+    source_root: &Path,
+    expected: &[(String, u64)],
+    source_manifest_sha256: String,
+) -> PublicationResult<ControlChangeSet> {
     let mut changes = Vec::with_capacity(expected.len());
-    for (file, expected_bytes) in &expected {
+    let mut logical_bytes = 0_u64;
+    for (file, expected_bytes) in expected {
         let source_path = source_root.join(file);
-        let metadata = fs::metadata(&source_path)?;
-        if !metadata.is_file() || metadata.len() != *expected_bytes {
+        let metadata = fs::symlink_metadata(&source_path)?;
+        if metadata.file_type().is_symlink()
+            || !metadata.is_file()
+            || metadata.len() != *expected_bytes
+        {
             return Err(format!(
                 "prepared control cache has an invalid fixture file: {}",
                 source_path.display()
             )
             .into());
         }
+        logical_bytes = logical_bytes
+            .checked_add(*expected_bytes)
+            .ok_or("prepared control cache logical-byte total overflowed")?;
         changes.push(LayerChange::WriteFile {
             path: LayerPath::parse(file)?,
             source_path,
@@ -1898,15 +2329,200 @@ fn collect_cached_control_source_at(
         });
     }
     let profile = ControlSourceProfile {
-        source_root,
+        source_root: source_root.to_path_buf(),
         entries: u64::try_from(expected.len())?,
         directories: 1,
         regular_files: u64::try_from(expected.len())?,
         symlinks: 0,
-        logical_bytes: GIB + MIB,
-        source_manifest_sha256: fixture.control_source_manifest_sha256.clone(),
+        logical_bytes,
+        source_manifest_sha256,
     };
     Ok(ControlChangeSet { changes, profile })
+}
+
+fn require_control_source_split(
+    sources: &CachedControlSourceSets,
+    fixture: &PublicationFixture,
+) -> PublicationResult {
+    require_control_source_profile(
+        &sources.base.profile,
+        1,
+        GIB,
+        &fixture.control_base_source_manifest_sha256,
+    )?;
+    require_control_source_profile(
+        &sources.delta.profile,
+        10,
+        MIB,
+        &fixture.control_delta_source_manifest_sha256,
+    )?;
+    let base_paths = sources
+        .base
+        .changes
+        .iter()
+        .map(|change| change.path().as_str())
+        .collect::<Vec<_>>();
+    if base_paths != ["layer-000.bin"] {
+        return Err("prepared control base is not the exact one-file profile".into());
+    }
+    let delta_paths = sources
+        .delta
+        .changes
+        .iter()
+        .map(|change| change.path().as_str().to_owned())
+        .collect::<Vec<_>>();
+    if delta_paths
+        != (0..10)
+            .map(|index| format!("delta-{index:02}.bin"))
+            .collect::<Vec<_>>()
+    {
+        return Err("prepared control delta is not the exact ten-file profile".into());
+    }
+    let observed_delta_bytes = sources
+        .delta
+        .changes
+        .iter()
+        .enumerate()
+        .map(|(index, change)| match change {
+            LayerChange::WriteFile { size, .. } if *size == delta_bytes(index) => Ok(*size),
+            _ => Err("prepared control delta file has the wrong operation or size"),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if observed_delta_bytes.iter().sum::<u64>() != MIB {
+        return Err("prepared control delta does not total exactly one MiB".into());
+    }
+    Ok(())
+}
+
+fn require_control_source_profile(
+    profile: &ControlSourceProfile,
+    regular_files: u64,
+    logical_bytes: u64,
+    source_manifest_sha256: &str,
+) -> PublicationResult {
+    let expected_root = fs::canonicalize(PREPARED_FIXTURE_CONTROL_SOURCE)?;
+    if profile.source_root != expected_root
+        || profile.entries != regular_files
+        || profile.directories != 1
+        || profile.regular_files != regular_files
+        || profile.symlinks != 0
+        || profile.logical_bytes != logical_bytes
+        || profile.source_manifest_sha256 != source_manifest_sha256
+    {
+        return Err(
+            "current-I2 control source profile differs from the sealed fixture split".into(),
+        );
+    }
+    Ok(())
+}
+
+fn require_prepared_publication_fixture_identity(
+    prepared: &PreparedPublicationFixture,
+    run_id: &str,
+    candidate_sandbox_id: &str,
+    build_commit: &str,
+) -> PublicationResult {
+    let uses_prepared_cache = prepared.fixture_profile.as_deref() == Some(PREPARED_FIXTURE_PROFILE);
+    let valid_cached_shape = prepared.schema_version == 2
+        && uses_prepared_cache
+        && prepared.fixture_attachment.is_some()
+        && prepared.initial.is_none()
+        && prepared.initial_write.is_none()
+        && prepared.initial_publish.is_none()
+        && prepared.chain_layers.is_empty();
+    if !valid_cached_shape
+        || prepared.kind != "mpla_booster_prepared_s4_chain_v1"
+        || prepared.run_id != run_id
+        || prepared.candidate_sandbox_id != candidate_sandbox_id
+        || prepared.build_commit != build_commit
+        || prepared.prepared_depth_one.len() != 3
+        || prepared.depth_five.chain_depth != 5
+        || prepared.maximum_depth.chain_depth != PREPARED_FIXTURE_CHAIN_DEPTH
+    {
+        return Err("publication preparation identity or chain shape is invalid".into());
+    }
+    Ok(())
+}
+
+fn require_prepared_control_base(
+    base: &PreparedControlBase,
+    pair: u8,
+    expected_control_sandbox_id: &str,
+    fixture: &PublicationFixture,
+) -> PublicationResult {
+    let workspace_session_id =
+        require_public_workspace_create(&base.create, "prepared control base create")?;
+    if base.write.operation != "exec_command" {
+        return Err("prepared control base write did not use exec_command".into());
+    }
+    require_command_exit(&base.write.response, "prepared control base write")?;
+    require_sparse_file_receipt(
+        &base.write,
+        "layer-000.bin",
+        GIB,
+        "prepared control base write",
+    )?;
+    let outcome =
+        require_public_workspace_publication(&base.publication, "prepared control base publish")?;
+    if base.pair != pair
+        || base.control_sandbox_id != expected_control_sandbox_id
+        || base.workspace_session_id != workspace_session_id
+        || base.workspace_session_id != outcome.workspace_session_id
+        || base.outcome != outcome
+        || base.outcome.manifest_version != 2
+        || base.outcome.root_hash.is_empty()
+        || base.outcome.layer_count != 2
+        || base.outcome.source_count != 1
+        || base.outcome.ignored_count != 0
+        || base.publication.outer_elapsed_ns < base.outcome.matched_publication.span.elapsed_ns
+        || sha256_serialized(&base.publication.response)? != base.publish_response_sha256
+        || fixture.base_sha256 != PREPARED_FIXTURE_BASE_SHA256
+    {
+        return Err(
+            format!("prepared public workspace control base is invalid for pair {pair}").into(),
+        );
+    }
+    Ok(())
+}
+
+fn require_prepared_publication_controls(
+    prepared: &PreparedPublicationControls,
+    run_id: &str,
+    candidate_sandbox_id: &str,
+    control_sandbox_ids: &[String],
+    build_commit: &str,
+    fixture: &PublicationFixture,
+) -> PublicationResult {
+    if prepared.schema_version != 2
+        || prepared.kind != "mpla_booster_prepared_public_workspace_controls_v2"
+        || prepared.run_id != run_id
+        || prepared.candidate_sandbox_id != candidate_sandbox_id
+        || prepared.control_sandbox_ids != control_sandbox_ids
+        || prepared.build_commit != build_commit
+        || prepared.fixture_profile != PREPARED_FIXTURE_PROFILE
+        || prepared.base_logical_bytes != GIB
+        || prepared.delta_file_count != 10
+        || prepared.delta_logical_bytes != MIB
+        || prepared.base_source_manifest_sha256 != fixture.control_base_source_manifest_sha256
+        || prepared.delta_source_manifest_sha256 != fixture.control_delta_source_manifest_sha256
+        || prepared.bases.len() != 3
+        || control_bases_checksum(&prepared.bases)? != prepared.receipt_checksum_sha256
+    {
+        return Err("publication control preparation identity or profile is invalid".into());
+    }
+    for (index, base) in prepared.bases.iter().enumerate() {
+        let pair = u8::try_from(index + 1)?;
+        require_prepared_control_base(base, pair, &control_sandbox_ids[index], fixture)?;
+    }
+    Ok(())
+}
+
+fn control_bases_checksum(bases: &[PreparedControlBase]) -> PublicationResult<String> {
+    sha256_serialized(bases)
+}
+
+fn sha256_serialized<T: ?Sized + Serialize>(value: &T) -> PublicationResult<String> {
+    Ok(format!("{:x}", Sha256::digest(serde_json::to_vec(value)?)))
 }
 
 fn require_prepared_fixture_attachment(invocation: &CliInvocation) -> PublicationResult {
@@ -2020,25 +2636,6 @@ fn write_prepared_publication_fixture(
         "chain_depth": PREPARED_FIXTURE_CHAIN_DEPTH,
         "prepared_depth_one_candidates": 3,
     }))
-}
-
-fn collect_prepared_control_source(
-    run_root: &Path,
-    fixture: &PublicationFixture,
-) -> PublicationResult<ControlChangeSet> {
-    let source = run_root.join("control-source");
-    let changes = collect_control_changes(
-        &source,
-        &ControlCollectionLimits {
-            max_entries: 64,
-            max_logical_bytes: 2 * GIB,
-            max_path_bytes: 4 * 1024,
-        },
-    )?;
-    if changes.profile.source_manifest_sha256 != fixture.control_source_manifest_sha256 {
-        return Err("prepared publication control source no longer matches fixture".into());
-    }
-    Ok(changes)
 }
 
 fn create_mounted_session(
@@ -2155,7 +2752,7 @@ fn run_small_candidate(
         &publication,
         &PublicationExpectation::incremental_affected_paths(
             10,
-            MIB,
+            0,
             MIB,
             prepared.prior_semantic_entry_count,
         ),
@@ -2223,32 +2820,363 @@ fn run_small_candidate(
 }
 
 fn run_control(
-    run_root: &Path,
+    run_id: &str,
     pair: u8,
-    changes: &ControlChangeSet,
+    prepared_base: &PreparedControlBase,
     catalog_binding: &CatalogBinding,
     fixture: &PublicationFixture,
-) -> PublicationResult<ControlOperationReceipt> {
-    if changes.profile.source_manifest_sha256 != fixture.control_source_manifest_sha256 {
-        return Err("publication control source no longer matches the prepared fixture".into());
+) -> PublicationResult<MatchedControlSample> {
+    require_prepared_control_base(
+        prepared_base,
+        pair,
+        &prepared_base.control_sandbox_id,
+        fixture,
+    )?;
+    let client = RuntimeClient::new(&prepared_base.control_sandbox_id)?;
+    let create = create_public_workspace_session(
+        &client,
+        &format!("{run_id}-publication-control-{pair}-delta-create"),
+    )?;
+    let workspace_session_id = require_public_workspace_create(&create, "control delta create")?;
+    let base_verification = verify_public_control_base(
+        &client,
+        &workspace_session_id,
+        fixture,
+        "control base verification",
+    )?;
+    let delta_write = write_small_delta(
+        &client,
+        &workspace_session_id,
+        "delta",
+        &fixture.delta_sha256,
+    )?;
+    let started_unix_ms = sandbox_runtime_mpla_poc::unix_time_ms()?;
+    let publication = publish_public_workspace_session(
+        &client,
+        &format!("{run_id}-publication-control-{pair}-delta-publish"),
+        &workspace_session_id,
+    )?;
+    let outcome = require_public_workspace_publication(&publication, "control delta publication")?;
+    if outcome.workspace_session_id != workspace_session_id
+        || outcome.manifest_version
+            != prepared_base
+                .outcome
+                .manifest_version
+                .checked_add(1)
+                .ok_or("public control manifest version overflowed")?
+        || outcome.layer_count
+            != prepared_base
+                .outcome
+                .layer_count
+                .checked_add(1)
+                .ok_or("public control layer count overflowed")?
+        || outcome.root_hash == prepared_base.outcome.root_hash
+        || outcome.source_count != 10
+        || outcome.ignored_count != 0
+    {
+        return Err("measured public control did not advance the exact prepared base".into());
     }
-    sandbox_runtime_layerstack::reset_process_state_for_tests();
-    let state_root = run_root.join("controls").join(format!("pair-{pair}"));
-    fs::create_dir_all(&state_root)?;
-    Ok(run_current_i2_closing(
-        &CurrentI2ClosingRequest {
-            state_root,
-            publication_id: [pair; 16],
-            public_root_hash: changes.profile.source_manifest_sha256.clone(),
-            catalog_binding: catalog_binding.clone(),
-            boundary: control_boundary(
-                ControlCacheMatch::NotApplicable,
-                MATCHED_PUBLICATION_START_BOUNDARY,
-                MATCHED_PUBLICATION_STOP_BOUNDARY,
-            ),
+    let receipt = public_control_receipt(catalog_binding, fixture, started_unix_ms, &outcome)?;
+    validate_matched_control_boundary(&receipt)?;
+    let fixture_verification_create = create_public_workspace_session(
+        &client,
+        &format!("{run_id}-publication-control-{pair}-verify-create"),
+    )?;
+    let verification_workspace_session_id = require_public_workspace_create(
+        &fixture_verification_create,
+        "control fixture verification create",
+    )?;
+    let fixture_verification =
+        verify_full_public_control_fixture(&client, &verification_workspace_session_id, fixture)?;
+    let fixture_verification_destroy = destroy_public_workspace_session(
+        &client,
+        &format!("{run_id}-publication-control-{pair}-verify-destroy"),
+        &verification_workspace_session_id,
+    )?;
+    require_public_workspace_destroy(
+        &fixture_verification_destroy,
+        &verification_workspace_session_id,
+        "control fixture verification destroy",
+    )?;
+    let publish_response_sha256 = sha256_serialized(&publication.response)?;
+    Ok(MatchedControlSample {
+        pair,
+        control_sandbox_id: prepared_base.control_sandbox_id.clone(),
+        base_workspace_session_id: prepared_base.workspace_session_id.clone(),
+        workspace_session_id,
+        create,
+        base_verification,
+        delta_write,
+        publication,
+        outcome,
+        fixture_verification_create,
+        fixture_verification,
+        fixture_verification_destroy,
+        publish_response_sha256,
+        receipt,
+    })
+}
+
+fn create_public_workspace_session(
+    client: &RuntimeClient,
+    request_id: &str,
+) -> PublicationResult<CliInvocation> {
+    client.invoke(Some(request_id), "create_workspace_session", &[])
+}
+
+fn require_public_workspace_create(
+    invocation: &CliInvocation,
+    label: &str,
+) -> PublicationResult<String> {
+    if invocation.operation != "create_workspace_session"
+        || required_string(&invocation.response, "finalize_policy", label)? != "no_op"
+        || !matches!(
+            required_string(&invocation.response, "network_profile", label)?.as_str(),
+            "shared" | "isolated"
+        )
+    {
+        return Err(format!("{label} is not an exact public workspace-session create").into());
+    }
+    let workspace_session_id =
+        required_string(&invocation.response, "workspace_session_id", label)?;
+    validate_identifier(&workspace_session_id, "workspace_session_id")?;
+    Ok(workspace_session_id)
+}
+
+fn publish_public_workspace_session(
+    client: &RuntimeClient,
+    request_id: &str,
+    workspace_session_id: &str,
+) -> PublicationResult<CliInvocation> {
+    client.invoke(
+        Some(request_id),
+        "publish_workspace_session",
+        &[
+            "--workspace-session-id".to_owned(),
+            workspace_session_id.to_owned(),
+            "--grace-s".to_owned(),
+            "0".to_owned(),
+        ],
+    )
+}
+
+fn require_public_workspace_publication(
+    invocation: &CliInvocation,
+    label: &str,
+) -> PublicationResult<PublicPublicationOutcome> {
+    if invocation.operation != "publish_workspace_session" {
+        return Err(format!("{label} did not use publish_workspace_session").into());
+    }
+    let workspace_session_id =
+        required_string(&invocation.response, "workspace_session_id", label)?;
+    validate_identifier(&workspace_session_id, "workspace_session_id")?;
+    let publish = invocation
+        .response
+        .get("publish")
+        .ok_or_else(|| format!("{label} omitted publish"))?;
+    if required_bool(publish, "no_op", label)?
+        || !required_bool(&invocation.response, "destroyed", label)?
+    {
+        return Err(format!("{label} did not durably publish and close its session").into());
+    }
+    required_u64(&invocation.response, "evicted_upperdir_bytes", label)?;
+    let revision = publish
+        .get("revision")
+        .ok_or_else(|| format!("{label} omitted revision"))?;
+    let route_summary = publish
+        .get("route_summary")
+        .ok_or_else(|| format!("{label} omitted route_summary"))?;
+    let matched_publication: MatchedPublicationReceipt = serde_json::from_value(
+        invocation
+            .response
+            .get("matched_publication")
+            .ok_or_else(|| format!("{label} omitted matched_publication"))?
+            .clone(),
+    )?;
+    validate_candidate_matched_boundary(&matched_publication)?;
+    if invocation.outer_elapsed_ns < matched_publication.span.elapsed_ns {
+        return Err(format!("{label} matched span exceeds its public invocation").into());
+    }
+    let manifest_version = required_u64(revision, "manifest_version", label)?;
+    let root_hash = required_string(revision, "root_hash", label)?;
+    let layer_count = required_u64(revision, "layer_count", label)?;
+    if manifest_version == 0 || root_hash.is_empty() || layer_count == 0 {
+        return Err(format!("{label} omitted a durable content-addressed revision").into());
+    }
+    Ok(PublicPublicationOutcome {
+        workspace_session_id,
+        manifest_version,
+        root_hash,
+        layer_count,
+        source_count: required_u64(route_summary, "source_count", label)?,
+        ignored_count: required_u64(route_summary, "ignored_count", label)?,
+        destroyed: true,
+        matched_publication,
+    })
+}
+
+fn required_bool(value: &Value, key: &str, label: &str) -> PublicationResult<bool> {
+    value
+        .get(key)
+        .and_then(Value::as_bool)
+        .ok_or_else(|| format!("{label} omitted boolean {key}").into())
+}
+
+fn verify_public_control_base(
+    client: &RuntimeClient,
+    workspace_session_id: &str,
+    fixture: &PublicationFixture,
+    label: &str,
+) -> PublicationResult<CliInvocation> {
+    let invocation = client.invoke(
+        None,
+        "exec_command",
+        &[
+            "--workspace-session-id".to_owned(),
+            workspace_session_id.to_owned(),
+            "--timeout-ms".to_owned(),
+            "180000".to_owned(),
+            "--yield-time-ms".to_owned(),
+            "180000".to_owned(),
+            "sha256sum -- layer-000.bin".to_owned(),
+        ],
+    )?;
+    require_command_exit(&invocation.response, label)?;
+    require_single_fixture_digest(&invocation, "layer-000.bin", &fixture.base_sha256, label)?;
+    Ok(invocation)
+}
+
+fn require_single_fixture_digest(
+    invocation: &CliInvocation,
+    expected_file: &str,
+    expected_digest: &str,
+    label: &str,
+) -> PublicationResult {
+    if invocation.operation != "exec_command" {
+        return Err(format!("{label} did not use exec_command").into());
+    }
+    require_command_exit(&invocation.response, label)?;
+    let output = required_string(&invocation.response, "output", label)?;
+    let mut lines = output.lines();
+    let line = lines
+        .next()
+        .ok_or_else(|| format!("{label} omitted fixture digest"))?;
+    if lines.next().is_some() {
+        return Err(format!("{label} emitted multiple fixture digest lines").into());
+    }
+    let mut fields = line.split_whitespace();
+    if fields.next() != Some(expected_digest)
+        || fields.next() != Some(expected_file)
+        || fields.next().is_some()
+    {
+        return Err(format!("{label} fixture digest is not exact").into());
+    }
+    Ok(())
+}
+
+fn public_control_receipt(
+    catalog_binding: &CatalogBinding,
+    fixture: &PublicationFixture,
+    started_unix_ms: u64,
+    outcome: &PublicPublicationOutcome,
+) -> PublicationResult<ControlOperationReceipt> {
+    if !catalog_binding.facts.publish_workspace_session {
+        return Err("product catalog omitted publish_workspace_session".into());
+    }
+    let receipt = ControlOperationReceipt {
+        schema_version: 1,
+        implementation: "current_i2_public_workspace_session".to_owned(),
+        intent: ControlIntent::ClosingPublication,
+        catalog_binding_id: catalog_binding.binding_id.clone(),
+        coverage: CatalogCoverageReceipt {
+            classification: ControlApiCoverage::PublicIntentProgrammaticCurrentI2,
+            product_operation: "publish_workspace_session".to_owned(),
+            product_operation_present: true,
+            direct_control_api: "publish_workspace_session".to_owned(),
         },
-        changes,
-    )?)
+        boundary: control_boundary(
+            ControlCacheMatch::NotApplicable,
+            MATCHED_PUBLICATION_START_BOUNDARY,
+            MATCHED_PUBLICATION_STOP_BOUNDARY,
+        ),
+        verdict: ControlVerdict::Matched,
+        started_unix_ms,
+        span: outcome.matched_publication.span.clone(),
+        source: Some(ControlSourceProfile {
+            source_root: PathBuf::from("/workspace"),
+            entries: 10,
+            directories: 1,
+            regular_files: 10,
+            symlinks: 0,
+            logical_bytes: MIB,
+            source_manifest_sha256: fixture.control_delta_source_manifest_sha256.clone(),
+        }),
+        publication: Some(ControlPublicationOutcome {
+            correlation_id: outcome.workspace_session_id.clone(),
+            candidate_generation: outcome.manifest_version,
+            matched: true,
+        }),
+        materialization: None,
+        readiness: None,
+    };
+    validate_matched_control_boundary(&receipt)?;
+    Ok(receipt)
+}
+
+fn verify_full_public_control_fixture(
+    client: &RuntimeClient,
+    workspace_session_id: &str,
+    fixture: &PublicationFixture,
+) -> PublicationResult<CliInvocation> {
+    let invocation = client.invoke(
+        None,
+        "exec_command",
+        &[
+            "--workspace-session-id".to_owned(),
+            workspace_session_id.to_owned(),
+            "--timeout-ms".to_owned(),
+            "180000".to_owned(),
+            "--yield-time-ms".to_owned(),
+            "180000".to_owned(),
+            fixture_verification_command(),
+        ],
+    )?;
+    require_command_exit(&invocation.response, "control full fixture verification")?;
+    require_full_fixture_digests(&invocation, fixture)?;
+    Ok(invocation)
+}
+
+fn destroy_public_workspace_session(
+    client: &RuntimeClient,
+    request_id: &str,
+    workspace_session_id: &str,
+) -> PublicationResult<CliInvocation> {
+    client.invoke(
+        Some(request_id),
+        "destroy_workspace_session",
+        &[
+            "--workspace-session-id".to_owned(),
+            workspace_session_id.to_owned(),
+            "--grace-s".to_owned(),
+            "0".to_owned(),
+        ],
+    )
+}
+
+fn require_public_workspace_destroy(
+    invocation: &CliInvocation,
+    workspace_session_id: &str,
+    label: &str,
+) -> PublicationResult {
+    if invocation.operation != "destroy_workspace_session"
+        || required_string(&invocation.response, "workspace_session_id", label)?
+            != workspace_session_id
+        || !required_bool(&invocation.response, "destroyed", label)?
+    {
+        return Err(format!("{label} did not destroy the exact public workspace session").into());
+    }
+    required_u64(&invocation.response, "evicted_upperdir_bytes", label)?;
+    Ok(())
 }
 
 fn fixture_verification_command() -> String {
@@ -2313,15 +3241,76 @@ fn fixture_receipt_matches(invocation: &CliInvocation, fixture: &PublicationFixt
     require_full_fixture_digests(invocation, fixture).is_ok()
 }
 
-fn control_uses_fixture(control: &ControlOperationReceipt, fixture: &PublicationFixture) -> bool {
-    control.source.as_ref().is_some_and(|source| {
-        source.entries == 11
-            && source.directories == 1
-            && source.regular_files == 11
-            && source.symlinks == 0
-            && source.logical_bytes == GIB + MIB
-            && source.source_manifest_sha256 == fixture.control_source_manifest_sha256
-    })
+fn control_uses_fixture(
+    prepared_base: &PreparedControlBase,
+    control: &MatchedControlSample,
+    fixture: &PublicationFixture,
+) -> bool {
+    let Some(expected_manifest_version) = prepared_base.outcome.manifest_version.checked_add(1)
+    else {
+        return false;
+    };
+    let Some(expected_layer_count) = prepared_base.outcome.layer_count.checked_add(1) else {
+        return false;
+    };
+    let publication = control.receipt.publication.as_ref();
+    let source = control.receipt.source.as_ref();
+    let verification_workspace_session_id = require_public_workspace_create(
+        &control.fixture_verification_create,
+        "control fixture verification create",
+    )
+    .ok();
+    control.pair == prepared_base.pair
+        && control.control_sandbox_id == prepared_base.control_sandbox_id
+        && control.base_workspace_session_id == prepared_base.workspace_session_id
+        && control.workspace_session_id == control.outcome.workspace_session_id
+        && control.outcome.manifest_version == expected_manifest_version
+        && control.outcome.layer_count == expected_layer_count
+        && control.outcome.root_hash != prepared_base.outcome.root_hash
+        && control.outcome.source_count == 10
+        && control.outcome.ignored_count == 0
+        && control.outcome.destroyed
+        && control.outcome.matched_publication.span == control.receipt.span
+        && validate_candidate_matched_boundary(&control.outcome.matched_publication).is_ok()
+        && validate_matched_control_boundary(&control.receipt).is_ok()
+        && publication.is_some_and(|publication| {
+            publication.matched
+                && publication.candidate_generation == expected_manifest_version
+                && publication.correlation_id == control.workspace_session_id
+        })
+        && source.is_some_and(|source| {
+            source.source_root.as_path() == Path::new("/workspace")
+                && source.entries == 10
+                && source.directories == 1
+                && source.regular_files == 10
+                && source.symlinks == 0
+                && source.logical_bytes == MIB
+                && source.source_manifest_sha256 == fixture.control_delta_source_manifest_sha256
+        })
+        && require_single_fixture_digest(
+            &control.base_verification,
+            "layer-000.bin",
+            &fixture.base_sha256,
+            "control base verification",
+        )
+        .is_ok()
+        && require_full_fixture_digests(&control.fixture_verification, fixture).is_ok()
+        && control.fixture_verification.operation == "exec_command"
+        && require_command_exit(
+            &control.fixture_verification.response,
+            "control full fixture verification",
+        )
+        .is_ok()
+        && verification_workspace_session_id.is_some_and(|workspace_session_id| {
+            require_public_workspace_destroy(
+                &control.fixture_verification_destroy,
+                &workspace_session_id,
+                "control fixture verification destroy",
+            )
+            .is_ok()
+        })
+        && sha256_serialized(&control.publication.response)
+            .is_ok_and(|digest| digest == control.publish_response_sha256)
 }
 
 fn preparation_elapsed_ns(started: Instant) -> PublicationResult<u64> {
@@ -2814,7 +3803,7 @@ fn require_publication(
         && durable;
     if !qualified {
         return Err(format!(
-            "publication qualification failed: affected_paths={affected_path_count}/{affected_paths}; immutable_payload_bytes={immutable_payload_bytes}/0; roots_match={roots_match}; affected_payload_bytes={affected_payload_observed:?}/{affected_payload_bytes}; semantic_entries={semantic_entry_count}/{}; semantic_bytes={semantic_input_bytes}; semantic_affected_records={semantic_affected_record_count:?}; semantic_affected_stream_bytes={semantic_affected_stream_bytes_read:?}; semantic_input_matches={semantic_input_matches}; stable_logical_bytes={stable_logical_bytes:?}/{logical_bytes}; no_second_payload_allocation={no_second_payload_allocation:?}; representative_inodes_unchanged={representative_inodes_unchanged:?}; allocated_bytes_unchanged={allocated_bytes_unchanged:?}; fresh={fresh}; durable={durable}",
+            "publication qualification failed: affected_paths={affected_path_count}/{affected_paths}; immutable_payload_bytes={immutable_payload_bytes}/0; roots_match={roots_match}; affected_payload_bytes={affected_payload_observed:?}/{affected_payload_bytes}; semantic_entries={semantic_entry_count}/prior_floor={}; semantic_bytes={semantic_input_bytes}; semantic_affected_records={semantic_affected_record_count:?}; semantic_affected_stream_bytes={semantic_affected_stream_bytes_read:?}; semantic_input_matches={semantic_input_matches}; stable_logical_bytes={stable_logical_bytes:?}/{logical_bytes}; no_second_payload_allocation={no_second_payload_allocation:?}; representative_inodes_unchanged={representative_inodes_unchanged:?}; allocated_bytes_unchanged={allocated_bytes_unchanged:?}; fresh={fresh}; durable={durable}",
             expectation.semantic.expected_entry_count(),
         )
         .into());
@@ -2867,7 +3856,62 @@ mod tests {
             base_sha256: format!("{:064x}", 10),
             delta_sha256: (0..10).map(|index| format!("{:064x}", index)).collect(),
             control_source_manifest_sha256: format!("{:064x}", 11),
+            control_base_source_manifest_sha256: PREPARED_CONTROL_BASE_SOURCE_MANIFEST_SHA256
+                .to_owned(),
+            control_delta_source_manifest_sha256: PREPARED_CONTROL_DELTA_SOURCE_MANIFEST_SHA256
+                .to_owned(),
         }
+    }
+
+    fn create_sparse_control_source() -> (PathBuf, PublicationFixture) {
+        let root =
+            std::env::temp_dir().join(format!("mpla-scorecard-control-source-{}", Uuid::new_v4()));
+        fs::create_dir(&root).expect("create control source root");
+        for (name, bytes) in expected_control_source_files() {
+            let file = File::create(root.join(name)).expect("create sparse control source file");
+            file.set_len(bytes)
+                .expect("size sparse control source file");
+        }
+        (root, fixture())
+    }
+
+    #[test]
+    fn staged_control_profiles_are_exact() {
+        assert_eq!(
+            expected_control_base_files(),
+            vec![("layer-000.bin".to_owned(), GIB)]
+        );
+        let delta = expected_control_delta_files();
+        assert_eq!(delta.len(), 10);
+        assert_eq!(delta.iter().map(|(_, bytes)| bytes).sum::<u64>(), MIB);
+        assert_eq!(
+            delta
+                .iter()
+                .map(|(path, _)| path.as_str())
+                .collect::<Vec<_>>(),
+            (0..10)
+                .map(|index| format!("delta-{index:02}.bin"))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn staged_control_source_inventory_fails_closed() {
+        let (root, fixture) = create_sparse_control_source();
+        let sources =
+            collect_cached_control_source_sets_at(&root, &fixture).expect("exact source split");
+        assert_eq!(sources.base.profile.regular_files, 1);
+        assert_eq!(sources.base.profile.logical_bytes, GIB);
+        assert_eq!(sources.delta.profile.regular_files, 10);
+        assert_eq!(sources.delta.profile.logical_bytes, MIB);
+
+        File::create(root.join("unexpected.bin")).expect("create unexpected cache entry");
+        assert!(collect_cached_control_source_sets_at(&root, &fixture).is_err());
+        fs::remove_file(root.join("unexpected.bin")).expect("remove unexpected cache entry");
+
+        fs::remove_file(root.join("delta-09.bin")).expect("remove required cache entry");
+        assert!(collect_cached_control_source_sets_at(&root, &fixture).is_err());
+        fs::remove_dir_all(root).expect("remove test control source");
     }
 
     fn receipt(output: String) -> CliInvocation {
@@ -3082,6 +4126,18 @@ mod tests {
 
         let oversized_read = incremental_publication_receipt(1, GIB + 1, 1, 1, 0, GIB);
         assert!(require_publication(&oversized_read, &expectation).is_err());
+    }
+
+    #[test]
+    fn incremental_sparse_ten_file_candidate_requires_zero_payload_read() {
+        let publication = incremental_publication_receipt(23, 1_737, 10, 21, 0, MIB);
+        let sparse_expectation = PublicationExpectation::incremental_affected_paths(10, 0, MIB, 3);
+        require_publication(&publication, &sparse_expectation)
+            .expect("ten hole-only delta files must require no physical payload read");
+
+        let obsolete_dense_expectation =
+            PublicationExpectation::incremental_affected_paths(10, MIB, MIB, 3);
+        assert!(require_publication(&publication, &obsolete_dense_expectation).is_err());
     }
 
     #[test]

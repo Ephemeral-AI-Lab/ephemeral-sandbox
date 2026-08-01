@@ -160,6 +160,7 @@ pub struct NamedFaultInjector {
     fired: BTreeSet<(NamedFaultPoint, u32)>,
     physical_operation_id: Option<String>,
     physical_state_paths: Vec<PathBuf>,
+    physical_stationary_payload_path: Option<PathBuf>,
 }
 
 impl NamedFaultInjector {
@@ -170,6 +171,7 @@ impl NamedFaultInjector {
             fired: BTreeSet::new(),
             physical_operation_id: None,
             physical_state_paths: Vec::new(),
+            physical_stationary_payload_path: None,
         }
     }
 
@@ -182,6 +184,20 @@ impl NamedFaultInjector {
         self.physical_operation_id = Some(operation_id.into());
         self.physical_state_paths = durable_state_paths.into_iter().collect();
         self
+    }
+
+    #[must_use]
+    pub fn with_physical_stationary_payload_path(
+        mut self,
+        stationary_payload_path: impl Into<PathBuf>,
+    ) -> Self {
+        self.physical_stationary_payload_path = Some(stationary_payload_path.into());
+        self
+    }
+
+    #[must_use]
+    pub fn physical_stationary_payload_path(&self) -> Option<&Path> {
+        self.physical_stationary_payload_path.as_deref()
     }
 
     pub fn reach(

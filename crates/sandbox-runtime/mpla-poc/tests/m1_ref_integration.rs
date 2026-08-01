@@ -1,3 +1,5 @@
+#[cfg(target_os = "linux")]
+use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
@@ -13,14 +15,16 @@ use sandbox_runtime_mpla_poc::occ::{
 };
 use sandbox_runtime_mpla_poc::owner::{compare_and_adopt, current_owner};
 use sandbox_runtime_mpla_poc::recovery::{
-    DurableRecoveryPhase, PublicationRecovery, RecoveryOutcome, RecoveryRequest,
+    capture_recovery_allocation_identity, DurableRecoveryPhase, PublicationRecovery,
+    RecoveryOutcome, RecoveryRequest,
 };
 use sandbox_runtime_mpla_poc::ref_store::PairedRefStore;
 use sandbox_runtime_mpla_poc::{
-    AllocationHandle, AttributionInput, AttributionRootId, CanonicalDurabilityReceipt,
-    CanonicalRootPair, InodeWitness, LocatorGeneration, LocatorRefCandidate, NamedFaultInjector,
-    NamedFaultPoint, OperationId, OwnerSubject, OwnerTransitionRequest, PhysicalSnapshot, PocError,
-    PublicationId, RefSequence, RootId, SessionId, StableAllocationReceipt, SCHEMA_VERSION,
+    AllocationHandle, AllocationId, AttributionInput, AttributionRootId,
+    CanonicalDurabilityReceipt, CanonicalRootPair, InodeWitness, LocatorGeneration,
+    LocatorRefCandidate, NamedFaultInjector, NamedFaultPoint, OperationId, OwnerSubject,
+    OwnerTransitionRequest, PhysicalSnapshot, PocError, PublicationId, RefSequence, RootId,
+    SessionId, StableAllocationReceipt, SCHEMA_VERSION,
 };
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
@@ -49,6 +53,20 @@ struct OwnedAllocation {
     operation_id: OperationId,
     publication_id: PublicationId,
     owner_epoch: u64,
+}
+
+#[cfg(not(target_os = "linux"))]
+#[test]
+fn recovery_identity_capture_fails_closed_without_descriptor_authority() {
+    let allocation_id = AllocationId::from_string("allocation-id");
+    assert!(matches!(
+        capture_recovery_allocation_identity(
+            Path::new("/unsupported/al/allocation-id"),
+            &allocation_id,
+        ),
+        Err(PocError::Unsupported(message))
+            if message.contains("Linux descriptor authority")
+    ));
 }
 
 #[test]
@@ -190,6 +208,7 @@ fn four_disjoint_publishers_converge_and_overlap_retains_exact_owner() {
     assert_eq!(replay, OccPublishOutcome::Conflict(conflict));
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn fresh_process_recovery_repairs_every_ref_edge_from_durable_state() {
     for point in [
@@ -275,6 +294,7 @@ fn fresh_process_recovery_repairs_every_ref_edge_from_durable_state() {
     }
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn recovery_waits_on_durable_owner_outcome_without_reopening_workspace() {
     let root = TestRoot::new("await-owner");
@@ -320,6 +340,7 @@ fn recovery_waits_on_durable_owner_outcome_without_reopening_workspace() {
     );
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn recovery_rejects_reverse_locator_accounting_that_disagrees_with_owner() {
     let root = TestRoot::new("reverse-accounting");
@@ -332,6 +353,175 @@ fn recovery_rejects_reverse_locator_accounting_that_disagrees_with_owner() {
         Err(PocError::Integrity(message))
             if message.contains("reverse locator ownership/accounting disagrees")
     ));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn recovery_prepare_rejects_forged_allocation_and_owner_identity() {
+    let root = TestRoot::new("forged-recovery-identity");
+    let owned = adopt_allocation(&root.path, "forged-recovery-identity");
+    let recovery = PublicationRecovery::open(root.path.join("recovery")).expect("recovery");
+    let mut request = recovery_request(
+        &root.path,
+        &owned,
+        "forged-recovery-identity",
+        RefSequence::ZERO,
+    );
+    let exact = request.allocation_identity;
+
+    request.allocation_identity.allocation_inode = exact
+        .allocation_inode
+        .checked_add(1)
+        .expect("forge allocation inode");
+    assert!(matches!(
+        recovery.prepare(&request),
+        Err(PocError::RecoveryRequired(_))
+    ));
+
+    request.allocation_identity = exact;
+    request.allocation_identity.owner_inode =
+        exact.owner_inode.checked_add(1).expect("forge owner inode");
+    assert!(matches!(
+        recovery.prepare(&request),
+        Err(PocError::RecoveryRequired(_))
+    ));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn recovery_replay_rejects_semantically_identical_allocation_replacement_before_publication() {
+    let root = TestRoot::new("replaced-recovery-allocation");
+    let owned = adopt_allocation(&root.path, "replaced-recovery-allocation");
+    let locator_store = LocatorStore::open(root.path.join("locators")).expect("locator");
+    let ref_store = PairedRefStore::open(root.path.join("refs")).expect("refs");
+    let occ_root = root.path.join("occ");
+    let occ = BranchOcc::open(&occ_root).expect("OCC");
+    let recovery = PublicationRecovery::open(root.path.join("recovery")).expect("recovery");
+    let request = recovery_request(
+        &root.path,
+        &owned,
+        "replaced-recovery-allocation",
+        RefSequence::ZERO,
+    );
+    recovery.prepare(&request).expect("prepare recovery");
+
+    let allocation_root = owned.allocation.allocation_root.clone();
+    let displaced = allocation_root.with_extension("pinned-original");
+    fs::rename(&allocation_root, &displaced).expect("displace recovery allocation");
+    copy_recovery_tree(&displaced, &allocation_root);
+
+    assert!(matches!(
+        recovery.replay(
+            &owned.operation_id,
+            &locator_store,
+            &ref_store,
+            &occ,
+            &mut NamedFaultInjector::default(),
+            |_, _, _| panic!("replaced recovery authority must not rebase"),
+        ),
+        Err(PocError::RecoveryRequired(_))
+    ));
+    assert_recovery_publication_stores_untouched(
+        &recovery,
+        &owned.operation_id,
+        &locator_store,
+        &ref_store,
+        &occ_root,
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn recovery_replay_rejects_semantically_identical_owner_replacement_before_publication() {
+    let root = TestRoot::new("replaced-recovery-owner");
+    let owned = adopt_allocation(&root.path, "replaced-recovery-owner");
+    let locator_store = LocatorStore::open(root.path.join("locators")).expect("locator");
+    let ref_store = PairedRefStore::open(root.path.join("refs")).expect("refs");
+    let occ_root = root.path.join("occ");
+    let occ = BranchOcc::open(&occ_root).expect("OCC");
+    let recovery = PublicationRecovery::open(root.path.join("recovery")).expect("recovery");
+    let request = recovery_request(
+        &root.path,
+        &owned,
+        "replaced-recovery-owner",
+        RefSequence::ZERO,
+    );
+    recovery.prepare(&request).expect("prepare recovery");
+
+    let owner_dir = owned.allocation.owner_dir.clone();
+    let displaced = owner_dir.with_extension("pinned-original");
+    fs::rename(&owner_dir, &displaced).expect("displace recovery owner");
+    copy_recovery_tree(&displaced, &owner_dir);
+
+    assert!(matches!(
+        recovery.replay(
+            &owned.operation_id,
+            &locator_store,
+            &ref_store,
+            &occ,
+            &mut NamedFaultInjector::default(),
+            |_, _, _| panic!("replaced recovery owner must not rebase"),
+        ),
+        Err(PocError::RecoveryRequired(_))
+    ));
+    assert_recovery_publication_stores_untouched(
+        &recovery,
+        &owned.operation_id,
+        &locator_store,
+        &ref_store,
+        &occ_root,
+    );
+}
+
+#[cfg(target_os = "linux")]
+fn copy_recovery_tree(source: &Path, destination: &Path) {
+    fs::create_dir(destination).expect("create recovery replacement directory");
+    for entry in fs::read_dir(source).expect("read recovery source directory") {
+        let entry = entry.expect("read recovery source entry");
+        let source_path = entry.path();
+        let destination_path = destination.join(entry.file_name());
+        let file_type = entry.file_type().expect("read recovery source entry type");
+        if file_type.is_dir() {
+            copy_recovery_tree(&source_path, &destination_path);
+        } else {
+            assert!(
+                file_type.is_file(),
+                "recovery replacement contains a special entry"
+            );
+            fs::copy(&source_path, &destination_path).expect("copy recovery replacement file");
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn assert_recovery_publication_stores_untouched(
+    recovery: &PublicationRecovery,
+    operation_id: &OperationId,
+    locator_store: &LocatorStore,
+    ref_store: &PairedRefStore,
+    occ_root: &Path,
+) {
+    assert_eq!(
+        recovery
+            .inspect(operation_id)
+            .expect("inspect rejected recovery")
+            .phase,
+        DurableRecoveryPhase::Sealing
+    );
+    assert!(locator_store
+        .selected()
+        .expect("read untouched locator")
+        .is_none());
+    assert!(ref_store
+        .read("main")
+        .expect("read untouched ref")
+        .is_none());
+    assert_eq!(
+        fs::read_dir(occ_root.join("branches"))
+            .expect("read untouched OCC branches")
+            .count(),
+        0
+    );
 }
 
 fn adopt_allocation(root: &Path, label: &str) -> OwnedAllocation {
@@ -408,6 +598,11 @@ fn recovery_request(
         publication_id: owned.publication_id.clone(),
         branch: "main".to_owned(),
         allocation_root: owned.allocation.allocation_root.clone(),
+        allocation_identity: capture_recovery_allocation_identity(
+            &owned.allocation.allocation_root,
+            &owned.allocation.descriptor.allocation_id,
+        )
+        .expect("capture recovery allocation identity"),
         allocation_id: owned.allocation.descriptor.allocation_id.clone(),
         owner_epoch: owned.owner_epoch,
         accounted_bytes: 4_096,

@@ -170,7 +170,7 @@ impl BoundedSpool {
                     break;
                 }
                 let output = self.allocate_run_path("merge");
-                let merge = merge_runs(&group, &output)?;
+                let merge = merge_runs(&group, &output, self.durable)?;
                 self.stats.bytes_written =
                     self.stats.bytes_written.saturating_add(merge.bytes_written);
                 self.stats.records_out = merge.records;
@@ -347,7 +347,7 @@ fn write_run(
     })
 }
 
-fn merge_runs(inputs: &[PathBuf], output: &Path) -> PocResult<WriteResult> {
+fn merge_runs(inputs: &[PathBuf], output: &Path, durable: bool) -> PocResult<WriteResult> {
     if inputs.is_empty() || inputs.len() > SEMANTIC_MERGE_FAN_IN {
         return Err(PocError::Integrity(
             "semantic merge fan-in is outside fixed bounds".to_owned(),
@@ -414,10 +414,12 @@ fn merge_runs(inputs: &[PathBuf], output: &Path) -> PocResult<WriteResult> {
     writer
         .flush()
         .map_err(|error| PocError::io("flush merged semantic run", output, error))?;
-    writer
-        .get_ref()
-        .sync_all()
-        .map_err(|error| PocError::io("fsync merged semantic run", output, error))?;
+    if durable {
+        writer
+            .get_ref()
+            .sync_all()
+            .map_err(|error| PocError::io("fsync merged semantic run", output, error))?;
+    }
     Ok(WriteResult {
         records,
         bytes_written,
@@ -581,4 +583,66 @@ fn sole_registry_path(registry: &Path, root: &Path) -> PocResult<PathBuf> {
     let name = first.trim_end();
     validate_registry_name(name)?;
     Ok(root.join(name))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TestDirectory(PathBuf);
+
+    impl TestDirectory {
+        fn new() -> Self {
+            let path = std::env::temp_dir()
+                .join(format!("mpla-semantic-spool-test-{}", uuid::Uuid::new_v4()));
+            std::fs::create_dir(&path).expect("create semantic spool test directory");
+            Self(path)
+        }
+    }
+
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn assert_multi_run_merge(durable: bool) {
+        let directory = TestDirectory::new();
+        let root = directory.0.join("spool");
+        let mut spool = if durable {
+            BoundedSpool::new(root, 128)
+        } else {
+            BoundedSpool::new_ephemeral(root, 128)
+        }
+        .expect("create bounded semantic spool");
+
+        for value in (1_u8..=12).rev() {
+            spool
+                .push(vec![value], vec![value; 16])
+                .expect("append semantic spool entry");
+        }
+        let sorted = spool.finish().expect("finish semantic spool");
+        assert!(sorted.stats().initial_runs > 1);
+        assert!(sorted.stats().merge_passes > 0);
+
+        let mut observed = Vec::new();
+        sorted
+            .for_each(|key, payload| {
+                observed.push((key[0], payload[0]));
+                Ok(())
+            })
+            .expect("read sorted semantic spool");
+        let expected = (1_u8..=12).map(|value| (value, value)).collect::<Vec<_>>();
+        assert_eq!(observed, expected);
+    }
+
+    #[test]
+    fn durable_multi_run_merge_preserves_order() {
+        assert_multi_run_merge(true);
+    }
+
+    #[test]
+    fn ephemeral_multi_run_merge_preserves_order() {
+        assert_multi_run_merge(false);
+    }
 }

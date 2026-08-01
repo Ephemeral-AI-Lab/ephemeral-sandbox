@@ -28,7 +28,7 @@ IMAGE = (
     "ubuntu@sha256:"
     "4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90"
 )
-BUILD_COMMIT = "11f793ad96754e612ca6615835c11d78cf443a83"
+BUILD_COMMIT = "ac5c0686807ab40ee7e4ef3ff0f8488b66292221"
 PREPARED_FIXTURE_TOOL_ROOT = (
     "/eos/mpla-fixtures/s4-chain-sparse-v1/layer-stack/base/"
     "B000001-base/_campaign-tools"

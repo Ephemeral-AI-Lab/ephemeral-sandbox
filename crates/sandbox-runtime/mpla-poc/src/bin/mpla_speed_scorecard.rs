@@ -110,7 +110,7 @@ struct CandidateR0Preparation {
 }
 
 #[derive(Debug, Serialize)]
-struct ActivationSample {
+pub(super) struct ActivationSample {
     label: String,
     outer_elapsed_ns: u64,
     service_elapsed_ns: u64,
@@ -149,6 +149,13 @@ struct CandidateChecks {
     projections_exact_zero_build: bool,
     allocations_fresh: bool,
     lower_allocations_stable: bool,
+}
+
+struct SquashPhaseSetup {
+    candidate: CandidateR0Preparation,
+    client: RuntimeClient,
+    baseline_activation: ActivationSample,
+    elapsed_ns: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -266,6 +273,10 @@ impl LifecyclePhase {
             Self::Rollback => "mpla_booster_rollback_scorecard_v1",
             Self::Squash => "mpla_booster_squash_scorecard_v1",
         }
+    }
+
+    const fn prepares_candidate_locally_before_phase(self) -> bool {
+        matches!(self, Self::Squash)
     }
 }
 
@@ -1517,8 +1528,50 @@ pub fn run(
     let mut control_same = Vec::with_capacity(3);
     let mut control_fork = Vec::with_capacity(3);
     let mut control_rollback = Vec::with_capacity(3);
-    let phase_started = Instant::now();
-    let monitor = super::ResourceMonitor::start_heavy(&cgroup_dir, &run_root)?;
+    let squash_setup = if phase.prepares_candidate_locally_before_phase() {
+        let setup_started = Instant::now();
+        let candidate = prepare_candidate_r0(run_id, phase, candidate_sandbox_id, &fixture)?;
+        let client = RuntimeClient::new(candidate_sandbox_id)?;
+        let baseline_activation = activation_sample(
+            "squash-baseline",
+            client.invoke(
+                Some(&format!("{run_id}-squash-baseline")),
+                "activate_workspace_session",
+                &[
+                    "--run-id".to_owned(),
+                    run_id.to_owned(),
+                    "--branch".to_owned(),
+                    "main".to_owned(),
+                ],
+            )?,
+        )?;
+        let elapsed_ns = elapsed_ns(setup_started.elapsed());
+        progress.record(
+            "squash_setup_completed_before_phase",
+            json!({
+                "workspace_session_id": candidate.workspace_session_id,
+                "candidate_preparation_elapsed_ns": candidate.elapsed_ns,
+                "baseline_activation_outer_elapsed_ns": baseline_activation.outer_elapsed_ns,
+                "baseline_activation_service_elapsed_ns": baseline_activation.service_elapsed_ns,
+                "setup_elapsed_ns": elapsed_ns,
+            }),
+        )?;
+        Some(SquashPhaseSetup {
+            candidate,
+            client,
+            baseline_activation,
+            elapsed_ns,
+        })
+    } else {
+        None
+    };
+    let mut phase_started = None;
+    let mut monitor = None;
+    let mut finished_squash_measurement = None;
+    if phase != LifecyclePhase::Squash {
+        phase_started = Some(Instant::now());
+        monitor = Some(super::ResourceMonitor::start_heavy(&cgroup_dir, &run_root)?);
+    }
     if phase != LifecyclePhase::Squash {
         sandbox_runtime_layerstack::reset_process_state_for_tests();
         let preparation = control_preparation
@@ -1688,15 +1741,31 @@ pub fn run(
         }),
     )?;
 
-    let client = RuntimeClient::new(candidate_sandbox_id)?;
     let (
+        client,
         initial_create,
         initial_mount,
         initial_copy,
         initial_publish,
         initial_oracle,
         candidate_prepared_before_phase,
-    ) = if let Some(preparation) = control_preparation.as_ref() {
+        squash_baseline,
+        squash_setup_elapsed_ns,
+    ) = if let Some(setup) = squash_setup {
+        let candidate = setup.candidate;
+        (
+            setup.client,
+            candidate.create,
+            candidate.mount,
+            candidate.copy,
+            candidate.publication,
+            candidate.oracle,
+            true,
+            Some(setup.baseline_activation),
+            Some(setup.elapsed_ns),
+        )
+    } else if let Some(preparation) = control_preparation.as_ref() {
+        let client = RuntimeClient::new(candidate_sandbox_id)?;
         let candidate = &preparation.payload.candidate;
         progress.record(
             "prepared_candidate_loaded",
@@ -1707,30 +1776,22 @@ pub fn run(
             }),
         )?;
         (
+            client,
             candidate.create.clone(),
             candidate.mount.clone(),
             candidate.copy.clone(),
             candidate.publication.clone(),
             candidate.oracle.clone(),
             true,
+            None,
+            None,
         )
     } else {
-        let candidate = prepare_candidate_r0(run_id, phase, candidate_sandbox_id, &fixture)?;
-        progress.record(
-            "candidate_prepared_in_phase",
-            json!({
-                "workspace_session_id": candidate.workspace_session_id,
-                "candidate_preparation_elapsed_ns": candidate.elapsed_ns,
-            }),
-        )?;
-        (
-            candidate.create,
-            candidate.mount,
-            candidate.copy,
-            candidate.publication,
-            candidate.oracle,
-            false,
+        return Err(format!(
+            "{} candidate preparation was not completed before its phase clock",
+            phase.name()
         )
+        .into());
     };
 
     let phase_result = match phase {
@@ -1935,7 +1996,7 @@ pub fn run(
             )?;
             let mut rollback_samples = Vec::with_capacity(3);
             for sample in 0..3_u8 {
-                rollback_samples.push(activation_sample(
+                rollback_samples.push(rollback_sample(
                     &format!("rollback-{sample:02}"),
                     client.invoke(
                         Some(&format!("{run_id}-rollback-{sample:02}")),
@@ -1989,22 +2050,14 @@ pub fn run(
             })
         }
         LifecyclePhase::Squash => {
-            let baseline_activation = activation_sample(
-                "squash-baseline",
-                client.invoke(
-                    Some(&format!("{run_id}-squash-baseline")),
-                    "activate_workspace_session",
-                    &[
-                        "--run-id".to_owned(),
-                        run_id.to_owned(),
-                        "--branch".to_owned(),
-                        "main".to_owned(),
-                    ],
-                )?,
-            )?;
+            let baseline_activation =
+                squash_baseline.ok_or("squash baseline was not prepared before its phase clock")?;
+            let squash_monitor = super::ResourceMonitor::start_heavy(&cgroup_dir, &run_root)?;
             let mut squash_samples = Vec::with_capacity(3);
+            let mut squash_sample_receipts = Vec::with_capacity(3);
+            let mut squash_phase_elapsed_ns = 0_u64;
             for sample in 0..3_u8 {
-                squash_samples.push(client.invoke(
+                let invocation = client.invoke(
                     Some(&format!("{run_id}-squash-{sample:02}")),
                     "squash_mpla_branch",
                     &[
@@ -2013,24 +2066,36 @@ pub fn run(
                         "--branch".to_owned(),
                         "main".to_owned(),
                     ],
-                )?);
-                progress.record("squash_completed", json!({"sample": sample}))?;
+                )?;
+                squash_phase_elapsed_ns = squash_phase_elapsed_ns
+                    .checked_add(invocation.outer_elapsed_ns)
+                    .ok_or("squash operation elapsed time overflowed")?;
+                let receipt = squash_sample_receipt(sample, &invocation)?;
+                progress.record("squash_completed", receipt.clone())?;
+                squash_sample_receipts.push(receipt);
+                squash_samples.push(invocation);
             }
+            let squash_resources = squash_monitor.finish()?;
+            finished_squash_measurement = Some((squash_resources, squash_phase_elapsed_ns));
             let squash_outer_ns = squash_samples
                 .iter()
                 .map(|sample| sample.outer_elapsed_ns)
                 .collect::<Vec<_>>();
             let squash_service_ns = response_ns(&squash_samples, "service_elapsed_ns")?;
-            let identity_and_attribution_stable = squash_samples.iter().all(|sample| {
-                sample
-                    .response
-                    .pointer("/lifecycle/selected_ref")
-                    .and_then(Value::as_str)
-                    == Some(baseline_activation.selected_ref.as_str())
-            });
+            let identity_and_attribution_stable = squash_identity_and_attribution_stable(
+                &baseline_activation.projection,
+                &squash_samples,
+            );
+            let public_outcomes_exact = squash_public_outcomes_exact(run_id, &squash_samples);
+            let selected_ref_progression_exact = squash_selected_ref_progression_exact(
+                &baseline_activation.selected_ref,
+                &squash_samples,
+            );
             let squash_gate = AbsoluteGate {
                 gate: "AG-SQUASH".to_owned(),
                 required: identity_and_attribution_stable
+                    && public_outcomes_exact
+                    && selected_ref_progression_exact
                     && squash_outer_ns
                         .iter()
                         .all(|elapsed| *elapsed <= SQUASH_REQUIRED_NS)
@@ -2043,15 +2108,31 @@ pub fn run(
             json!({
                 "baseline_activation": baseline_activation,
                 "squash_samples": squash_samples,
+                "squash_sample_receipts": squash_sample_receipts,
                 "identity_and_attribution_stable": identity_and_attribution_stable,
+                "public_outcomes_exact": public_outcomes_exact,
+                "selected_ref_progression_exact": selected_ref_progression_exact,
                 "squash_gate": squash_gate,
             })
         }
     };
 
-    let resources = monitor.finish()?;
+    let (resources, phase_elapsed_ns) = if let Some(measurement) = finished_squash_measurement {
+        measurement
+    } else {
+        let resources = monitor
+            .ok_or("phase resource monitor was not started")?
+            .finish()?;
+        let phase_elapsed_ns = u64::try_from(
+            phase_started
+                .ok_or("phase operation clock was not started")?
+                .elapsed()
+                .as_nanos(),
+        )
+        .unwrap_or(u64::MAX);
+        (resources, phase_elapsed_ns)
+    };
     super::validate_resource_observation(&resources)?;
-    let phase_elapsed_ns = u64::try_from(phase_started.elapsed().as_nanos()).unwrap_or(u64::MAX);
     let phase_cap_ns = phase.phase_cap_seconds().saturating_mul(1_000_000_000);
     let mut evidence = json!({
         "schema_version": 1,
@@ -2067,6 +2148,11 @@ pub fn run(
             "selected_multiplier_milli": phase.selected_multiplier_milli(),
             "calculated_phase_cap_seconds": phase.phase_cap_seconds(),
             "elapsed_ns": phase_elapsed_ns,
+            "measurement_scope": if phase == LifecyclePhase::Squash {
+                "exact sum of three public squash outer spans; durable journal syncs excluded"
+            } else {
+                "continuous matched-control and public-operation span"
+            },
             "cap_pass": phase_elapsed_ns <= phase_cap_ns,
             "deadline_carryover_seconds": 0,
         },
@@ -2092,6 +2178,7 @@ pub fn run(
         "initial_publish": initial_publish,
         "initial_oracle": initial_oracle,
         "candidate_prepared_before_phase": candidate_prepared_before_phase,
+        "squash_setup_elapsed_ns": squash_setup_elapsed_ns,
     });
     let evidence_object = evidence
         .as_object_mut()
@@ -2166,6 +2253,47 @@ fn activation_sample(label: &str, invocation: CliInvocation) -> ScorecardResult<
     })
 }
 
+pub(super) fn rollback_sample(
+    label: &str,
+    invocation: CliInvocation,
+) -> ScorecardResult<ActivationSample> {
+    Ok(ActivationSample {
+        label: label.to_owned(),
+        outer_elapsed_ns: invocation.outer_elapsed_ns,
+        service_elapsed_ns: required_u64(
+            &invocation.response,
+            "service_elapsed_ns",
+            "rollback response",
+        )?,
+        workspace_session_id: required_string(
+            &invocation.response,
+            "workspace_session_id",
+            "rollback response",
+        )?,
+        fresh_allocation_id: required_string(
+            &invocation.response,
+            "fresh_allocation_id",
+            "rollback response",
+        )?,
+        selected_ref: invocation
+            .response
+            .pointer("/lifecycle/selected_ref")
+            .and_then(Value::as_str)
+            .ok_or("rollback response omitted lifecycle.selected_ref")?
+            .to_owned(),
+        projection: invocation
+            .response
+            .get("projection")
+            .cloned()
+            .ok_or("rollback response omitted projection")?,
+        timings: invocation
+            .response
+            .get("timings")
+            .cloned()
+            .ok_or("rollback response omitted timings")?,
+    })
+}
+
 fn process_checkpoint() -> ScorecardResult<Value> {
     let status = fs::read_to_string("/proc/self/status")?;
     let threads = status
@@ -2177,6 +2305,151 @@ fn process_checkpoint() -> ScorecardResult<Value> {
         "rss_bytes": super::process_rss_bytes()?,
         "threads": threads,
     }))
+}
+
+fn squash_sample_receipt(sample: u8, invocation: &CliInvocation) -> ScorecardResult<Value> {
+    let request_id = invocation
+        .request_id
+        .as_deref()
+        .ok_or("squash invocation omitted its request ID")?;
+    let service_elapsed_ns = required_u64(
+        &invocation.response,
+        "service_elapsed_ns",
+        "squash response",
+    )?;
+    let selected_ref = invocation
+        .response
+        .pointer("/lifecycle/selected_ref")
+        .and_then(Value::as_str)
+        .ok_or("squash response omitted lifecycle.selected_ref")?;
+    let roots = invocation
+        .response
+        .get("roots")
+        .filter(|value| canonical_root_pair(Some(value)).is_some())
+        .cloned()
+        .ok_or("squash response omitted valid canonical roots")?;
+    let ref_sequence = required_u64(&invocation.response, "ref_sequence", "squash response")?;
+    Ok(json!({
+        "sample": sample,
+        "operation": invocation.operation.as_str(),
+        "request_id": request_id,
+        "outer_elapsed_ns": invocation.outer_elapsed_ns,
+        "service_elapsed_ns": service_elapsed_ns,
+        "selected_ref": selected_ref,
+        "roots": roots,
+        "ref_sequence": ref_sequence,
+        "full_response_sha256": json_sha256(&invocation.response)?,
+    }))
+}
+
+fn canonical_root_pair(value: Option<&Value>) -> Option<(&str, &str)> {
+    let value = value?;
+    let root_id = value.get("root_id")?.as_str()?;
+    let attribution_root_id = value.get("attribution_root_id")?.as_str()?;
+    if valid_lower_hex_digest(root_id) && valid_lower_hex_digest(attribution_root_id) {
+        Some((root_id, attribution_root_id))
+    } else {
+        None
+    }
+}
+
+fn valid_lower_hex_digest(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+}
+
+fn selected_ref_parts<'a>(value: &'a str, expected_branch: &str) -> Option<(u64, &'a str)> {
+    let (branch, revision) = value.split_once('@')?;
+    if branch != expected_branch {
+        return None;
+    }
+    let (sequence, digest) = revision.split_once('#')?;
+    if sequence.is_empty()
+        || (sequence.len() > 1 && sequence.starts_with('0'))
+        || !valid_lower_hex_digest(digest)
+    {
+        return None;
+    }
+    let sequence = sequence.parse().ok()?;
+    (sequence > 0).then_some((sequence, digest))
+}
+
+fn squash_public_outcomes_exact(run_id: &str, samples: &[CliInvocation]) -> bool {
+    samples.iter().enumerate().all(|(sample, invocation)| {
+        let expected_operation_id = format!("{run_id}-squash-{sample:02}");
+        let response = &invocation.response;
+        let lifecycle = response.get("lifecycle");
+        invocation.operation == "squash_mpla_branch"
+            && invocation.request_id.as_deref() == Some(expected_operation_id.as_str())
+            && response.get("run_id").and_then(Value::as_str) == Some(run_id)
+            && response.get("branch").and_then(Value::as_str) == Some("main")
+            && lifecycle
+                .and_then(|value| value.get("operation_id"))
+                .and_then(Value::as_str)
+                == Some(expected_operation_id.as_str())
+            && lifecycle
+                .and_then(|value| value.get("committed"))
+                .and_then(Value::as_bool)
+                == Some(true)
+            && lifecycle
+                .and_then(|value| value.get("idempotent_replay"))
+                .and_then(Value::as_bool)
+                == Some(false)
+            && lifecycle
+                .and_then(|value| value.get("service_elapsed_ns"))
+                .and_then(Value::as_u64)
+                == response.get("service_elapsed_ns").and_then(Value::as_u64)
+    })
+}
+
+fn squash_identity_and_attribution_stable(
+    baseline_projection: &Value,
+    samples: &[CliInvocation],
+) -> bool {
+    let baseline_roots = baseline_projection.get("roots");
+    canonical_root_pair(baseline_roots).is_some()
+        && samples.iter().all(|sample| {
+            canonical_root_pair(sample.response.get("roots")) == canonical_root_pair(baseline_roots)
+        })
+}
+
+fn squash_selected_ref_progression_exact(
+    baseline_selected_ref: &str,
+    samples: &[CliInvocation],
+) -> bool {
+    let Some((baseline_sequence, baseline_digest)) =
+        selected_ref_parts(baseline_selected_ref, "main")
+    else {
+        return false;
+    };
+    let mut digests = BTreeSet::from([baseline_digest]);
+    samples.iter().enumerate().all(|(sample, invocation)| {
+        let Some(expected_sequence) = u64::try_from(sample)
+            .ok()
+            .and_then(|sample| sample.checked_add(1))
+            .and_then(|offset| baseline_sequence.checked_add(offset))
+        else {
+            return false;
+        };
+        let response_sequence = invocation
+            .response
+            .get("ref_sequence")
+            .and_then(Value::as_u64);
+        let selected_ref = invocation
+            .response
+            .pointer("/lifecycle/selected_ref")
+            .and_then(Value::as_str);
+        let Some((selected_sequence, digest)) =
+            selected_ref.and_then(|value| selected_ref_parts(value, "main"))
+        else {
+            return false;
+        };
+        response_sequence == Some(expected_sequence)
+            && selected_sequence == expected_sequence
+            && digests.insert(digest)
+    })
 }
 
 fn candidate_checks(samples: &[&ActivationSample]) -> CandidateChecks {
@@ -3186,6 +3459,172 @@ mod tests {
         );
         assert!(LifecyclePhase::from_control_preparation_name("squash").is_err());
         assert!(LifecyclePhase::from_control_preparation_name("publication").is_err());
+    }
+
+    #[test]
+    fn logical_squash_prepares_payload_and_baseline_before_its_phase_clock() {
+        assert!(
+            LifecyclePhase::Squash.prepares_candidate_locally_before_phase(),
+            "logical squash must time and monitor only its public metadata operations"
+        );
+        for phase in [
+            LifecyclePhase::Activation,
+            LifecyclePhase::Fork,
+            LifecyclePhase::Rollback,
+        ] {
+            assert!(
+                !phase.prepares_candidate_locally_before_phase(),
+                "matched lifecycle phases use their separately receipted preparation"
+            );
+        }
+    }
+
+    #[test]
+    fn squash_progress_receipt_preserves_completed_public_operation_evidence() -> ScorecardResult {
+        let selected_ref = format!("main@7#{}", "33".repeat(32));
+        let invocation = CliInvocation {
+            operation: "squash_mpla_branch".to_owned(),
+            request_id: Some("run-squash-02".to_owned()),
+            outer_elapsed_ns: 2_000_000,
+            response: json!({
+                "service_elapsed_ns": 200_000,
+                "roots": {
+                    "root_id": "11".repeat(32),
+                    "attribution_root_id": "22".repeat(32),
+                },
+                "ref_sequence": 7,
+                "lifecycle": {"selected_ref": selected_ref},
+                "durable": true,
+            }),
+        };
+
+        let receipt = squash_sample_receipt(2, &invocation)?;
+        let expected_response_sha256 = json_sha256(&invocation.response)?;
+
+        assert_eq!(receipt["sample"].as_u64(), Some(2));
+        assert_eq!(receipt["operation"].as_str(), Some("squash_mpla_branch"));
+        assert_eq!(receipt["request_id"].as_str(), Some("run-squash-02"));
+        assert_eq!(receipt["outer_elapsed_ns"].as_u64(), Some(2_000_000));
+        assert_eq!(receipt["service_elapsed_ns"].as_u64(), Some(200_000));
+        assert_eq!(
+            receipt["selected_ref"].as_str(),
+            Some(selected_ref.as_str())
+        );
+        assert_eq!(
+            receipt.pointer("/roots/root_id").and_then(Value::as_str),
+            Some("11".repeat(32).as_str())
+        );
+        assert_eq!(
+            receipt
+                .pointer("/roots/attribution_root_id")
+                .and_then(Value::as_str),
+            Some("22".repeat(32).as_str())
+        );
+        assert_eq!(receipt["ref_sequence"].as_u64(), Some(7));
+        assert_eq!(
+            receipt["full_response_sha256"].as_str(),
+            Some(expected_response_sha256.as_str())
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn squash_continuity_requires_stable_roots_and_consecutive_committed_refs() {
+        let run_id = "run-squash-continuity";
+        let roots = json!({
+            "root_id": "11".repeat(32),
+            "attribution_root_id": "22".repeat(32),
+        });
+        let baseline_projection = json!({"roots": roots});
+        let mut samples = (0..3)
+            .map(|sample| {
+                let sequence = sample + 2;
+                let operation_id = format!("{run_id}-squash-{sample:02}");
+                CliInvocation {
+                    operation: "squash_mpla_branch".to_owned(),
+                    request_id: Some(operation_id.clone()),
+                    outer_elapsed_ns: 2_000_000,
+                    response: json!({
+                        "run_id": run_id,
+                        "branch": "main",
+                        "roots": roots,
+                        "ref_sequence": sequence,
+                        "service_elapsed_ns": 200_000,
+                        "lifecycle": {
+                            "operation_id": operation_id,
+                            "committed": true,
+                            "idempotent_replay": false,
+                            "selected_ref": format!(
+                                "main@{sequence}#{}",
+                                format!("{:02x}", 0xbb + sample).repeat(32)
+                            ),
+                            "service_elapsed_ns": 200_000,
+                        },
+                    }),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        assert!(squash_identity_and_attribution_stable(
+            &baseline_projection,
+            &samples
+        ));
+        assert!(squash_public_outcomes_exact(run_id, &samples));
+        assert!(squash_selected_ref_progression_exact(
+            &format!("main@1#{}", "aa".repeat(32)),
+            &samples
+        ));
+
+        samples[1].response["roots"]["attribution_root_id"] = json!("44".repeat(32));
+        assert!(!squash_identity_and_attribution_stable(
+            &baseline_projection,
+            &samples
+        ));
+        samples[1].response["roots"] = roots;
+        samples[1].response["ref_sequence"] = json!(4);
+        assert!(!squash_selected_ref_progression_exact(
+            &format!("main@1#{}", "aa".repeat(32)),
+            &samples
+        ));
+        samples[1].response["ref_sequence"] = json!(3);
+        samples[1].response["lifecycle"]["committed"] = json!(false);
+        assert!(!squash_public_outcomes_exact(run_id, &samples));
+        samples[1].response["lifecycle"]["committed"] = json!(true);
+        samples[1].response["lifecycle"]["operation_id"] = json!("wrong-operation");
+        assert!(!squash_public_outcomes_exact(run_id, &samples));
+        samples[1].response["lifecycle"]["operation_id"] = json!(format!("{run_id}-squash-01"));
+
+        let valid_selected_ref = samples[1].response["lifecycle"]["selected_ref"].clone();
+        for malformed in [
+            format!("other@3#{}", "cc".repeat(32)),
+            format!("main@03#{}", "cc".repeat(32)),
+            format!("main@0#{}", "cc".repeat(32)),
+            format!("main@3#{}", "CC".repeat(32)),
+        ] {
+            samples[1].response["lifecycle"]["selected_ref"] = json!(malformed);
+            assert!(!squash_selected_ref_progression_exact(
+                &format!("main@1#{}", "aa".repeat(32)),
+                &samples
+            ));
+        }
+        samples[1].response["lifecycle"]["selected_ref"] = valid_selected_ref;
+    }
+
+    #[test]
+    fn response_hash_uses_the_cross_language_canonical_json_vector() -> ScorecardResult {
+        let value = json!({
+            "z": 1,
+            "a": {
+                "β": "值",
+                "a": [true, null, 3],
+            },
+        });
+
+        assert_eq!(
+            json_sha256(&value)?,
+            "4863f8ef3b164d0b123602b5932e180d861402f1477f1b956c1766845fe671cc"
+        );
+        Ok(())
     }
 
     #[test]

@@ -48,7 +48,7 @@ const IMMUTABLE_SOURCE_CHAIN_FILE: &str = "immutable-source-chain.json";
 const IMMUTABLE_SOURCE_CHAIN_VERSION: u32 = 1;
 const MAX_IMMUTABLE_SOURCE_ROOTS: usize = 64;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SemanticResourceMaxima {
     pub application_pool_bytes: u64,
     pub peak_managed_bytes: u64,
@@ -58,6 +58,30 @@ pub struct SemanticResourceMaxima {
     pub peak_open_data_fds: u16,
     pub peak_data_workers: u16,
     pub trie_fan_out: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SemanticPhaseMaxima {
+    pub peak_managed_bytes: u64,
+    pub peak_open_data_fds: u16,
+    pub peak_data_workers: u16,
+}
+
+impl SemanticResourceMaxima {
+    /// Preserve the fixed semantic configuration while accounting for an
+    /// earlier, strictly sequential phase of the same publication.
+    pub fn with_sequential_phase(&self, phase: SemanticPhaseMaxima) -> Self {
+        Self {
+            application_pool_bytes: self.application_pool_bytes,
+            peak_managed_bytes: self.peak_managed_bytes.max(phase.peak_managed_bytes),
+            scan_window_bytes: self.scan_window_bytes,
+            spool_run_bytes: self.spool_run_bytes,
+            merge_fan_in: self.merge_fan_in,
+            peak_open_data_fds: self.peak_open_data_fds.max(phase.peak_open_data_fds),
+            peak_data_workers: self.peak_data_workers.max(phase.peak_data_workers),
+            trie_fan_out: self.trie_fan_out,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -496,12 +520,34 @@ pub fn capture_affected_paths(
     paths: &[PathBuf],
     work_dir: &Path,
 ) -> PocResult<AffectedPathSnapshot> {
+    capture_affected_paths_with_maxima(tree, paths, work_dir).map(|(snapshot, _)| snapshot)
+}
+
+pub fn capture_affected_paths_with_maxima(
+    tree: &Path,
+    paths: &[PathBuf],
+    work_dir: &Path,
+) -> PocResult<(AffectedPathSnapshot, SemanticPhaseMaxima)> {
     let scanned = scan::scan_selected_paths(tree, paths, work_dir)?;
-    Ok(AffectedPathSnapshot {
-        paths: paths.to_vec(),
-        records: scanned.records,
-        payload_bytes_read: scanned.bytes_read,
-    })
+    let peak_managed_bytes = scan::SELECTED_RECORD_SPOOL_MEMORY_BYTES
+        .saturating_add(scan::SELECTED_HARDLINK_SPOOL_MEMORY_BYTES)
+        .saturating_add(
+            SEMANTIC_SCAN_TRANSFER_BYTES.saturating_mul(usize::from(scanned.peak_data_workers)),
+        )
+        .saturating_add(scan::MAX_XATTR_TRANSIENT_BYTES);
+    let phase_maxima = SemanticPhaseMaxima {
+        peak_managed_bytes: u64::try_from(peak_managed_bytes).unwrap_or(u64::MAX),
+        peak_open_data_fds: u16::try_from(scanned.peak_open_data_fds).unwrap_or(u16::MAX),
+        peak_data_workers: scanned.peak_data_workers,
+    };
+    Ok((
+        AffectedPathSnapshot {
+            paths: paths.to_vec(),
+            records: scanned.records,
+            payload_bytes_read: scanned.bytes_read,
+        },
+        phase_maxima,
+    ))
 }
 
 pub fn write_affected_stream_from_snapshots(

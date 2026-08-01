@@ -1,11 +1,15 @@
+#[cfg(target_os = "linux")]
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 #[cfg(unix)]
 use std::ffi::CString;
+#[cfg(target_os = "linux")]
+use std::ffi::OsString;
 use std::fs;
 #[cfg(unix)]
 use std::fs::File;
 #[cfg(target_os = "linux")]
-use std::fs::OpenOptions;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread;
@@ -14,11 +18,23 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
+#[cfg(target_os = "linux")]
+use std::os::fd::{FromRawFd, OwnedFd};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
+#[cfg(target_os = "linux")]
+use std::os::unix::fs::MetadataExt;
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 
+#[cfg(target_os = "linux")]
+use crate::overlay_adapter::{
+    mountinfo_text_has_process_audit_mount, process_audit_identity_from_attestation,
+    process_audit_mount_tree_ids, OverlayProcessAuditIdentity,
+};
+use crate::overlay_adapter::{
+    AttestedMountCleanupState, OverlayMountAttestation, PermanentOverlayMount,
+};
 use crate::{unix_time_ms, PocError, PocResult};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(1);
@@ -47,6 +63,207 @@ pub struct ProcessAudit {
     pub mount_namespace_pins: Vec<i32>,
 }
 
+#[derive(Debug)]
+#[doc(hidden)]
+pub struct AttestedCgroupMembership {
+    path: PathBuf,
+    #[cfg(target_os = "linux")]
+    directory: OwnedFd,
+    #[cfg(target_os = "linux")]
+    file_name: OsString,
+    expected_device: u64,
+    expected_inode: u64,
+}
+
+impl AttestedCgroupMembership {
+    #[cfg(target_os = "linux")]
+    pub fn open(path: &Path, expected_device: u64, expected_inode: u64) -> PocResult<Self> {
+        let (directory, file_name) = open_cgroup_parent(path)?;
+        let membership = Self {
+            path: path.to_path_buf(),
+            directory,
+            file_name,
+            expected_device,
+            expected_inode,
+        };
+        let _ = membership.read_exact()?;
+        Ok(membership)
+    }
+
+    #[cfg(target_os = "linux")]
+    fn open_current(path: &Path) -> PocResult<Self> {
+        let (directory, file_name) = open_cgroup_parent(path)?;
+        let descriptor = rustix::fs::openat(
+            &directory,
+            &file_name,
+            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::CLOEXEC,
+            rustix::fs::Mode::empty(),
+        )
+        .map_err(|error| {
+            PocError::io("open live cgroup.procs", path, std::io::Error::from(error))
+        })?;
+        let status = rustix::fs::fstat(&descriptor).map_err(|error| {
+            PocError::io("stat live cgroup.procs", path, std::io::Error::from(error))
+        })?;
+        let membership = Self {
+            path: path.to_path_buf(),
+            directory,
+            file_name,
+            expected_device: status.st_dev,
+            expected_inode: status.st_ino,
+        };
+        let _ = membership.read_exact()?;
+        Ok(membership)
+    }
+
+    #[cfg(target_os = "linux")]
+    fn open_write_exact(&self) -> PocResult<File> {
+        let descriptor = rustix::fs::openat(
+            &self.directory,
+            &self.file_name,
+            rustix::fs::OFlags::WRONLY | rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::CLOEXEC,
+            rustix::fs::Mode::empty(),
+        )
+        .map_err(|error| {
+            PocError::io(
+                "open anchored live cgroup.procs for child",
+                &self.path,
+                std::io::Error::from(error),
+            )
+        })?;
+        let status = rustix::fs::fstat(&descriptor).map_err(|error| {
+            PocError::io(
+                "stat anchored live cgroup.procs for child",
+                &self.path,
+                std::io::Error::from(error),
+            )
+        })?;
+        if status.st_dev != self.expected_device || status.st_ino != self.expected_inode {
+            return Err(PocError::RecoveryRequired(
+                "live cgroup.procs identity changed under its pinned directory".to_owned(),
+            ));
+        }
+        Ok(File::from(descriptor))
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) const fn device(&self) -> u64 {
+        self.expected_device
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) const fn inode(&self) -> u64 {
+        self.expected_inode
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn path(&self) -> &Path {
+        &self.path
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn read_exact(&self) -> PocResult<String> {
+        let descriptor = rustix::fs::openat(
+            &self.directory,
+            &self.file_name,
+            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::CLOEXEC,
+            rustix::fs::Mode::empty(),
+        )
+        .map_err(|error| {
+            PocError::io(
+                "open anchored attested cgroup.procs",
+                &self.path,
+                std::io::Error::from(error),
+            )
+        })?;
+        let opened = rustix::fs::fstat(&descriptor).map_err(|error| {
+            PocError::io(
+                "stat anchored attested cgroup.procs",
+                &self.path,
+                std::io::Error::from(error),
+            )
+        })?;
+        if opened.st_dev != self.expected_device || opened.st_ino != self.expected_inode {
+            return Err(PocError::RecoveryRequired(
+                "terminal cgroup.procs identity changed under its pinned directory".to_owned(),
+            ));
+        }
+        let mut file = File::from(descriptor);
+        let mut text = String::new();
+        file.read_to_string(&mut text).map_err(|error| {
+            PocError::io("read anchored attested cgroup.procs", &self.path, error)
+        })?;
+        Ok(text)
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn open_cgroup_parent(path: &Path) -> PocResult<(OwnedFd, OsString)> {
+    if !path.is_absolute() {
+        return Err(PocError::RecoveryRequired(format!(
+            "attested cgroup.procs path is not absolute: {}",
+            path.display()
+        )));
+    }
+    let file_name = path.file_name().ok_or_else(|| {
+        PocError::RecoveryRequired(format!(
+            "attested cgroup.procs has no file name: {}",
+            path.display()
+        ))
+    })?;
+    let mut file_name_components = Path::new(file_name).components();
+    if !matches!(file_name_components.next(), Some(std::path::Component::Normal(component)) if component == file_name)
+        || file_name_components.next().is_some()
+    {
+        return Err(PocError::RecoveryRequired(format!(
+            "attested cgroup.procs has no normalized file name: {}",
+            path.display()
+        )));
+    }
+    let file_name = file_name.to_os_string();
+    let parent = path.parent().ok_or_else(|| {
+        PocError::RecoveryRequired(format!(
+            "attested cgroup.procs has no parent directory: {}",
+            path.display()
+        ))
+    })?;
+    let flags = rustix::fs::OFlags::RDONLY
+        | rustix::fs::OFlags::DIRECTORY
+        | rustix::fs::OFlags::NOFOLLOW
+        | rustix::fs::OFlags::CLOEXEC;
+    let mut directory = rustix::fs::open(Path::new("/"), flags, rustix::fs::Mode::empty())
+        .map_err(|error| {
+            PocError::io(
+                "open cgroup path root",
+                Path::new("/"),
+                std::io::Error::from(error),
+            )
+        })?;
+    for component in parent.components() {
+        match component {
+            std::path::Component::RootDir => {}
+            std::path::Component::Normal(component) => {
+                directory =
+                    rustix::fs::openat(&directory, component, flags, rustix::fs::Mode::empty())
+                        .map_err(|error| {
+                            PocError::io(
+                                "open anchored cgroup directory",
+                                parent,
+                                std::io::Error::from(error),
+                            )
+                        })?;
+            }
+            _ => {
+                return Err(PocError::RecoveryRequired(format!(
+                    "attested cgroup.procs path is not normalized: {}",
+                    path.display()
+                )));
+            }
+        }
+    }
+    Ok((directory, file_name))
+}
+
 impl ProcessAudit {
     #[must_use]
     pub fn is_clear(&self) -> bool {
@@ -58,28 +275,359 @@ impl ProcessAudit {
     }
 }
 
+/// Immutable process-audit identity for a terminal workspace. Process
+/// membership is decided by kernel mount IDs (and exact overlay identity in a
+/// foreign mount namespace), never by a mutable absolute pathname.
+#[cfg(target_os = "linux")]
+#[derive(Debug)]
+pub(crate) struct AnchoredWorkspaceAuditIdentity {
+    mount: OverlayProcessAuditIdentity,
+    recovery: bool,
+}
+
+#[cfg(not(target_os = "linux"))]
+#[derive(Clone, Debug)]
+pub(crate) struct AnchoredWorkspaceAuditIdentity;
+
+#[cfg(target_os = "linux")]
+pub(crate) fn anchored_workspace_audit_identity(
+    attestation: &OverlayMountAttestation,
+    _workspace: &OwnedFd,
+    mount_state: AttestedMountCleanupState,
+) -> PocResult<AnchoredWorkspaceAuditIdentity> {
+    let current_mount_namespace_inode = fs::metadata("/proc/self/ns/mnt")
+        .map_err(|error| PocError::io("stat current mount namespace", "/proc/self/ns/mnt", error))?
+        .ino();
+    if current_mount_namespace_inode != attestation.mount_namespace_inode {
+        return Err(PocError::RecoveryRequired(
+            "terminal process audit is not in the attested mount namespace".to_owned(),
+        ));
+    }
+    let mount = process_audit_identity_from_attestation(attestation)?;
+    let mount_ids = process_audit_mount_tree_ids(&mount)?;
+    match mount_state {
+        AttestedMountCleanupState::MountedExact if !mount_ids.contains(&attestation.mount_id) => {
+            return Err(PocError::RecoveryRequired(
+                "attested terminal mount disappeared before process audit".to_owned(),
+            ));
+        }
+        AttestedMountCleanupState::AlreadyAbsent if mount_ids.contains(&attestation.mount_id) => {
+            return Err(PocError::RecoveryRequired(
+                "absent terminal mount remains visible before process audit".to_owned(),
+            ));
+        }
+        _ => {}
+    }
+    Ok(AnchoredWorkspaceAuditIdentity {
+        mount,
+        recovery: true,
+    })
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn live_workspace_audit_identity(
+    overlay: &PermanentOverlayMount,
+) -> PocResult<AnchoredWorkspaceAuditIdentity> {
+    let mount = overlay.process_audit_identity()?;
+    let mount_ids = process_audit_mount_tree_ids(&mount)?;
+    if !mount_ids.contains(&mount.mount_id) {
+        return Err(PocError::RecoveryRequired(
+            "live terminal mount disappeared before process audit".to_owned(),
+        ));
+    }
+    Ok(AnchoredWorkspaceAuditIdentity {
+        mount,
+        recovery: false,
+    })
+}
+
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn anchored_workspace_audit_identity(
+    _attestation: &OverlayMountAttestation,
+    _workspace: &std::os::fd::OwnedFd,
+    _mount_state: AttestedMountCleanupState,
+) -> PocResult<AnchoredWorkspaceAuditIdentity> {
+    Err(PocError::Unsupported(
+        "descriptor-anchored terminal process audit requires Linux mount IDs".to_owned(),
+    ))
+}
+
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn live_workspace_audit_identity(
+    _overlay: &PermanentOverlayMount,
+) -> PocResult<AnchoredWorkspaceAuditIdentity> {
+    Err(PocError::Unsupported(
+        "descriptor-anchored terminal process audit requires Linux mount IDs".to_owned(),
+    ))
+}
+
+/// Drain processes which reference the descriptor-pinned terminal mount.
+/// Every signal is guarded by a fresh mount-ID audit through the already-open
+/// pidfd, so ancestor replacement cannot redirect recovery at an unrelated
+/// process tree.
+#[cfg(target_os = "linux")]
+pub(crate) fn terminate_terminal_workspace_references_anchored(
+    identity: &AnchoredWorkspaceAuditIdentity,
+    cgroup_membership: Option<&AttestedCgroupMembership>,
+) -> PocResult<(Vec<i32>, ProcessAudit)> {
+    let mut signaled = BTreeMap::new();
+    let deadline = Instant::now() + Duration::from_secs(1);
+
+    loop {
+        let audit = audit_workspace_references_anchored(identity, cgroup_membership, true)?;
+        if audit.is_clear() {
+            for pidfd in signaled.values() {
+                reap_pidfd_if_child(pidfd)?;
+            }
+            return Ok((signaled.into_keys().collect(), audit));
+        }
+        if Instant::now() >= deadline {
+            return Err(PocError::RecoveryRequired(format!(
+                "anchored terminal workspace process drain timed out: {audit:?}"
+            )));
+        }
+
+        for pid in audit_pids(&audit) {
+            let Some(pidfd) = open_pidfd_allow_missing(pid)? else {
+                continue;
+            };
+            let fresh = audit_workspace_references_anchored(identity, cgroup_membership, true)?;
+            if audit_contains_pid(&fresh, pid) {
+                signal_pidfd(&pidfd, libc::SIGTERM)?;
+                signaled.insert(pid, pidfd);
+            }
+        }
+
+        let term_deadline = Instant::now() + TERM_GRACE;
+        loop {
+            let remaining = audit_workspace_references_anchored(identity, cgroup_membership, true)?;
+            if remaining.is_clear() || Instant::now() >= term_deadline {
+                break;
+            }
+            thread::sleep(POLL_INTERVAL);
+        }
+
+        let remaining = audit_workspace_references_anchored(identity, cgroup_membership, true)?;
+        for pid in audit_pids(&remaining) {
+            let Some(pidfd) = open_pidfd_allow_missing(pid)? else {
+                continue;
+            };
+            let fresh = audit_workspace_references_anchored(identity, cgroup_membership, true)?;
+            if audit_contains_pid(&fresh, pid) {
+                signal_pidfd(&pidfd, libc::SIGKILL)?;
+                signaled.insert(pid, pidfd);
+            }
+        }
+        for pidfd in signaled.values() {
+            reap_pidfd_if_child(pidfd)?;
+        }
+        thread::sleep(POLL_INTERVAL);
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn terminate_terminal_workspace_references_anchored(
+    _identity: &AnchoredWorkspaceAuditIdentity,
+    _cgroup_membership: Option<&AttestedCgroupMembership>,
+) -> PocResult<(Vec<i32>, ProcessAudit)> {
+    Err(PocError::Unsupported(
+        "descriptor-anchored terminal process recovery requires Linux pidfds".to_owned(),
+    ))
+}
+
+pub(crate) fn audit_terminal_workspace(
+    workspace_root: &Path,
+    cgroup_membership: Option<&AttestedCgroupMembership>,
+    include_mount_namespaces: bool,
+) -> PocResult<ProcessAudit> {
+    #[cfg(target_os = "linux")]
+    {
+        audit_workspace_references(
+            workspace_root,
+            None,
+            cgroup_membership,
+            include_mount_namespaces,
+        )
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (workspace_root, cgroup_membership, include_mount_namespaces);
+        Err(PocError::Unsupported(
+            "restart-safe terminal process audit requires Linux /proc".to_owned(),
+        ))
+    }
+}
+
+#[cfg(target_os = "linux")]
+pub(crate) fn audit_terminal_workspace_anchored(
+    identity: &AnchoredWorkspaceAuditIdentity,
+    cgroup_membership: Option<&AttestedCgroupMembership>,
+    include_mount_namespaces: bool,
+) -> PocResult<ProcessAudit> {
+    audit_workspace_references_anchored(identity, cgroup_membership, include_mount_namespaces)
+}
+
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn audit_terminal_workspace_anchored(
+    _identity: &AnchoredWorkspaceAuditIdentity,
+    _cgroup_membership: Option<&AttestedCgroupMembership>,
+    _include_mount_namespaces: bool,
+) -> PocResult<ProcessAudit> {
+    Err(PocError::Unsupported(
+        "descriptor-anchored terminal process audit requires Linux /proc".to_owned(),
+    ))
+}
+
+#[cfg(target_os = "linux")]
+fn audit_pids(audit: &ProcessAudit) -> BTreeSet<i32> {
+    audit
+        .cgroup_members
+        .iter()
+        .chain(&audit.cwd_or_root_pins)
+        .chain(&audit.fd_pins)
+        .chain(&audit.writable_map_pins)
+        .chain(&audit.mount_namespace_pins)
+        .copied()
+        .filter(|pid| u32::try_from(*pid).ok() != Some(std::process::id()))
+        .collect()
+}
+
+#[cfg(target_os = "linux")]
+fn audit_contains_pid(audit: &ProcessAudit, pid: i32) -> bool {
+    audit_pids(audit).contains(&pid)
+}
+
+#[cfg(target_os = "linux")]
+fn open_pidfd_allow_missing(pid: i32) -> PocResult<Option<OwnedFd>> {
+    // SAFETY: pidfd_open consumes a scalar PID and flags value and returns a
+    // new owned descriptor on success.
+    let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid, 0) as i32 };
+    if fd >= 0 {
+        // SAFETY: the successful syscall returned a new descriptor owned by
+        // this function.
+        return Ok(Some(unsafe { OwnedFd::from_raw_fd(fd) }));
+    }
+    let error = std::io::Error::last_os_error();
+    if error.raw_os_error() == Some(libc::ESRCH) {
+        Ok(None)
+    } else {
+        Err(PocError::io(
+            "open terminal process pidfd",
+            Path::new("/proc"),
+            error,
+        ))
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn signal_pidfd(pidfd: &OwnedFd, signal: i32) -> PocResult<()> {
+    loop {
+        // SAFETY: pidfd_send_signal consumes a valid pidfd, a platform signal,
+        // and null siginfo with zero flags.
+        let result = unsafe {
+            libc::syscall(
+                libc::SYS_pidfd_send_signal,
+                pidfd.as_raw_fd(),
+                signal,
+                std::ptr::null::<libc::siginfo_t>(),
+                0,
+            )
+        };
+        if result == 0 {
+            return Ok(());
+        }
+        let error = std::io::Error::last_os_error();
+        match error.raw_os_error() {
+            Some(libc::EINTR) => continue,
+            Some(libc::ESRCH) => return Ok(()),
+            _ => {
+                return Err(PocError::io(
+                    "signal terminal process pidfd",
+                    Path::new("/proc"),
+                    error,
+                ));
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn reap_pidfd_if_child(pidfd: &OwnedFd) -> PocResult<()> {
+    let mut status = std::mem::MaybeUninit::<libc::siginfo_t>::zeroed();
+    loop {
+        // SAFETY: waitid receives P_PIDFD with a live descriptor, writable
+        // siginfo storage, and nonblocking child-reap flags. It cannot select
+        // a different process if the numeric PID has been recycled.
+        let result = unsafe {
+            libc::waitid(
+                libc::P_PIDFD,
+                pidfd.as_raw_fd() as libc::id_t,
+                status.as_mut_ptr(),
+                libc::WEXITED | libc::WNOHANG,
+            )
+        };
+        if result == 0 {
+            return Ok(());
+        }
+        let error = std::io::Error::last_os_error();
+        match error.raw_os_error() {
+            Some(libc::EINTR) => continue,
+            Some(libc::ECHILD) => return Ok(()),
+            _ => {
+                return Err(PocError::io(
+                    "reap terminal process pidfd",
+                    Path::new("/proc"),
+                    error,
+                ));
+            }
+        }
+    }
+}
+
 /// Direct process-group runner used by the PoC when the product namespace
 /// protocol would add unrelated orchestration. The optional cgroup membership
 /// file catches descendants that escape their original process group.
 #[derive(Debug)]
 pub struct ManagedProcessTree {
     workspace_root: PathBuf,
+    #[cfg(not(target_os = "linux"))]
     cgroup_procs_path: Option<PathBuf>,
+    #[cfg(target_os = "linux")]
+    cgroup_membership: Option<AttestedCgroupMembership>,
     process_groups: BTreeSet<u32>,
     children: Vec<Child>,
     fenced: bool,
 }
 
 impl ManagedProcessTree {
-    #[must_use]
-    pub fn new(workspace_root: PathBuf, cgroup_procs_path: Option<PathBuf>) -> Self {
-        Self {
+    pub fn new(workspace_root: PathBuf, cgroup_procs_path: Option<PathBuf>) -> PocResult<Self> {
+        #[cfg(target_os = "linux")]
+        let cgroup_membership = cgroup_procs_path
+            .as_deref()
+            .map(AttestedCgroupMembership::open_current)
+            .transpose()?;
+        Ok(Self {
             workspace_root,
+            #[cfg(not(target_os = "linux"))]
             cgroup_procs_path,
+            #[cfg(target_os = "linux")]
+            cgroup_membership,
             process_groups: BTreeSet::new(),
             children: Vec::new(),
             fenced: false,
-        }
+        })
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn cgroup_attestation(&self) -> Option<(&Path, u64, u64)> {
+        self.cgroup_membership
+            .as_ref()
+            .map(|membership| (membership.path(), membership.device(), membership.inode()))
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    pub(crate) const fn cgroup_attestation(&self) -> Option<(&Path, u64, u64)> {
+        None
     }
 
     #[must_use]
@@ -93,6 +641,47 @@ impl ManagedProcessTree {
 
     pub fn unfence(&mut self) {
         self.fenced = false;
+    }
+
+    /// Finish reaping commands admitted before the terminal fence. Normal
+    /// command execution is synchronous, so this is an immediate proof on the
+    /// ordinary path and a bounded recovery check if an earlier poll failed.
+    pub fn drain_in_flight_commands(&mut self, timeout: Duration) -> PocResult<()> {
+        if !self.fenced {
+            return Err(PocError::Integrity(
+                "command drain requires terminal admission fencing".to_owned(),
+            ));
+        }
+        let deadline = Instant::now() + timeout;
+        loop {
+            let mut index = 0;
+            while index < self.children.len() {
+                let status = self.children[index].try_wait().map_err(|error| {
+                    PocError::io("poll fenced managed command", &self.workspace_root, error)
+                })?;
+                if status.is_none() {
+                    index += 1;
+                    continue;
+                }
+                let process_group_id = self.children[index].id();
+                let mut child = self.children.swap_remove(index);
+                child.wait().map_err(|error| {
+                    PocError::io("reap fenced managed command", &self.workspace_root, error)
+                })?;
+                if !process_group_exists(process_group_id)? {
+                    self.process_groups.remove(&process_group_id);
+                }
+            }
+            if self.children.is_empty() {
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err(PocError::RecoveryRequired(
+                    "in-flight command drain exceeded its terminal fence budget".to_owned(),
+                ));
+            }
+            thread::sleep(POLL_INTERVAL);
+        }
     }
 
     pub fn run(
@@ -115,6 +704,9 @@ impl ManagedProcessTree {
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null());
+        #[cfg(target_os = "linux")]
+        let _child_cgroup = install_child_isolation(&mut command, self.cgroup_membership.as_ref())?;
+        #[cfg(not(target_os = "linux"))]
         let _child_cgroup =
             install_child_isolation(&mut command, self.cgroup_procs_path.as_deref())?;
         let child = command
@@ -198,6 +790,9 @@ impl ManagedProcessTree {
             PocError::Integrity("readiness path contains an interior NUL byte".to_owned())
         })?;
         let prefix = contains.map(build_prefix_table).unwrap_or_default();
+        #[cfg(target_os = "linux")]
+        let cgroup = open_direct_child_cgroup(self.cgroup_membership.as_ref())?;
+        #[cfg(not(target_os = "linux"))]
         let cgroup = open_direct_child_cgroup(self.cgroup_procs_path.as_deref())?;
         let cgroup_fd = cgroup.as_ref().map(AsRawFd::as_raw_fd);
         let started_unix_ms = unix_time_ms()?;
@@ -279,8 +874,10 @@ impl ManagedProcessTree {
         ))
     }
 
-    /// Stop every recorded process group plus every remaining cgroup member,
-    /// then reap all direct children owned by this process.
+    /// Best-effort nonterminal cleanup for a live runner and its `Drop` path.
+    /// Terminal sealing and recovery must use the anchored pidfd drain instead
+    /// because these recorded numeric process-group and cgroup PIDs can race
+    /// with reuse.
     pub fn stop_kill_reap(&mut self) -> PocResult<Vec<i32>> {
         self.fence();
         let mut signaled = BTreeSet::new();
@@ -335,23 +932,158 @@ impl ManagedProcessTree {
         Ok(signaled.into_iter().collect())
     }
 
+    #[cfg(target_os = "linux")]
+    pub(crate) fn stop_kill_reap_anchored(
+        &mut self,
+        identity: &AnchoredWorkspaceAuditIdentity,
+    ) -> PocResult<Vec<i32>> {
+        self.fence();
+        let mut signaled = BTreeSet::new();
+        let mut child_pidfds = Vec::with_capacity(self.children.len());
+        for child in &self.children {
+            let pid = i32::try_from(child.id()).map_err(|_| {
+                PocError::Integrity(format!("managed child PID {} does not fit i32", child.id()))
+            })?;
+            if let Some(pidfd) = open_pidfd_allow_missing(pid)? {
+                signal_pidfd(&pidfd, libc::SIGTERM)?;
+                signaled.insert(pid);
+                child_pidfds.push((pid, pidfd));
+            }
+        }
+        let deadline = Instant::now() + TERM_GRACE;
+        loop {
+            let mut running = false;
+            for child in &mut self.children {
+                if child
+                    .try_wait()
+                    .map_err(|error| {
+                        PocError::io("poll anchored managed child", &self.workspace_root, error)
+                    })?
+                    .is_none()
+                {
+                    running = true;
+                }
+            }
+            if !running || Instant::now() >= deadline {
+                break;
+            }
+            thread::sleep(POLL_INTERVAL);
+        }
+        for (pid, pidfd) in &child_pidfds {
+            let running = self
+                .children
+                .iter_mut()
+                .find(|child| u32::try_from(*pid).ok() == Some(child.id()))
+                .map(|child| {
+                    child.try_wait().map_err(|error| {
+                        PocError::io("poll anchored managed child", &self.workspace_root, error)
+                    })
+                })
+                .transpose()?
+                .flatten()
+                .is_none();
+            if running {
+                signal_pidfd(pidfd, libc::SIGKILL)?;
+            }
+        }
+        for child in &mut self.children {
+            child.wait().map_err(|error| {
+                PocError::io("reap anchored managed child", &self.workspace_root, error)
+            })?;
+        }
+        self.children.clear();
+        self.process_groups.clear();
+
+        let (workspace_pids, final_audit) = terminate_terminal_workspace_references_anchored(
+            identity,
+            self.cgroup_membership.as_ref(),
+        )?;
+        signaled.extend(workspace_pids);
+        if !final_audit.is_clear() {
+            return Err(PocError::RecoveryRequired(format!(
+                "anchored managed process drain remained populated: {final_audit:?}"
+            )));
+        }
+        Ok(signaled.into_iter().collect())
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    pub(crate) fn stop_kill_reap_anchored(
+        &mut self,
+        _identity: &AnchoredWorkspaceAuditIdentity,
+    ) -> PocResult<Vec<i32>> {
+        Err(PocError::Unsupported(
+            "descriptor-anchored terminal process drain requires Linux pidfds".to_owned(),
+        ))
+    }
+
+    pub(crate) fn audit_anchored(
+        &self,
+        identity: &AnchoredWorkspaceAuditIdentity,
+        include_mount_namespaces: bool,
+    ) -> PocResult<ProcessAudit> {
+        #[cfg(target_os = "linux")]
+        {
+            return audit_workspace_references_anchored(
+                identity,
+                self.cgroup_membership.as_ref(),
+                include_mount_namespaces,
+            );
+        }
+        #[cfg(not(target_os = "linux"))]
+        audit_terminal_workspace_anchored(identity, None, include_mount_namespaces)
+    }
+
     pub fn audit(&self, include_mount_namespaces: bool) -> PocResult<ProcessAudit> {
+        #[cfg(target_os = "linux")]
+        {
+            return audit_workspace_references(
+                &self.workspace_root,
+                None,
+                self.cgroup_membership.as_ref(),
+                include_mount_namespaces,
+            );
+        }
+        #[cfg(not(target_os = "linux"))]
         audit_workspace_references(
             &self.workspace_root,
             self.cgroup_procs_path.as_deref(),
+            None,
             include_mount_namespaces,
         )
     }
 
     fn cgroup_members(&self) -> PocResult<Vec<i32>> {
-        let Some(path) = &self.cgroup_procs_path else {
+        #[cfg(target_os = "linux")]
+        let Some(membership) = &self.cgroup_membership
+        else {
             return Ok(Vec::new());
         };
+        #[cfg(target_os = "linux")]
+        let text = membership.read_exact()?;
+        #[cfg(not(target_os = "linux"))]
+        let Some(path) = &self.cgroup_procs_path
+        else {
+            return Ok(Vec::new());
+        };
+        #[cfg(not(target_os = "linux"))]
         let text = fs::read_to_string(path)
             .map_err(|error| PocError::io("read session cgroup.procs", path, error))?;
-        Ok(text
+        #[cfg(target_os = "linux")]
+        let members = parse_cgroup_members(&text)?;
+        #[cfg(not(target_os = "linux"))]
+        let members = text
             .lines()
-            .filter_map(|line| line.trim().parse::<i32>().ok())
+            .map(|line| {
+                line.trim().parse::<i32>().map_err(|_| {
+                    PocError::RecoveryRequired(format!(
+                        "session cgroup.procs contains an invalid PID: {line:?}"
+                    ))
+                })
+            })
+            .collect::<PocResult<Vec<_>>>()?;
+        Ok(members
+            .into_iter()
             .filter(|pid| u32::try_from(*pid).ok() != Some(std::process::id()))
             .collect())
     }
@@ -436,12 +1168,13 @@ unsafe fn probe_fd(fd: i32, needle: Option<&[u8]>, prefix: &[usize]) -> bool {
 }
 
 #[cfg(target_os = "linux")]
-fn open_direct_child_cgroup(path: Option<&Path>) -> PocResult<Option<File>> {
-    let Some(path) = path else {
+fn open_direct_child_cgroup(
+    membership: Option<&AttestedCgroupMembership>,
+) -> PocResult<Option<File>> {
+    let Some(membership) = membership else {
         return Ok(None);
     };
-    let members = fs::read_to_string(path)
-        .map_err(|error| PocError::io("read readiness cgroup.procs", path, error))?;
+    let members = membership.read_exact()?;
     if members
         .lines()
         .filter_map(|line| line.trim().parse::<u32>().ok())
@@ -449,11 +1182,7 @@ fn open_direct_child_cgroup(path: Option<&Path>) -> PocResult<Option<File>> {
     {
         return Ok(None);
     }
-    OpenOptions::new()
-        .write(true)
-        .open(path)
-        .map(Some)
-        .map_err(|error| PocError::io("open readiness cgroup.procs", path, error))
+    membership.open_write_exact().map(Some)
 }
 
 #[cfg(all(unix, not(target_os = "linux")))]
@@ -589,15 +1318,10 @@ fn command_receipt(
 #[cfg(target_os = "linux")]
 fn install_child_isolation(
     command: &mut Command,
-    cgroup_procs_path: Option<&Path>,
+    cgroup_membership: Option<&AttestedCgroupMembership>,
 ) -> PocResult<Option<File>> {
-    let cgroup = cgroup_procs_path
-        .map(|path| {
-            OpenOptions::new()
-                .write(true)
-                .open(path)
-                .map_err(|error| PocError::io("open session cgroup.procs for child", path, error))
-        })
+    let cgroup = cgroup_membership
+        .map(AttestedCgroupMembership::open_write_exact)
         .transpose()?;
     let cgroup_fd = cgroup.as_ref().map(AsRawFd::as_raw_fd);
     // SAFETY: `pre_exec` executes in the forked child and calls only
@@ -793,29 +1517,137 @@ fn signal_raw(_target: i32, _signal: i32, _allow_missing: bool) -> PocResult<()>
 }
 
 #[cfg(target_os = "linux")]
-fn audit_workspace_references(
-    workspace_root: &Path,
-    cgroup_procs_path: Option<&Path>,
+fn audit_workspace_references_anchored(
+    identity: &AnchoredWorkspaceAuditIdentity,
+    attested_cgroup: Option<&AttestedCgroupMembership>,
     include_mount_namespaces: bool,
 ) -> PocResult<ProcessAudit> {
+    let current_namespace = fs::metadata("/proc/self/ns/mnt")
+        .map_err(|error| PocError::io("stat current mount namespace", "/proc/self/ns/mnt", error))?
+        .ino();
+    if current_namespace != identity.mount.mount_namespace_inode {
+        return Err(PocError::RecoveryRequired(
+            "mount namespace changed during anchored terminal process audit".to_owned(),
+        ));
+    }
+    let mount_ids = process_audit_mount_tree_ids(&identity.mount)?;
     let mut audit = ProcessAudit {
-        workspace_root: workspace_root.to_path_buf(),
+        workspace_root: identity.mount.workspace_root.clone(),
         ..ProcessAudit::default()
     };
-    if let Some(path) = cgroup_procs_path {
-        let text = fs::read_to_string(path)
-            .map_err(|error| PocError::io("audit session cgroup.procs", path, error))?;
-        audit.cgroup_members = text
-            .lines()
-            .filter_map(|line| line.trim().parse::<i32>().ok())
-            .filter(|pid| u32::try_from(*pid).ok() != Some(std::process::id()))
-            .collect();
-    }
+    let candidates = if let Some(attested) = attested_cgroup {
+        let members = parse_cgroup_members(&attested.read_exact()?)?;
+        audit.cgroup_members.extend(
+            members
+                .iter()
+                .copied()
+                .filter(|pid| u32::try_from(*pid).ok() != Some(std::process::id())),
+        );
+        members
+            .into_iter()
+            .map(|pid| (pid, PathBuf::from(format!("/proc/{pid}"))))
+            .collect()
+    } else {
+        proc_candidates()?
+    };
 
+    for (pid, proc_root) in candidates {
+        if u32::try_from(pid).ok() == Some(std::process::id()) {
+            continue;
+        }
+        let namespace_path = proc_root.join("ns/mnt");
+        let namespace = match fs::metadata(&namespace_path) {
+            Ok(namespace) => namespace,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => {
+                return Err(PocError::io(
+                    "stat process mount namespace",
+                    namespace_path,
+                    error,
+                ));
+            }
+        };
+        if namespace.ino() != identity.mount.mount_namespace_inode {
+            let visible_mount =
+                foreign_mount_namespace_has_process_mount(&proc_root, &identity.mount)?;
+            if include_mount_namespaces && visible_mount {
+                audit.mount_namespace_pins.push(pid);
+            }
+            let object_references = audit_foreign_namespace_object_references(
+                &proc_root,
+                identity.mount.target_device,
+            )?;
+            if object_references.cwd_or_root {
+                audit.cwd_or_root_pins.push(pid);
+            }
+            if object_references.fd {
+                audit.fd_pins.push(pid);
+            }
+            if object_references.writable_map {
+                audit.writable_map_pins.push(pid);
+            }
+            if identity.recovery
+                && attested_cgroup.is_none()
+                && !visible_mount
+                && !object_references.any()
+            {
+                return Err(PocError::RecoveryRequired(format!(
+                    "cannot exclude detached terminal references in foreign mount namespace for PID {pid} without attested cgroup authority"
+                )));
+            }
+            continue;
+        }
+        let object_references =
+            audit_foreign_namespace_object_references(&proc_root, identity.mount.target_device)?;
+        if object_references.cwd_or_root
+            || link_has_mount_id(&proc_root.join("cwd"), &mount_ids)?
+            || link_has_mount_id(&proc_root.join("root"), &mount_ids)?
+        {
+            audit.cwd_or_root_pins.push(pid);
+        }
+        if object_references.fd || directory_has_mount_id(&proc_root.join("fd"), &mount_ids)? {
+            audit.fd_pins.push(pid);
+        }
+        if object_references.writable_map || maps_have_writable_mount_id(&proc_root, &mount_ids)? {
+            audit.writable_map_pins.push(pid);
+        }
+    }
+    deduplicate_audit(&mut audit);
+    Ok(audit)
+}
+
+#[cfg(target_os = "linux")]
+fn parse_cgroup_members(text: &str) -> PocResult<Vec<i32>> {
+    let mut members = Vec::new();
+    for line in text.lines() {
+        let pid = line.trim().parse::<i32>().map_err(|_| {
+            PocError::RecoveryRequired(format!(
+                "session cgroup.procs contains an invalid PID: {line:?}"
+            ))
+        })?;
+        if pid <= 0 {
+            return Err(PocError::RecoveryRequired(format!(
+                "session cgroup.procs contains a nonpositive PID: {pid}"
+            )));
+        }
+        members.push(pid);
+    }
+    members.sort_unstable();
+    members.dedup();
+    Ok(members)
+}
+
+#[cfg(target_os = "linux")]
+fn proc_candidates() -> PocResult<Vec<(i32, PathBuf)>> {
+    let mut candidates = Vec::new();
     for entry in
         fs::read_dir("/proc").map_err(|error| PocError::io("enumerate proc", "/proc", error))?
     {
-        let Ok(entry) = entry else { continue };
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(PocError::io("enumerate proc entry", "/proc", error)),
+        };
         let Some(pid) = entry
             .file_name()
             .to_str()
@@ -823,9 +1655,300 @@ fn audit_workspace_references(
         else {
             continue;
         };
-        let proc_root = entry.path();
-        if link_pins(proc_root.join("cwd"), workspace_root)
-            || link_pins(proc_root.join("root"), workspace_root)
+        candidates.push((pid, entry.path()));
+    }
+    Ok(candidates)
+}
+
+#[cfg(target_os = "linux")]
+fn foreign_mount_namespace_has_process_mount(
+    proc_root: &Path,
+    identity: &OverlayProcessAuditIdentity,
+) -> PocResult<bool> {
+    let mountinfo_path = proc_root.join("mountinfo");
+    let text = match fs::read_to_string(&mountinfo_path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error)
+            if error.raw_os_error() == Some(libc::EINVAL)
+                && process_is_zombie_or_gone(proc_root)? =>
+        {
+            return Ok(false);
+        }
+        Err(error) => {
+            return Err(PocError::io(
+                "audit process mountinfo by attested identity",
+                mountinfo_path,
+                error,
+            ));
+        }
+    };
+    mountinfo_text_has_process_audit_mount(&text, identity)
+}
+
+#[cfg(target_os = "linux")]
+#[derive(Clone, Copy, Debug, Default)]
+struct ForeignObjectReferences {
+    cwd_or_root: bool,
+    fd: bool,
+    writable_map: bool,
+}
+
+#[cfg(target_os = "linux")]
+impl ForeignObjectReferences {
+    const fn any(self) -> bool {
+        self.cwd_or_root || self.fd || self.writable_map
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn audit_foreign_namespace_object_references(
+    proc_root: &Path,
+    target_device: u64,
+) -> PocResult<ForeignObjectReferences> {
+    Ok(ForeignObjectReferences {
+        cwd_or_root: link_has_device(&proc_root.join("cwd"), target_device)?
+            || link_has_device(&proc_root.join("root"), target_device)?,
+        fd: directory_has_device(&proc_root.join("fd"), target_device)?,
+        writable_map: maps_have_writable_device(proc_root, target_device)?,
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn link_has_mount_id(link: &Path, mount_ids: &BTreeSet<u64>) -> PocResult<bool> {
+    Ok(statx_mount_id(link)?.is_some_and(|mount_id| mount_ids.contains(&mount_id)))
+}
+
+#[cfg(target_os = "linux")]
+fn directory_has_mount_id(directory: &Path, mount_ids: &BTreeSet<u64>) -> PocResult<bool> {
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(PocError::io("audit process fds", directory, error)),
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(PocError::io("audit process fd entry", directory, error)),
+        };
+        if statx_mount_id(&entry.path())?.is_some_and(|mount_id| mount_ids.contains(&mount_id)) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+#[cfg(target_os = "linux")]
+fn maps_have_writable_mount_id(proc_root: &Path, mount_ids: &BTreeSet<u64>) -> PocResult<bool> {
+    let maps_path = proc_root.join("maps");
+    let text = match fs::read_to_string(&maps_path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(PocError::io("audit process maps", maps_path, error)),
+    };
+    for line in text.lines() {
+        let mut fields = line.split_ascii_whitespace();
+        let Some(range) = fields.next() else {
+            continue;
+        };
+        let Some(permissions) = fields.next() else {
+            continue;
+        };
+        let _offset = fields.next();
+        let _device = fields.next();
+        let inode = fields.next();
+        if !permissions.as_bytes().contains(&b'w') || inode == Some("0") {
+            continue;
+        }
+        let map_file = proc_root.join("map_files").join(range);
+        if statx_mount_id(&map_file)?.is_some_and(|mount_id| mount_ids.contains(&mount_id)) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+#[cfg(target_os = "linux")]
+fn link_has_device(link: &Path, target_device: u64) -> PocResult<bool> {
+    Ok(statx_device(link)?.is_some_and(|device| device == target_device))
+}
+
+#[cfg(target_os = "linux")]
+fn directory_has_device(directory: &Path, target_device: u64) -> PocResult<bool> {
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(PocError::io("audit foreign process fds", directory, error)),
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => {
+                return Err(PocError::io(
+                    "audit foreign process fd entry",
+                    directory,
+                    error,
+                ));
+            }
+        };
+        if statx_device(&entry.path())?.is_some_and(|device| device == target_device) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+#[cfg(target_os = "linux")]
+fn maps_have_writable_device(proc_root: &Path, target_device: u64) -> PocResult<bool> {
+    let maps_path = proc_root.join("maps");
+    let text = match fs::read_to_string(&maps_path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(PocError::io("audit foreign process maps", maps_path, error)),
+    };
+    for line in text.lines() {
+        let mut fields = line.split_ascii_whitespace();
+        let Some(range) = fields.next() else {
+            continue;
+        };
+        let Some(permissions) = fields.next() else {
+            continue;
+        };
+        let _offset = fields.next();
+        let _device = fields.next();
+        let inode = fields.next();
+        if !permissions.as_bytes().contains(&b'w') || inode == Some("0") {
+            continue;
+        }
+        let map_file = proc_root.join("map_files").join(range);
+        if statx_device(&map_file)?.is_some_and(|device| device == target_device) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+#[cfg(target_os = "linux")]
+fn statx_device(path: &Path) -> PocResult<Option<u64>> {
+    let path_c = CString::new(path.as_os_str().as_bytes()).map_err(|_| {
+        PocError::RecoveryRequired(format!(
+            "process audit path contains NUL: {}",
+            path.display()
+        ))
+    })?;
+    let status = match rustix::fs::statx(
+        rustix::fs::CWD,
+        path_c.as_c_str(),
+        rustix::fs::AtFlags::NO_AUTOMOUNT,
+        rustix::fs::StatxFlags::BASIC_STATS,
+    ) {
+        Ok(status) => status,
+        Err(rustix::io::Errno::NOENT) | Err(rustix::io::Errno::SRCH) => return Ok(None),
+        Err(error) => {
+            return Err(PocError::io(
+                "statx process device identity",
+                path,
+                std::io::Error::from(error),
+            ));
+        }
+    };
+    Ok(Some(rustix::fs::makedev(
+        status.stx_dev_major,
+        status.stx_dev_minor,
+    )))
+}
+
+#[cfg(target_os = "linux")]
+fn statx_mount_id(path: &Path) -> PocResult<Option<u64>> {
+    const STATX_MNT_ID_MASK: u32 = 0x0000_1000;
+    let path_c = CString::new(path.as_os_str().as_bytes()).map_err(|_| {
+        PocError::RecoveryRequired(format!(
+            "process audit path contains NUL: {}",
+            path.display()
+        ))
+    })?;
+    // Following procfs magic links is intentional: the returned mount ID
+    // belongs to the pinned kernel object, not its textual target.
+    let status = match rustix::fs::statx(
+        rustix::fs::CWD,
+        path_c.as_c_str(),
+        rustix::fs::AtFlags::NO_AUTOMOUNT,
+        rustix::fs::StatxFlags::MNT_ID,
+    ) {
+        Ok(status) => status,
+        Err(rustix::io::Errno::NOENT) | Err(rustix::io::Errno::SRCH) => return Ok(None),
+        Err(error) => {
+            return Err(PocError::io(
+                "statx process mount identity",
+                path,
+                std::io::Error::from(error),
+            ));
+        }
+    };
+    if status.stx_mask & STATX_MNT_ID_MASK == 0 {
+        return Err(PocError::Unsupported(
+            "Linux statx did not report STATX_MNT_ID for process audit".to_owned(),
+        ));
+    }
+    Ok(Some(status.stx_mnt_id))
+}
+
+#[cfg(target_os = "linux")]
+fn audit_workspace_references(
+    workspace_root: &Path,
+    cgroup_procs_path: Option<&Path>,
+    attested_cgroup: Option<&AttestedCgroupMembership>,
+    include_mount_namespaces: bool,
+) -> PocResult<ProcessAudit> {
+    let current_mount_namespace_inode = if include_mount_namespaces {
+        Some(
+            fs::metadata("/proc/self/ns/mnt")
+                .map_err(|error| {
+                    PocError::io("stat current mount namespace", "/proc/self/ns/mnt", error)
+                })?
+                .ino(),
+        )
+    } else {
+        None
+    };
+    let mut audit = ProcessAudit {
+        workspace_root: workspace_root.to_path_buf(),
+        ..ProcessAudit::default()
+    };
+    let cgroup_text = match (cgroup_procs_path, attested_cgroup) {
+        (Some(_), Some(_)) => {
+            return Err(PocError::Integrity(
+                "process audit received two cgroup membership sources".to_owned(),
+            ));
+        }
+        (Some(path), None) => Some(
+            fs::read_to_string(path)
+                .map_err(|error| PocError::io("audit session cgroup.procs", path, error))?,
+        ),
+        (None, Some(attested)) => Some(attested.read_exact()?),
+        (None, None) => None,
+    };
+    let candidates = if let Some(text) = cgroup_text {
+        let members = parse_cgroup_members(&text)?;
+        audit.cgroup_members.extend(
+            members
+                .iter()
+                .copied()
+                .filter(|pid| u32::try_from(*pid).ok() != Some(std::process::id())),
+        );
+        members
+            .into_iter()
+            .map(|pid| (pid, PathBuf::from(format!("/proc/{pid}"))))
+            .collect()
+    } else {
+        proc_candidates()?
+    };
+
+    for (pid, proc_root) in candidates {
+        if link_pins(&proc_root.join("cwd"), workspace_root)?
+            || link_pins(&proc_root.join("root"), workspace_root)?
         {
             audit.cwd_or_root_pins.push(pid);
         }
@@ -835,20 +1958,49 @@ fn audit_workspace_references(
         if maps_have_writable_pin(&proc_root.join("maps"), workspace_root)? {
             audit.writable_map_pins.push(pid);
         }
-        if include_mount_namespaces
-            && mountinfo_has_mount(&proc_root.join("mountinfo"), workspace_root)?
-        {
-            audit.mount_namespace_pins.push(pid);
+        if let Some(current_namespace_inode) = current_mount_namespace_inode {
+            if foreign_mount_namespace_has_mount(
+                &proc_root,
+                workspace_root,
+                current_namespace_inode,
+            )? {
+                audit.mount_namespace_pins.push(pid);
+            }
         }
     }
     deduplicate_audit(&mut audit);
     Ok(audit)
 }
 
+#[cfg(target_os = "linux")]
+fn foreign_mount_namespace_has_mount(
+    proc_root: &Path,
+    workspace_root: &Path,
+    current_namespace_inode: u64,
+) -> PocResult<bool> {
+    let namespace_path = proc_root.join("ns/mnt");
+    let namespace = match fs::metadata(&namespace_path) {
+        Ok(namespace) => namespace,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => {
+            return Err(PocError::io(
+                "stat process mount namespace",
+                namespace_path,
+                error,
+            ));
+        }
+    };
+    if namespace.ino() == current_namespace_inode {
+        return Ok(false);
+    }
+    mountinfo_has_mount(&proc_root.join("mountinfo"), workspace_root)
+}
+
 #[cfg(not(target_os = "linux"))]
 fn audit_workspace_references(
     workspace_root: &Path,
     _cgroup_procs_path: Option<&Path>,
+    _attested_cgroup: Option<&AttestedCgroupMembership>,
     _include_mount_namespaces: bool,
 ) -> PocResult<ProcessAudit> {
     Ok(ProcessAudit {
@@ -858,32 +2010,34 @@ fn audit_workspace_references(
 }
 
 #[cfg(target_os = "linux")]
-fn link_pins(link: PathBuf, workspace_root: &Path) -> bool {
-    fs::read_link(link)
-        .ok()
-        .is_some_and(|target| target.starts_with(workspace_root))
+fn link_pins(link: &Path, workspace_root: &Path) -> PocResult<bool> {
+    match fs::read_link(link) {
+        Ok(target) => Ok(target.starts_with(workspace_root)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(PocError::io("audit process link", link, error)),
+    }
 }
 
 #[cfg(target_os = "linux")]
 fn directory_has_pin(directory: &Path, workspace_root: &Path) -> PocResult<bool> {
     let entries = match fs::read_dir(directory) {
         Ok(entries) => entries,
-        Err(error)
-            if matches!(
-                error.kind(),
-                std::io::ErrorKind::NotFound | std::io::ErrorKind::PermissionDenied
-            ) =>
-        {
-            return Ok(false);
-        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
         Err(error) => return Err(PocError::io("audit process fds", directory, error)),
     };
-    for entry in entries.flatten() {
-        if fs::read_link(entry.path())
-            .ok()
-            .is_some_and(|target| target.starts_with(workspace_root))
-        {
-            return Ok(true);
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(PocError::io("audit process fd entry", directory, error)),
+        };
+        match fs::read_link(entry.path()) {
+            Ok(target) if target.starts_with(workspace_root) => return Ok(true),
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(PocError::io("audit process fd link", entry.path(), error));
+            }
         }
     }
     Ok(false)
@@ -893,36 +2047,62 @@ fn directory_has_pin(directory: &Path, workspace_root: &Path) -> PocResult<bool>
 fn maps_have_writable_pin(maps_path: &Path, workspace_root: &Path) -> PocResult<bool> {
     let text = match fs::read_to_string(maps_path) {
         Ok(text) => text,
-        Err(error)
-            if matches!(
-                error.kind(),
-                std::io::ErrorKind::NotFound | std::io::ErrorKind::PermissionDenied
-            ) =>
-        {
-            return Ok(false);
-        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
         Err(error) => return Err(PocError::io("audit process maps", maps_path, error)),
     };
-    Ok(text.lines().any(|line| {
-        let mut fields = line.split_whitespace();
-        let _range = fields.next();
-        let writable = fields.next().is_some_and(|perms| perms.contains('w'));
-        writable && line.contains(workspace_root.to_string_lossy().as_ref())
-    }))
+    Ok(text
+        .lines()
+        .any(|line| map_line_has_writable_pin(line, workspace_root)))
+}
+
+#[cfg(target_os = "linux")]
+#[doc(hidden)]
+pub fn map_line_has_writable_pin(line: &str, workspace_root: &Path) -> bool {
+    let Some((permissions, pathname)) = proc_maps_permissions_and_pathname(line) else {
+        return false;
+    };
+    if !permissions.as_bytes().contains(&b'w') {
+        return false;
+    }
+    let pathname = pathname.strip_suffix(" (deleted)").unwrap_or(pathname);
+    pathname.starts_with('/') && Path::new(pathname).starts_with(workspace_root)
+}
+
+#[cfg(target_os = "linux")]
+fn proc_maps_permissions_and_pathname(line: &str) -> Option<(&str, &str)> {
+    let bytes = line.as_bytes();
+    let mut cursor = 0;
+    let mut permissions = None;
+    for field_index in 0..5 {
+        while cursor < bytes.len() && bytes[cursor].is_ascii_whitespace() {
+            cursor += 1;
+        }
+        let start = cursor;
+        while cursor < bytes.len() && !bytes[cursor].is_ascii_whitespace() {
+            cursor += 1;
+        }
+        if start == cursor {
+            return None;
+        }
+        if field_index == 1 {
+            permissions = Some(&line[start..cursor]);
+        }
+    }
+    while cursor < bytes.len() && bytes[cursor].is_ascii_whitespace() {
+        cursor += 1;
+    }
+    let pathname = line.get(cursor..)?;
+    if pathname.is_empty() || pathname.starts_with('[') {
+        return None;
+    }
+    Some((permissions?, pathname))
 }
 
 #[cfg(target_os = "linux")]
 fn mountinfo_has_mount(mountinfo_path: &Path, workspace_root: &Path) -> PocResult<bool> {
     let text = match fs::read_to_string(mountinfo_path) {
         Ok(text) => text,
-        Err(error)
-            if matches!(
-                error.kind(),
-                std::io::ErrorKind::NotFound | std::io::ErrorKind::PermissionDenied
-            ) =>
-        {
-            return Ok(false);
-        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
         Err(error)
             if error.raw_os_error() == Some(libc::EINVAL)
                 && process_is_zombie_or_gone(
@@ -941,12 +2121,58 @@ fn mountinfo_has_mount(mountinfo_path: &Path, workspace_root: &Path) -> PocResul
             ));
         }
     };
-    let expected = workspace_root.to_string_lossy();
-    Ok(text.lines().any(|line| {
-        line.split_whitespace()
-            .nth(4)
-            .is_some_and(|mountpoint| mountpoint == expected)
-    }))
+    for line in text.lines() {
+        if mountinfo_line_has_mount(line, workspace_root)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+#[cfg(target_os = "linux")]
+#[doc(hidden)]
+pub fn mountinfo_line_has_mount(line: &str, workspace_root: &Path) -> PocResult<bool> {
+    let mountpoint = line.split_ascii_whitespace().nth(4).ok_or_else(|| {
+        PocError::RecoveryRequired(format!(
+            "process mountinfo line has no mountpoint field: {line:?}"
+        ))
+    })?;
+    Ok(decode_mountinfo_field(mountpoint)? == workspace_root.as_os_str().as_bytes())
+}
+
+#[cfg(target_os = "linux")]
+fn decode_mountinfo_field(field: &str) -> PocResult<Vec<u8>> {
+    let bytes = field.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut cursor = 0;
+    while cursor < bytes.len() {
+        if bytes[cursor] != b'\\' {
+            decoded.push(bytes[cursor]);
+            cursor += 1;
+            continue;
+        }
+        let escaped = bytes.get(cursor + 1..cursor + 4).ok_or_else(|| {
+            PocError::RecoveryRequired(format!(
+                "process mountinfo contains a truncated escape: {field:?}"
+            ))
+        })?;
+        if !escaped.iter().all(|byte| matches!(*byte, b'0'..=b'7')) {
+            return Err(PocError::RecoveryRequired(format!(
+                "process mountinfo contains a non-octal escape: {field:?}"
+            )));
+        }
+        let value = u16::from(escaped[0] - b'0') * 64
+            + u16::from(escaped[1] - b'0') * 8
+            + u16::from(escaped[2] - b'0');
+        if value == 0 || value > u16::from(u8::MAX) {
+            return Err(PocError::RecoveryRequired(
+                "process mountinfo contains an impossible escaped path byte".to_owned(),
+            ));
+        }
+        decoded.push(value as u8);
+        cursor += 4;
+    }
+    Ok(decoded)
 }
 
 #[cfg(target_os = "linux")]

@@ -15,7 +15,7 @@ use sandbox_runtime_mpla_poc::inventory::{
 };
 use sandbox_runtime_mpla_poc::locator::{
     ForwardLocatorEntry, LocatorDelta, LocatorExtent, LocatorStore, PayloadRootId,
-    ReverseLocatorEntry,
+    ReverseLocatorEntry, SealedLocatorStore,
 };
 use sandbox_runtime_mpla_poc::projection::select_exact;
 use sandbox_runtime_mpla_poc::publication::StationaryPublicationRequest;
@@ -24,7 +24,7 @@ use sandbox_runtime_mpla_poc::ref_store::{
 };
 use sandbox_runtime_mpla_poc::semantic::record::SemanticRecord;
 use sandbox_runtime_mpla_poc::semantic::{
-    build_incremental, capture_affected_paths, write_affected_stream_from_snapshots,
+    build_incremental, capture_affected_paths_with_maxima, write_affected_stream_from_snapshots,
     AffectedPathSnapshot, IncrementalBuildRequest,
 };
 use sandbox_runtime_mpla_poc::{
@@ -33,9 +33,10 @@ use sandbox_runtime_mpla_poc::{
     ExactProjectionReceipt, ExternalStationarySeal, FaultInjector, LocatorRefCandidate,
     MonotonicTimer, NamedFaultInjector, OperationId, PairedRefValue, PocError,
     PreparedFixtureManifest, ProjectionRecipe, PublicationId, RefSequence, RunId,
-    SemanticBuildReceipt, SemanticBuildRequest, PREPARED_FIXTURE_ALLOCATION_COUNT,
-    PREPARED_FIXTURE_CONTROL_ROOT, PREPARED_FIXTURE_PAYLOAD_ROOT, PREPARED_FIXTURE_PROFILE,
-    PREPARED_FIXTURE_RUN_ID, SCHEMA_VERSION,
+    SemanticBuildReceipt, SemanticBuildRequest, SemanticResourceMaxima,
+    PREPARED_FIXTURE_ALLOCATION_COUNT, PREPARED_FIXTURE_CONTROL_ROOT,
+    PREPARED_FIXTURE_PAYLOAD_ROOT, PREPARED_FIXTURE_PROFILE, PREPARED_FIXTURE_RUN_ID,
+    SCHEMA_VERSION,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -94,6 +95,8 @@ struct PublicationOutcome {
     #[serde(default)]
     semantic: Option<SemanticBuildReceipt>,
     #[serde(default)]
+    semantic_resource_maxima: Option<SemanticResourceMaxima>,
+    #[serde(default)]
     stationary: Option<sandbox_runtime_mpla_poc::ExternalStationaryPublicationReceipt>,
     #[serde(default)]
     affected_payload_bytes_read: u64,
@@ -122,6 +125,7 @@ struct PreparedFixtureAttachment {
 
 struct PublicationSemantic {
     receipt: SemanticBuildReceipt,
+    resource_maxima: Option<SemanticResourceMaxima>,
     affected_input_bytes: u64,
     affected_record_count: Option<u64>,
     prior_node_bytes_read: u64,
@@ -158,6 +162,20 @@ struct ActivationOperationJournal {
 enum ActivationOutcomeStore<'a> {
     Journal(&'a ActivationOperationJournal),
     Legacy(&'a LifecycleOperationLock),
+}
+
+enum ActivationOperationGuard {
+    Journal(ActivationOperationJournal),
+    Legacy(LifecycleOperationLock),
+}
+
+impl ActivationOperationGuard {
+    fn outcome_store(&self) -> ActivationOutcomeStore<'_> {
+        match self {
+            Self::Journal(journal) => ActivationOutcomeStore::Journal(journal),
+            Self::Legacy(operation_lock) => ActivationOutcomeStore::Legacy(operation_lock),
+        }
+    }
 }
 
 impl Drop for LifecycleOperationLock {
@@ -462,6 +480,7 @@ impl WorkspaceSessionService {
                 let affected_input_bytes = snapshot.semantic.bytes_read;
                 PublicationSemantic {
                     receipt: snapshot.semantic,
+                    resource_maxima: None,
                     affected_input_bytes,
                     affected_record_count: None,
                     prior_node_bytes_read: 0,
@@ -528,8 +547,9 @@ impl WorkspaceSessionService {
                         incremental_inputs,
                         affected_payload_bytes_read,
                         semantic_root_record_debug,
+                        affected_scan_resource_maxima,
                     ) = match &publication_parent {
-                        PublicationParent::Initial => (None, 0, None),
+                        PublicationParent::Initial => (None, 0, None, None),
                         PublicationParent::Incremental(parent) => {
                             self.publication_checkpoint(
                                 &operation_id,
@@ -542,7 +562,7 @@ impl WorkspaceSessionService {
                                 Vec::with_capacity(affected_paths.len().saturating_add(1));
                             semantic_affected_paths.push(PathBuf::new());
                             semantic_affected_paths.extend(affected_paths.iter().cloned());
-                            let after = capture_affected_paths(
+                            let (after, selected_scan_maxima) = capture_affected_paths_with_maxima(
                                 &binding.allocation.upper_dir,
                                 &semantic_affected_paths,
                                 &operation_lock.operation_dir.join("selected-path-scan"),
@@ -616,6 +636,7 @@ impl WorkspaceSessionService {
                                 }),
                                 after.payload_bytes_read,
                                 semantic_root_record_debug,
+                                Some(selected_scan_maxima),
                             )
                         }
                     };
@@ -626,6 +647,7 @@ impl WorkspaceSessionService {
                         incremental_inputs,
                         affected_payload_bytes_read,
                         semantic_root_record_debug,
+                        affected_scan_resource_maxima,
                     ))
                 },
             )?;
@@ -677,6 +699,7 @@ impl WorkspaceSessionService {
                 incremental_inputs,
                 affected_payload_bytes_read,
                 semantic_root_record_debug,
+                affected_scan_resource_maxima,
             ) = publication_inputs;
 
             // Cleanup completed in the same prepared helper process after
@@ -740,13 +763,20 @@ impl WorkspaceSessionService {
                                 &started,
                             );
                         });
-                        let result = build_incremental(request).map(|output| PublicationSemantic {
-                            receipt: output.receipt,
-                            affected_input_bytes: output.affected_input_bytes,
-                            affected_record_count: Some(output.affected_record_count),
-                            prior_node_bytes_read: output.prior_node_bytes_read,
-                            immutable_payload_bytes_read: output.immutable_payload_bytes_read,
-                            root_record_debug: semantic_root_record_debug.clone(),
+                        let result = build_incremental(request).map(|output| {
+                            let resource_maxima = affected_scan_resource_maxima.map_or_else(
+                                || output.resource_maxima.clone(),
+                                |phase| output.resource_maxima.with_sequential_phase(phase),
+                            );
+                            PublicationSemantic {
+                                receipt: output.receipt,
+                                resource_maxima: Some(resource_maxima),
+                                affected_input_bytes: output.affected_input_bytes,
+                                affected_record_count: Some(output.affected_record_count),
+                                prior_node_bytes_read: output.prior_node_bytes_read,
+                                immutable_payload_bytes_read: output.immutable_payload_bytes_read,
+                                root_record_debug: semantic_root_record_debug.clone(),
+                            }
                         });
                         self.obs().with_context(checkpoint_context.clone(), || {
                             self.publication_checkpoint(
@@ -968,6 +998,7 @@ impl WorkspaceSessionService {
             affected_path_count,
             roots: committed.value.roots.clone(),
             semantic: Some(semantic.receipt.clone()),
+            semantic_resource_maxima: semantic.resource_maxima.clone(),
             stationary: Some(adoption.clone()),
             affected_payload_bytes_read,
             affected_input_bytes: semantic.affected_input_bytes,
@@ -1005,6 +1036,7 @@ impl WorkspaceSessionService {
             affected_path_count,
             roots: committed.value.roots,
             semantic: Some(semantic.receipt),
+            semantic_resource_maxima: semantic.resource_maxima,
             stationary: Some(adoption),
             affected_payload_bytes_read,
             affected_input_bytes: semantic.affected_input_bytes,
@@ -1107,18 +1139,19 @@ impl WorkspaceSessionService {
             .map_err(|error| lifecycle_error(format!("resolve MPLA branch {branch}: {error}")))?
             .ok_or_else(|| lifecycle_error(format!("MPLA branch {branch} does not exist")))?;
         let admission_elapsed_ns = elapsed_ns(started);
-        let (handler, idempotent_replay, projection, mut timings) = self.activate_mpla_under_lock(
-            &roots.payload_root,
-            &run_root(&roots.control_root, &run_id),
-            &outcome_store,
-            "activate",
-            &run_id,
-            branch,
-            sandbox_id,
-            &operation_id,
-            &selected.value,
-            &locator_store,
-        )?;
+        let (handler, idempotent_replay, projection, mut timings, _storage_admin_scope) = self
+            .activate_mpla_under_lock(
+                &roots.payload_root,
+                &run_root(&roots.control_root, &run_id),
+                &outcome_store,
+                "activate",
+                &run_id,
+                branch,
+                sandbox_id,
+                &operation_id,
+                &selected.value,
+                &locator_store,
+            )?;
         let fresh_allocation_id = self.mpla_fresh_allocation_id(&handler.workspace_session_id)?;
         let elapsed = elapsed_ns(started);
         timings.admission_elapsed_ns = admission_elapsed_ns;
@@ -1276,14 +1309,14 @@ impl WorkspaceSessionService {
             .join("runs")
             .join(PREPARED_FIXTURE_RUN_ID);
         require_prepared_fixture_cache_layout(&cache_run_root)?;
-        let cache_locator_store =
-            LocatorStore::open(cache_run_root.join("locators")).map_err(|error| {
+        let cache_locator_store = SealedLocatorStore::open(cache_run_root.join("locators"))
+            .map_err(|error| {
                 lifecycle_error(format!("open prepared fixture locator store: {error}"))
             })?;
-        let cache_ref_store =
-            PairedRefStore::open(cache_run_root.join("refs")).map_err(|error| {
-                lifecycle_error(format!("open prepared fixture ref store: {error}"))
-            })?;
+        let cache_ref_store = sandbox_runtime_mpla_poc::ref_store::SealedPairedRefStore::open(
+            cache_run_root.join("refs"),
+        )
+        .map_err(|error| lifecycle_error(format!("open prepared fixture ref store: {error}")))?;
 
         std::fs::create_dir_all(&local_run_root).map_err(|error| {
             lifecycle_error(format!("create local prepared-fixture run root: {error}"))
@@ -1495,18 +1528,38 @@ impl WorkspaceSessionService {
         operation_id: OperationId,
     ) -> Result<RollbackMplaWorkspaceSessionResult, WorkspaceSessionError> {
         let roots = self.mpla_roots()?;
-        let operation_lock =
-            lock_lifecycle_operation(&roots.control_root, &operation_id).map_err(|reason| {
-                lifecycle_error(format!("acquire rollback operation lock: {reason}"))
-            })?;
-        ensure_lifecycle_identity(
-            &operation_lock,
-            &operation_id,
-            "rollback",
-            &run_id,
-            branch,
-            Some(target_branch),
-        )?;
+        let operation_guard =
+            if legacy_lifecycle_operation_exists(&roots.control_root, &operation_id).map_err(
+                |reason| lifecycle_error(format!("inspect legacy rollback operation: {reason}")),
+            )? {
+                let operation_lock = lock_lifecycle_operation(&roots.control_root, &operation_id)
+                    .map_err(|reason| {
+                    lifecycle_error(format!("acquire legacy rollback operation lock: {reason}"))
+                })?;
+                ensure_lifecycle_identity(
+                    &operation_lock,
+                    &operation_id,
+                    "rollback",
+                    &run_id,
+                    branch,
+                    Some(target_branch),
+                )?;
+                ActivationOperationGuard::Legacy(operation_lock)
+            } else {
+                ActivationOperationGuard::Journal(
+                    lock_activation_operation(
+                        &roots.control_root,
+                        &operation_id,
+                        "rollback",
+                        &run_id,
+                        branch,
+                        Some(target_branch),
+                    )
+                    .map_err(|reason| {
+                        lifecycle_error(format!("acquire rollback activation journal: {reason}"))
+                    })?,
+                )
+            };
         // The public caller owns the outer rollback-to-ready clock.  This
         // service subspan is deliberately the logical ref-selection service
         // only; activation remains inside the caller's outer interval.
@@ -1516,52 +1569,30 @@ impl WorkspaceSessionService {
             .map_err(|error| lifecycle_error(format!("open MPLA locator store: {error}")))?;
         let ref_store = PairedRefStore::open(run_root.join("refs"))
             .map_err(|error| lifecycle_error(format!("open MPLA ref store: {error}")))?;
-        let selector_receipt = if let Some(receipt) = ref_store
-            .recover_committed(branch, operation_id.as_str(), &locator_store)
-            .map_err(|error| lifecycle_error(format!("recover MPLA rollback: {error}")))?
-        {
-            receipt
-        } else {
-            let target = ref_store
-                .read_resolved(target_branch, &locator_store)
-                .map_err(|error| {
-                    lifecycle_error(format!(
-                        "resolve MPLA target branch {target_branch}: {error}"
-                    ))
-                })?
-                .ok_or_else(|| {
-                    lifecycle_error(format!("MPLA target branch {target_branch} does not exist"))
-                })?;
-            let current = ref_store
-                .read(branch)
-                .map_err(|error| {
-                    lifecycle_error(format!("read MPLA rollback branch {branch}: {error}"))
-                })?
-                .ok_or_else(|| lifecycle_error(format!("MPLA branch {branch} does not exist")))?;
-            commit_ref(
-                &ref_store,
-                &locator_store,
+        let selector_receipt = ref_store
+            .rollback_to_branch(
                 branch,
+                target_branch,
                 &operation_id,
-                &target,
-                current.sequence,
-                true,
-            )?
-        };
+                &locator_store,
+                &mut NamedFaultInjector::default(),
+            )
+            .map_err(|error| lifecycle_error(format!("commit MPLA rollback: {error}")))?;
         let selector_elapsed = elapsed_ns(selector_started);
-        let outcome_store = ActivationOutcomeStore::Legacy(&operation_lock);
-        let (handler, activation_replay, projection, _) = self.activate_mpla_under_lock(
-            &roots.payload_root,
-            &run_root,
-            &outcome_store,
-            "rollback",
-            &run_id,
-            branch,
-            sandbox_id,
-            &operation_id,
-            &selector_receipt.value,
-            &locator_store,
-        )?;
+        let outcome_store = operation_guard.outcome_store();
+        let (handler, activation_replay, projection, timings, storage_admin_scope) = self
+            .activate_mpla_under_lock(
+                &roots.payload_root,
+                &run_root,
+                &outcome_store,
+                "rollback",
+                &run_id,
+                branch,
+                sandbox_id,
+                &operation_id,
+                &selector_receipt.value,
+                &locator_store,
+            )?;
         let fresh_allocation_id = self.mpla_fresh_allocation_id(&handler.workspace_session_id)?;
         Ok(RollbackMplaWorkspaceSessionResult {
             workspace_session_id: handler.workspace_session_id,
@@ -1570,6 +1601,7 @@ impl WorkspaceSessionService {
             branch: branch.to_owned(),
             target_branch: target_branch.to_owned(),
             projection,
+            timings,
             lifecycle: lifecycle_receipt(
                 &operation_id,
                 branch,
@@ -1578,6 +1610,7 @@ impl WorkspaceSessionService {
                 selector_elapsed,
             ),
             service_elapsed_ns: selector_elapsed,
+            storage_admin_scope,
         })
     }
 
@@ -1608,32 +1641,20 @@ impl WorkspaceSessionService {
             .map_err(|error| lifecycle_error(format!("open MPLA locator store: {error}")))?;
         let ref_store = PairedRefStore::open(run_root.join("refs"))
             .map_err(|error| lifecycle_error(format!("open MPLA ref store: {error}")))?;
-        let receipt = if let Some(receipt) = ref_store
-            .recover_committed(branch, operation_id.as_str(), &locator_store)
-            .map_err(|error| lifecycle_error(format!("recover MPLA squash: {error}")))?
-        {
-            receipt
-        } else {
-            let current = ref_store
-                .read_resolved(branch, &locator_store)
-                .map_err(|error| {
-                    lifecycle_error(format!("resolve MPLA branch {branch} for squash: {error}"))
-                })?
-                .ok_or_else(|| lifecycle_error(format!("MPLA branch {branch} does not exist")))?;
-            commit_ref(
-                &ref_store,
-                &locator_store,
+        let receipt = ref_store
+            .squash_branch(
                 branch,
                 &operation_id,
-                &current,
-                current.value.sequence,
-                false,
-            )?
-        };
+                &locator_store,
+                &mut NamedFaultInjector::default(),
+            )
+            .map_err(|error| lifecycle_error(format!("commit MPLA squash: {error}")))?;
         let selector_elapsed = elapsed_ns(selector_started);
         Ok(SquashMplaBranchResult {
             run_id: run_id.as_str().to_owned(),
             branch: branch.to_owned(),
+            roots: receipt.value.roots.clone(),
+            ref_sequence: receipt.value.sequence.get(),
             lifecycle: lifecycle_receipt(
                 &operation_id,
                 branch,
@@ -1664,6 +1685,7 @@ impl WorkspaceSessionService {
             bool,
             ExactProjectionReceipt,
             MplaActivationTimings,
+            sandbox_runtime_mpla_poc::StorageAdminScope,
         ),
         WorkspaceSessionError,
     > {
@@ -1692,6 +1714,8 @@ impl WorkspaceSessionService {
                 .map_err(|error| {
                     lifecycle_error(format!("select exact MPLA projection: {error}"))
                 })?;
+            let storage_admin_scope =
+                self.mpla_storage_scope(&handler.workspace_session_id, sandbox_id)?;
             return Ok((
                 handler,
                 true,
@@ -1700,6 +1724,7 @@ impl WorkspaceSessionService {
                     projection_elapsed_ns: elapsed_ns(activation_started),
                     ..MplaActivationTimings::default()
                 },
+                storage_admin_scope,
             ));
         }
 
@@ -1707,18 +1732,21 @@ impl WorkspaceSessionService {
             self.find_mpla_session_by_operation(operation_id, run_id, selected)?
         {
             let mount_started = Instant::now();
-            if phase == MplaStoragePhase::Prepared {
+            let storage_admin_scope = if phase == MplaStoragePhase::Prepared {
                 self.mount_mpla_workspace_session(
                     &handler.workspace_session_id,
                     sandbox_id,
                     operation_id,
-                )?;
+                )?
+                .scope
             } else if phase != MplaStoragePhase::Mounted {
                 return Err(lifecycle_error(format!(
                     "activation recovery found MPLA session in phase {}",
                     phase.as_str()
                 )));
-            }
+            } else {
+                self.mpla_storage_scope(&handler.workspace_session_id, sandbox_id)?
+            };
             let storage_mount_elapsed_ns = elapsed_ns(mount_started);
             let outcome_started = Instant::now();
             outcome_store.persist(activation_outcome(
@@ -1746,6 +1774,7 @@ impl WorkspaceSessionService {
                     outcome_persist_elapsed_ns,
                     ..MplaActivationTimings::default()
                 },
+                storage_admin_scope,
             ));
         }
 
@@ -1802,7 +1831,9 @@ impl WorkspaceSessionService {
         )?;
         let session_create_elapsed_ns = elapsed_ns(session_create_started);
         let storage_mount_started = Instant::now();
-        self.mount_mpla_workspace_session(&handler.workspace_session_id, sandbox_id, operation_id)?;
+        let storage_admin_scope = self
+            .mount_mpla_workspace_session(&handler.workspace_session_id, sandbox_id, operation_id)?
+            .scope;
         let storage_mount_elapsed_ns = elapsed_ns(storage_mount_started);
         let outcome_persist_started = Instant::now();
         outcome_store.persist(activation_outcome(
@@ -1837,6 +1868,7 @@ impl WorkspaceSessionService {
                 outcome_persist_elapsed_ns,
                 ..MplaActivationTimings::default()
             },
+            storage_admin_scope,
         ))
     }
 
@@ -2070,6 +2102,7 @@ fn replay_publication_outcome(
         affected_path_count: outcome.affected_path_count,
         roots: outcome.roots,
         semantic: outcome.semantic,
+        semantic_resource_maxima: outcome.semantic_resource_maxima,
         stationary: outcome.stationary,
         affected_payload_bytes_read: outcome.affected_payload_bytes_read,
         affected_input_bytes: outcome.affected_input_bytes,
@@ -2542,6 +2575,25 @@ fn lock_lifecycle_operation(
         operation_dir,
         file,
     })
+}
+
+fn legacy_lifecycle_operation_exists(
+    control_root: &Path,
+    operation_id: &OperationId,
+) -> Result<bool, String> {
+    validate_path_component(operation_id.as_str(), "operation ID")?;
+    let operation_dir = control_root
+        .join("runtime-lifecycle")
+        .join("operations")
+        .join(operation_id.as_str());
+    match std::fs::symlink_metadata(&operation_dir) {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+            Err("legacy lifecycle operation path is not a real directory".to_owned())
+        }
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(format!("stat legacy lifecycle operation path: {error}")),
+    }
 }
 
 fn lock_activation_operation(

@@ -1,6 +1,8 @@
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "linux")]
+use std::time::Duration;
 
 use sandbox_runtime_mpla_poc::allocation::{
     create_allocation, destroy_workspace_allocation, open_allocation,
@@ -134,6 +136,7 @@ fn lease_replay_is_idempotent_and_other_issuers_conflict() {
     ));
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn only_the_current_workspace_deleter_can_destroy_an_allocation() {
     let root = TestRoot::new();
@@ -141,6 +144,11 @@ fn only_the_current_workspace_deleter_can_destroy_an_allocation() {
     let allocation = create_allocation(&arena, &OperationId::new()).expect("allocate");
     let lease = issue_workspace_lease(&allocation, SessionId::new(), &OperationId::new())
         .expect("workspace lease");
+    let prefix = allocation
+        .allocation_root
+        .parent()
+        .expect("allocation prefix")
+        .to_path_buf();
     std::fs::write(allocation.upper_dir.join("payload"), b"delete me").expect("write payload");
 
     let mut forged = lease.deleter.clone();
@@ -154,8 +162,10 @@ fn only_the_current_workspace_deleter_can_destroy_an_allocation() {
     destroy_workspace_allocation(&arena, &allocation.descriptor.allocation_id, &lease.deleter)
         .expect("authorized destroy");
     assert!(!allocation.allocation_root.exists());
+    assert!(prefix.is_dir());
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn payload_owned_allocation_cannot_be_destroyed_by_the_stale_workspace_deleter() {
     let fixture = Fixture::new();
@@ -171,6 +181,149 @@ fn payload_owned_allocation_cannot_be_destroyed_by_the_stale_workspace_deleter()
         Err(PocError::StaleCapability { .. })
     ));
     assert!(fixture.allocation.allocation_root.exists());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn allocation_deletion_unlinks_payload_symlinks_without_following_them() {
+    use std::os::unix::fs::symlink;
+
+    let root = TestRoot::new();
+    let arena = root.path.join("arena");
+    let allocation = create_allocation(&arena, &OperationId::new()).expect("allocate");
+    let lease = issue_workspace_lease(&allocation, SessionId::new(), &OperationId::new())
+        .expect("workspace lease");
+    let outside = root.path.join("outside");
+    std::fs::create_dir(&outside).expect("create outside directory");
+    let sentinel = outside.join("sentinel");
+    std::fs::write(&sentinel, b"preserve").expect("write outside sentinel");
+    symlink(&outside, allocation.upper_dir.join("outside-link")).expect("install payload symlink");
+
+    destroy_workspace_allocation(&arena, &allocation.descriptor.allocation_id, &lease.deleter)
+        .expect("destroy allocation containing symlink");
+
+    assert!(!allocation.allocation_root.exists());
+    assert_eq!(
+        std::fs::read(&sentinel).expect("read outside sentinel"),
+        b"preserve"
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn allocation_deletion_rejects_a_replacement_installed_while_owner_lock_waits() {
+    let root = TestRoot::new();
+    let arena = root.path.join("arena");
+    let allocation = create_allocation(&arena, &OperationId::new()).expect("allocate");
+    let lease = issue_workspace_lease(&allocation, SessionId::new(), &OperationId::new())
+        .expect("workspace lease");
+    let original_payload = allocation.upper_dir.join("original");
+    std::fs::write(&original_payload, b"original").expect("write original payload");
+    let owner_lock = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(allocation.owner_dir.join("LOCK"))
+        .expect("open owner lock");
+    rustix::fs::flock(&owner_lock, rustix::fs::FlockOperation::LockExclusive)
+        .expect("hold owner lock");
+
+    let (tid_sender, tid_receiver) = std::sync::mpsc::channel();
+    let deletion_arena = arena.clone();
+    let deletion_id = allocation.descriptor.allocation_id.clone();
+    let deleter = lease.deleter.clone();
+    let deletion_thread = std::thread::spawn(move || {
+        tid_sender
+            .send(rustix::thread::gettid().as_raw_nonzero().get())
+            .expect("publish deletion thread ID");
+        destroy_workspace_allocation(&deletion_arena, &deletion_id, &deleter)
+    });
+    let deletion_tid = tid_receiver
+        .recv_timeout(Duration::from_secs(1))
+        .expect("receive deletion thread ID");
+    let blocked = wait_for_lock_wait(deletion_tid);
+    let parked = allocation
+        .allocation_root
+        .with_file_name(format!("{}-parked", allocation.descriptor.allocation_id));
+    if blocked {
+        std::fs::rename(&allocation.allocation_root, &parked).expect("park pinned allocation");
+        std::fs::create_dir(&allocation.allocation_root).expect("create replacement allocation");
+        std::fs::write(
+            allocation.allocation_root.join("replacement"),
+            b"replacement",
+        )
+        .expect("write replacement sentinel");
+    }
+    rustix::fs::flock(&owner_lock, rustix::fs::FlockOperation::Unlock).expect("release owner lock");
+    drop(owner_lock);
+    let result = deletion_thread.join().expect("join deletion thread");
+
+    assert!(
+        blocked,
+        "deletion did not reach the controlled owner-lock wait"
+    );
+    assert!(matches!(result, Err(PocError::RecoveryRequired(_))));
+    assert_eq!(
+        std::fs::read(parked.join("upper/original")).expect("read parked original"),
+        b"original"
+    );
+    assert_eq!(
+        std::fs::read(allocation.allocation_root.join("replacement"))
+            .expect("read replacement sentinel"),
+        b"replacement"
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn allocation_deletion_rejects_a_live_aliased_directory_descriptor() {
+    use std::os::unix::fs::symlink;
+
+    let root = TestRoot::new();
+    let arena = root.path.join("arena");
+    let allocation = create_allocation(&arena, &OperationId::new()).expect("allocate");
+    let lease = issue_workspace_lease(&allocation, SessionId::new(), &OperationId::new())
+        .expect("workspace lease");
+    let alias = root.path.join("upper-alias");
+    symlink(&allocation.upper_dir, &alias).expect("create upper alias");
+    let live_upper = File::open(&alias).expect("open aliased upper directory");
+
+    assert!(matches!(
+        destroy_workspace_allocation(&arena, &allocation.descriptor.allocation_id, &lease.deleter,),
+        Err(PocError::OwnerConflict(_))
+    ));
+    assert!(allocation.allocation_root.is_dir());
+
+    drop(live_upper);
+    destroy_workspace_allocation(&arena, &allocation.descriptor.allocation_id, &lease.deleter)
+        .expect("destroy after aliased descriptor closes");
+    assert!(!allocation.allocation_root.exists());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn allocation_deletion_rejects_a_live_payload_file_descriptor() {
+    let root = TestRoot::new();
+    let arena = root.path.join("arena");
+    let allocation = create_allocation(&arena, &OperationId::new()).expect("allocate");
+    let lease = issue_workspace_lease(&allocation, SessionId::new(), &OperationId::new())
+        .expect("workspace lease");
+    let payload = allocation.upper_dir.join("payload");
+    std::fs::write(&payload, b"live").expect("write payload");
+    let live_payload = File::open(&payload).expect("open payload");
+
+    assert!(matches!(
+        destroy_workspace_allocation(&arena, &allocation.descriptor.allocation_id, &lease.deleter,),
+        Err(PocError::OwnerConflict(_))
+    ));
+    assert_eq!(
+        std::fs::read(&payload).expect("read restored payload"),
+        b"live"
+    );
+
+    drop(live_payload);
+    destroy_workspace_allocation(&arena, &allocation.descriptor.allocation_id, &lease.deleter)
+        .expect("destroy after payload descriptor closes");
+    assert!(!allocation.allocation_root.exists());
 }
 
 #[test]
@@ -556,5 +709,21 @@ fn assert_journal_record_shape(record: &Value) {
         "checksum_crc32c",
     ] {
         assert!(record.get(field).is_some(), "missing journal field {field}");
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn wait_for_lock_wait(tid: i32) -> bool {
+    let wchan_path = PathBuf::from(format!("/proc/self/task/{tid}/wchan"));
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        let wchan = std::fs::read_to_string(&wchan_path).unwrap_or_default();
+        if wchan.contains("lock") && wchan.contains("wait") {
+            return true;
+        }
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(1));
     }
 }

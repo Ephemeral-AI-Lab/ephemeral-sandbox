@@ -52,7 +52,7 @@ manager:
     sandbox_owned_workspace_volumes: false
     materialize_shared_base_into_persistent_volume: true
     persistent_volume_mounts:
-      - name: eos-mpla-prepared-s4-phase-profile-sparse-v1
+      - name: eos-mpla-prepared-s4-phase-profile-sparse-v1-ref-v3
         target: /eos/mpla-fixtures
         readonly: false
     resource_profiles:

@@ -115,6 +115,18 @@ pub struct LocatorStore {
     generation_cache: GenerationCache,
 }
 
+#[derive(Clone)]
+pub struct SealedLocatorStore {
+    root: PathBuf,
+    state: Arc<SealedLocatorState>,
+    _lock: Arc<FileLock>,
+}
+
+struct SealedLocatorState {
+    selected_generation: LocatorGeneration,
+    generations: BTreeMap<LocatorGeneration, SelectedLocatorGeneration>,
+}
+
 static GENERATION_CACHES: OnceLock<Mutex<BTreeMap<PathBuf, GenerationCache>>> = OnceLock::new();
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -203,6 +215,41 @@ impl LocatorStore {
     pub fn selected(&self) -> PocResult<Option<SelectedLocatorGeneration>> {
         let _lock = FileLock::shared(&self.lock_path())?;
         self.selected_locked()
+    }
+
+    pub(crate) fn with_selected<T>(
+        &self,
+        callback: impl FnOnce(Option<&SelectedLocatorGeneration>) -> PocResult<T>,
+    ) -> PocResult<T> {
+        let _lock = FileLock::shared(&self.lock_path())?;
+        let selected = self.selected_locked()?;
+        callback(selected.as_ref())
+    }
+
+    pub(crate) fn with_selected_validating_generation<T>(
+        &self,
+        receipt: &LocatorDurabilityReceipt,
+        callback: impl FnOnce(Option<&SelectedLocatorGeneration>) -> PocResult<T>,
+    ) -> PocResult<T> {
+        if !receipt.forward_durable
+            || !receipt.reverse_durable
+            || !receipt.manifest_durable
+            || !receipt.selector_parent_synced
+        {
+            return Err(PocError::Integrity(
+                "locator durability receipt is incomplete".to_owned(),
+            ));
+        }
+        let _lock = FileLock::shared(&self.lock_path())?;
+        let generation = self.load_generation(receipt.generation)?;
+        if generation.receipt != *receipt {
+            return Err(PocError::RecoveryRequired(format!(
+                "locator generation {} durability receipt mismatch",
+                receipt.generation
+            )));
+        }
+        let selected = self.selected_locked()?;
+        callback(selected.as_ref())
     }
 
     pub fn resolve(&self, payload_root: &PayloadRootId) -> PocResult<Option<ForwardLocatorEntry>> {
@@ -526,19 +573,7 @@ impl LocatorStore {
         {
             return Ok(selected);
         }
-        let generation_dir = self.generation_dir(generation);
-        let forward: ForwardFile = read_json(&generation_dir.join("forward.json"))?;
-        let reverse: ReverseFile = read_json(&generation_dir.join("reverse.json"))?;
-        let manifest: GenerationManifest = read_json(&generation_dir.join("MANIFEST.json"))?;
-        validate_generation_files(&forward, &reverse, &manifest)?;
-        let selected = SelectedLocatorGeneration {
-            receipt: receipt_from_manifest(&manifest, true),
-            parent: manifest.parent,
-            operation_id: manifest.operation_id,
-            publication_id: manifest.publication_id,
-            forward: forward.entries,
-            reverse: reverse.entries,
-        };
+        let selected = load_generation_uncached(&self.root, generation)?;
         self.generation_cache
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -609,6 +644,301 @@ impl LocatorStore {
     fn lock_path(&self) -> PathBuf {
         self.root.join("LOCK")
     }
+}
+
+impl SealedLocatorStore {
+    pub fn open(root: impl Into<PathBuf>) -> PocResult<Self> {
+        let root = root.into();
+        require_real_directory(&root, "sealed locator root")?;
+        let root = std::fs::canonicalize(&root)
+            .map_err(|source| PocError::io("canonicalize sealed locator root", &root, source))?;
+        require_real_directory(&root, "sealed locator root")?;
+        let lock_path = root.join("LOCK");
+        require_real_file(&lock_path, "sealed locator lock")?;
+        let lock = Arc::new(FileLock::try_shared(&lock_path)?);
+        require_canonical_root(&root)?;
+        let inventory = validate_sealed_locator_inventory(&root)?;
+        let selector: LocatorSelector = read_json(&root.join("CURRENT"))?;
+        if selector.schema_version != SCHEMA_VERSION {
+            return Err(PocError::Integrity(format!(
+                "unsupported sealed locator selector schema {}",
+                selector.schema_version
+            )));
+        }
+        validate_selector(&selector)?;
+
+        let mut generations = BTreeMap::new();
+        let mut generation = selector.generation;
+        loop {
+            if generations.contains_key(&generation) {
+                return Err(PocError::Integrity(
+                    "sealed locator generation parent chain contains a cycle".to_owned(),
+                ));
+            }
+            let selected = load_generation_uncached(&root, generation)?;
+            if selected.receipt.generation != generation {
+                return Err(PocError::RecoveryRequired(format!(
+                    "sealed locator directory {generation} contains generation {}",
+                    selected.receipt.generation
+                )));
+            }
+            let parent = selected.parent;
+            generations.insert(generation, selected);
+            match expected_parent(generation)? {
+                Some(expected) if parent == Some(expected) => generation = expected,
+                Some(expected) => {
+                    return Err(PocError::RecoveryRequired(format!(
+                        "sealed locator generation {generation} does not select parent {expected}"
+                    )));
+                }
+                None if parent.is_none() => break,
+                None => {
+                    return Err(PocError::RecoveryRequired(
+                        "sealed initial locator generation has a parent".to_owned(),
+                    ));
+                }
+            }
+        }
+
+        let selected = generations.get(&selector.generation).ok_or_else(|| {
+            PocError::Integrity("sealed locator selector generation is absent".to_owned())
+        })?;
+        if selector.operation_id != selected.operation_id
+            || selector.publication_id != selected.publication_id
+            || selector.generation_manifest_sha256 != selected.receipt.generation_manifest_sha256
+        {
+            return Err(PocError::RecoveryRequired(
+                "sealed locator selector disagrees with its generation manifest".to_owned(),
+            ));
+        }
+        let lineage = generations.keys().copied().collect();
+        if inventory != lineage {
+            return Err(PocError::Integrity(
+                "sealed locator generations do not exactly match the selected lineage".to_owned(),
+            ));
+        }
+
+        Ok(Self {
+            root,
+            state: Arc::new(SealedLocatorState {
+                selected_generation: selector.generation,
+                generations,
+            }),
+            _lock: lock,
+        })
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn resolve(&self, payload_root: &PayloadRootId) -> PocResult<Option<ForwardLocatorEntry>> {
+        let selected = self
+            .state
+            .generations
+            .get(&self.state.selected_generation)
+            .ok_or_else(|| {
+                PocError::Integrity("sealed locator snapshot has no selected generation".to_owned())
+            })?;
+        Ok(selected
+            .forward
+            .iter()
+            .find(|entry| &entry.payload_root == payload_root)
+            .cloned())
+    }
+
+    pub(crate) fn validate_generation_receipt(
+        &self,
+        receipt: &LocatorDurabilityReceipt,
+    ) -> PocResult<()> {
+        if !receipt.forward_durable
+            || !receipt.reverse_durable
+            || !receipt.manifest_durable
+            || !receipt.selector_parent_synced
+        {
+            return Err(PocError::Integrity(
+                "locator durability receipt is incomplete".to_owned(),
+            ));
+        }
+        let generation = self
+            .state
+            .generations
+            .get(&receipt.generation)
+            .ok_or_else(|| {
+                PocError::RecoveryRequired(format!(
+                    "locator generation {} is outside the sealed lineage",
+                    receipt.generation
+                ))
+            })?;
+        if generation.receipt != *receipt {
+            return Err(PocError::RecoveryRequired(format!(
+                "locator generation {} durability receipt mismatch",
+                receipt.generation
+            )));
+        }
+        Ok(())
+    }
+}
+
+fn load_generation_uncached(
+    root: &Path,
+    generation: LocatorGeneration,
+) -> PocResult<SelectedLocatorGeneration> {
+    let generation_dir = generation_dir(root, generation);
+    let forward: ForwardFile = read_json(&generation_dir.join("forward.json"))?;
+    let reverse: ReverseFile = read_json(&generation_dir.join("reverse.json"))?;
+    let manifest: GenerationManifest = read_json(&generation_dir.join("MANIFEST.json"))?;
+    validate_generation_files(&forward, &reverse, &manifest)?;
+    Ok(SelectedLocatorGeneration {
+        receipt: receipt_from_manifest(&manifest, true),
+        parent: manifest.parent,
+        operation_id: manifest.operation_id,
+        publication_id: manifest.publication_id,
+        forward: forward.entries,
+        reverse: reverse.entries,
+    })
+}
+
+fn generation_dir(root: &Path, generation: LocatorGeneration) -> PathBuf {
+    root.join("generations")
+        .join(format!("{:020}", generation.get()))
+}
+
+fn require_canonical_root(root: &Path) -> PocResult<()> {
+    require_real_directory(root, "sealed locator root")?;
+    let observed = std::fs::canonicalize(root)
+        .map_err(|source| PocError::io("revalidate sealed locator root", root, source))?;
+    if observed != root {
+        return Err(PocError::Integrity(format!(
+            "sealed locator root is not canonical: {}",
+            root.display()
+        )));
+    }
+    Ok(())
+}
+
+fn validate_sealed_locator_inventory(root: &Path) -> PocResult<BTreeSet<LocatorGeneration>> {
+    require_exact_inventory(root, &["CURRENT", "LOCK", "generations"])?;
+    require_real_file(&root.join("CURRENT"), "sealed locator selector")?;
+    require_real_file(&root.join("LOCK"), "sealed locator lock")?;
+    let generations_dir = root.join("generations");
+    require_real_directory(&generations_dir, "sealed locator generations directory")?;
+
+    let mut generations = BTreeSet::new();
+    for entry in std::fs::read_dir(&generations_dir).map_err(|source| {
+        PocError::io(
+            "enumerate sealed locator generations",
+            &generations_dir,
+            source,
+        )
+    })? {
+        let entry = entry.map_err(|source| {
+            PocError::io(
+                "enumerate sealed locator generation entry",
+                &generations_dir,
+                source,
+            )
+        })?;
+        let name = entry.file_name().into_string().map_err(|_| {
+            PocError::Integrity("sealed locator generation name is not valid Unicode".to_owned())
+        })?;
+        let value = name.parse::<u64>().map_err(|_| {
+            PocError::Integrity(format!(
+                "sealed locator contains unknown generation entry {name}"
+            ))
+        })?;
+        let generation = LocatorGeneration::new(value)?;
+        if name != format!("{:020}", generation.get()) {
+            return Err(PocError::Integrity(format!(
+                "sealed locator generation name is not canonical: {name}"
+            )));
+        }
+        let path = generations_dir.join(&name);
+        require_real_directory(&path, "sealed locator generation")?;
+        require_exact_inventory(&path, &["MANIFEST.json", "forward.json", "reverse.json"])?;
+        require_real_file(
+            &path.join("MANIFEST.json"),
+            "sealed locator generation manifest",
+        )?;
+        require_real_file(&path.join("forward.json"), "sealed locator forward file")?;
+        require_real_file(&path.join("reverse.json"), "sealed locator reverse file")?;
+        if !generations.insert(generation) {
+            return Err(PocError::Integrity(format!(
+                "sealed locator generation {generation} is duplicated"
+            )));
+        }
+    }
+    if generations.is_empty() {
+        return Err(PocError::Integrity(
+            "sealed locator contains no generations".to_owned(),
+        ));
+    }
+    Ok(generations)
+}
+
+fn require_exact_inventory(path: &Path, expected: &[&str]) -> PocResult<()> {
+    let mut observed = Vec::new();
+    for entry in std::fs::read_dir(path)
+        .map_err(|source| PocError::io("enumerate sealed locator directory", path, source))?
+    {
+        let entry = entry
+            .map_err(|source| PocError::io("read sealed locator directory entry", path, source))?;
+        observed.push(entry.file_name().into_string().map_err(|_| {
+            PocError::Integrity(format!(
+                "sealed locator directory contains a non-Unicode entry: {}",
+                path.display()
+            ))
+        })?);
+    }
+    observed.sort();
+    let mut expected = expected
+        .iter()
+        .map(|name| (*name).to_owned())
+        .collect::<Vec<_>>();
+    expected.sort();
+    if observed != expected {
+        return Err(PocError::Integrity(format!(
+            "sealed locator directory has an unexpected exact inventory: {}",
+            path.display()
+        )));
+    }
+    Ok(())
+}
+
+fn expected_parent(generation: LocatorGeneration) -> PocResult<Option<LocatorGeneration>> {
+    if generation == LocatorGeneration::INITIAL {
+        Ok(None)
+    } else {
+        generation
+            .get()
+            .checked_sub(1)
+            .map(LocatorGeneration::new)
+            .transpose()
+    }
+}
+
+fn require_real_directory(path: &Path, label: &str) -> PocResult<()> {
+    let metadata = std::fs::symlink_metadata(path)
+        .map_err(|source| PocError::io("stat existing locator layout", path, source))?;
+    if !metadata.file_type().is_dir() {
+        return Err(PocError::Integrity(format!(
+            "{label} is not a real directory: {}",
+            path.display()
+        )));
+    }
+    Ok(())
+}
+
+fn require_real_file(path: &Path, label: &str) -> PocResult<()> {
+    let metadata = std::fs::symlink_metadata(path)
+        .map_err(|source| PocError::io("stat existing locator layout", path, source))?;
+    if !metadata.file_type().is_file() {
+        return Err(PocError::Integrity(format!(
+            "{label} is not a regular file: {}",
+            path.display()
+        )));
+    }
+    Ok(())
 }
 
 fn validate_delta(delta: &LocatorDelta) -> PocResult<()> {

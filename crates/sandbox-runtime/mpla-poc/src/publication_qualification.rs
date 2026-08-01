@@ -9,6 +9,8 @@ use crate::{
 pub const REQUIRED_PUBLICATION_NS: u64 = 100_000_000;
 pub const PREFERRED_PUBLICATION_NS: u64 = 20_000_000;
 pub const MATCHED_PUBLICATION_TIMING_BASIS: &str = "matched_publication.span.elapsed_ns";
+pub const MATCHED_CONTROL_IMPLEMENTATION: &str = "current_i2_public_workspace_session";
+pub const MATCHED_CONTROL_OPERATION: &str = "publish_workspace_session";
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct MatchedPublicationReceipt {
@@ -122,17 +124,26 @@ pub fn validate_candidate_matched_boundary(receipt: &MatchedPublicationReceipt) 
 }
 
 pub fn validate_matched_control_boundary(control: &ControlOperationReceipt) -> PocResult<()> {
-    if control.intent != ControlIntent::ClosingPublication
+    if control.implementation != MATCHED_CONTROL_IMPLEMENTATION
+        || control.intent != ControlIntent::ClosingPublication
+        || control.coverage.classification
+            != crate::ControlApiCoverage::PublicIntentProgrammaticCurrentI2
+        || control.coverage.product_operation != MATCHED_CONTROL_OPERATION
+        || !control.coverage.product_operation_present
+        || control.coverage.direct_control_api != MATCHED_CONTROL_OPERATION
         || control.verdict != ControlVerdict::Matched
         || control.boundary.verdict()? != ControlVerdict::Matched
         || control.boundary.candidate_start != MATCHED_PUBLICATION_START_BOUNDARY
         || control.boundary.current_i2_start != MATCHED_PUBLICATION_START_BOUNDARY
         || control.boundary.candidate_stop != MATCHED_PUBLICATION_STOP_BOUNDARY
         || control.boundary.current_i2_stop != MATCHED_PUBLICATION_STOP_BOUNDARY
-        || control
-            .publication
-            .as_ref()
-            .is_none_or(|publication| !publication.matched)
+        || control.publication.as_ref().is_none_or(|publication| {
+            !publication.matched
+                || publication.correlation_id.is_empty()
+                || publication.candidate_generation == 0
+        })
+        || control.materialization.is_some()
+        || control.readiness.is_some()
         || !valid_nonzero_span(&control.span)
     {
         return Err(PocError::Integrity(

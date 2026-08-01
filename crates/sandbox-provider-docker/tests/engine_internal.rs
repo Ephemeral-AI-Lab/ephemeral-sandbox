@@ -64,3 +64,25 @@ fn resource_metrics_batch_uses_safe_fallback_inside_tokio_runtime() {
         .expect("resource metrics executor lock")
         .is_none());
 }
+
+#[test]
+fn initialized_resource_metrics_executor_drops_inside_tokio_runtime() {
+    let engine = DockerEngine::new(DockerRuntimeConfig::default());
+    assert!(engine
+        .container_resource_metrics_batch(Vec::new())
+        .expect("initialize resource metrics executor")
+        .is_empty());
+    assert!(engine
+        .resource_metrics_executor
+        .lock()
+        .expect("resource metrics executor lock")
+        .is_some());
+
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("outer test runtime");
+    runtime.block_on(async move {
+        drop(engine);
+    });
+}

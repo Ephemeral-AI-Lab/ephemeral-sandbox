@@ -49,7 +49,7 @@ manager:
     cgroup_namespace_mode: host
     resource_profile: build-heavy
     persistent_volume_mounts:
-      - name: eos-mpla-prepared-s4-phase-profile-sparse-v1
+      - name: eos-mpla-prepared-s4-phase-profile-sparse-v1-ref-v3
         target: /eos/mpla-fixtures
         readonly: true
     resource_profiles:

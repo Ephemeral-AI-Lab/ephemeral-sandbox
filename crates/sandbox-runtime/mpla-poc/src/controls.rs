@@ -24,7 +24,7 @@ const SOURCE_MANIFEST_DOMAIN: &[u8] = b"EOS-MPLA-CONTROL-SOURCE-V1\0";
 const CATALOG_BINDING_DOMAIN: &[u8] = b"EOS-MPLA-CATALOG-BINDING-V1\0";
 pub const MATCHED_PUBLICATION_START_BOUNDARY: &str =
     "immediately before closing publication admission";
-pub const MATCHED_PUBLICATION_STOP_BOUNDARY: &str = "durable hidden root and closed session";
+pub const MATCHED_PUBLICATION_STOP_BOUNDARY: &str = "durable root and closed session";
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ControlCollectionLimits {

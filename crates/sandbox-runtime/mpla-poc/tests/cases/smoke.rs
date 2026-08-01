@@ -3,7 +3,6 @@ use std::fs::{self, File};
 use std::io::{BufReader, Read, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::{FileExt, MetadataExt, PermissionsExt};
-use std::os::unix::io::AsRawFd;
 use std::os::unix::process::ExitStatusExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -30,7 +29,9 @@ use sandbox_runtime_mpla_poc::publication::{
     stationary_adopt, stationary_adopt_receipt_hit, ReceiptHitPublicationReceipt,
     StationaryPublicationRequest,
 };
-use sandbox_runtime_mpla_poc::recovery::{PublicationRecovery, RecoveryOutcome, RecoveryRequest};
+use sandbox_runtime_mpla_poc::recovery::{
+    capture_recovery_allocation_identity, PublicationRecovery, RecoveryOutcome, RecoveryRequest,
+};
 use sandbox_runtime_mpla_poc::ref_store::{PairedRefStore, RefCommitOutcome};
 use sandbox_runtime_mpla_poc::semantic::record::{RecordStreamReader, SemanticRecord};
 use sandbox_runtime_mpla_poc::semantic::{
@@ -264,6 +265,46 @@ pub fn prepare() -> CampaignResult {
         schema_version: SCHEMA_VERSION,
         run_id: roots.run_id,
         fixtures,
+        canonical_object_dir,
+        prepared_unix_ms: sandbox_runtime_mpla_poc::unix_time_ms()?,
+    };
+    durable::replace_json(&campaign_root.join("PREPARED.json"), &receipt)?;
+    durable::replace_json(
+        &roots.evidence_root.join("environment/preparation.json"),
+        &receipt,
+    )?;
+    Ok(())
+}
+
+pub fn prepare_hv07() -> CampaignResult {
+    let roots = Roots::from_env()?;
+    fs::create_dir_all(&roots.evidence_root)?;
+    let campaign_root = roots
+        .control_root
+        .join("campaign")
+        .join(roots.run_id.as_str());
+    fs::create_dir_all(&campaign_root)?;
+    let empty_lower = campaign_root.join("empty-lower");
+    fs::create_dir(&empty_lower)?;
+    let canonical_object_dir = campaign_root.join("canonical");
+    fs::create_dir_all(&canonical_object_dir)?;
+
+    let operation_id = OperationId::from_string(format!("{}-prepare-hv07-s2-large", roots.run_id));
+    let allocation = create_allocation(&roots.payload_root.join("allocations"), &operation_id)?;
+    let fixture = populate_empty_fixture_root(
+        &allocation.upper_dir,
+        FixtureId::S2Large,
+        FixtureTier::Smoke,
+    )?;
+    let receipt = PreparationReceipt {
+        schema_version: SCHEMA_VERSION,
+        run_id: roots.run_id,
+        fixtures: vec![PreparedFixture {
+            fixture_id: FixtureId::S2Large,
+            allocation_id: allocation.descriptor.allocation_id,
+            fixture,
+            semantic: None,
+        }],
         canonical_object_dir,
         prepared_unix_ms: sandbox_runtime_mpla_poc::unix_time_ms()?,
     };
@@ -2276,6 +2317,10 @@ fn prepare_sm12_recovery_candidate(
         publication_id: publication_id.clone(),
         branch: branch.clone(),
         allocation_root: allocation.allocation_root.clone(),
+        allocation_identity: capture_recovery_allocation_identity(
+            &allocation.allocation_root,
+            &allocation.descriptor.allocation_id,
+        )?,
         allocation_id: allocation.descriptor.allocation_id.clone(),
         owner_epoch,
         accounted_bytes,
@@ -2320,10 +2365,7 @@ fn prepare_hv07_unmounted_candidate(
     let mut payload = File::create(&payload_path)?;
     payload.write_all(b"hv07-qualified-stable-payload-v1")?;
     payload.sync_all()?;
-    let upper = File::open(&allocation.upper_dir)?;
-    if unsafe { libc::syncfs(upper.as_raw_fd()) } != 0 {
-        return Err(std::io::Error::last_os_error().into());
-    }
+    File::open(&allocation.upper_dir)?.sync_all()?;
     File::open(&allocation.owner_dir)?.sync_all()?;
     let (before, after) = capture_stable_pair(allocation)?;
     let stable = StableAllocationReceipt {

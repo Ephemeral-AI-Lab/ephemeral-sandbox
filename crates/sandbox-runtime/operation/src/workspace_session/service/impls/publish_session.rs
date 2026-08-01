@@ -2,6 +2,7 @@ use std::sync::PoisonError;
 
 use sandbox_observability_telemetry::record::names;
 use sandbox_observability_telemetry::SpanStatus;
+use sandbox_runtime_mpla_poc::MonotonicTimer;
 use serde_json::json;
 
 use crate::layerstack::LayerStackServiceError;
@@ -29,6 +30,12 @@ impl WorkspaceSessionService {
         self.obs().scope(names::WORKSPACE_SESSION_PUBLISH, |span| {
             span.attr("workspace_session_id", workspace_session_id.0.clone());
             let gate = self.session_gate(&workspace_session_id);
+            let matched_publication_timer = MonotonicTimer::start().map_err(|error| {
+                WorkspaceSessionError::FinalizationFailed {
+                    workspace_session_id: workspace_session_id.clone(),
+                    error: format!("start matched publication clock: {error}"),
+                }
+            })?;
             let _admission = gate.lock().unwrap_or_else(PoisonError::into_inner);
             let handler = {
                 let mut sessions = self.lock_sessions()?;
@@ -121,21 +128,33 @@ impl WorkspaceSessionService {
 
             let destroyed = self
                 .destroy_session_under_gate(handler.clone(), DestroyWorkspaceRequest { grace_s });
-            if !publish.no_op {
-                self.layerstack().notify_autosquash_layer_committed();
-            }
 
             match destroyed {
                 Ok(result) => {
+                    let matched_publication_span = matched_publication_timer.finish();
+                    if !publish.no_op {
+                        self.layerstack().notify_autosquash_layer_committed();
+                    }
+                    let matched_publication_span =
+                        matched_publication_span.map_err(|error| {
+                            WorkspaceSessionError::FinalizationFailed {
+                                workspace_session_id: handler.workspace_session_id.clone(),
+                                error: format!("finish matched publication clock: {error}"),
+                            }
+                        })?;
                     span.attr("destroyed", true)
                         .attr("cleanup_outcome", "destroyed");
                     Ok(PublishWorkspaceSessionResult {
                         workspace_session_id: handler.workspace_session_id,
                         publish,
                         evicted_upperdir_bytes: result.evicted_upperdir_bytes,
+                        matched_publication_span,
                     })
                 }
                 Err(error) => {
+                    if !publish.no_op {
+                        self.layerstack().notify_autosquash_layer_committed();
+                    }
                     self.mark_publish_finalize_failed(&handler.workspace_session_id);
                     span.status(SpanStatus::Error)
                         .attr("stage", "destroy")

@@ -81,6 +81,13 @@ struct TreeProfile {
     files_at_least_100_kib: u64,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+struct Hv07PayloadSnapshot {
+    profile: TreeProfile,
+    metadata_inventory_sha256: String,
+    content_sha256: String,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct Hv05State {
     semantic: PreparedSemantic,
@@ -129,6 +136,284 @@ struct Hv07ChildRequest {
     canonical: sandbox_runtime_mpla_poc::CanonicalDurabilityReceipt,
     accounted_bytes: u64,
     branch: String,
+    operation_cgroup_procs_path: Option<PathBuf>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum Hv07OperationFamily {
+    Session,
+    Owner,
+    Canonical,
+    Publication,
+    Rollback,
+    Activation,
+}
+
+impl Hv07OperationFamily {
+    const fn for_point(point: NamedFaultPoint) -> Self {
+        match point {
+            NamedFaultPoint::FenceBeforeClose
+            | NamedFaultPoint::FenceAfterClose
+            | NamedFaultPoint::FenceAfterDrain
+            | NamedFaultPoint::SealingBeforeWrite
+            | NamedFaultPoint::SealingAfterFileFsync
+            | NamedFaultPoint::SealingAfterDirFsync
+            | NamedFaultPoint::QuiesceBeforeStop
+            | NamedFaultPoint::QuiesceAfterReap
+            | NamedFaultPoint::QuiesceAfterFdAudit
+            | NamedFaultPoint::UnmountBeforeStrict
+            | NamedFaultPoint::UnmountAfterStrict
+            | NamedFaultPoint::FlushBeforeSyncfs
+            | NamedFaultPoint::FlushAfterSyncfs
+            | NamedFaultPoint::InventoryAfterFirst
+            | NamedFaultPoint::InventoryAfterStableSecond => Self::Session,
+            NamedFaultPoint::OwnerBeforeIntent
+            | NamedFaultPoint::OwnerAfterIntentFsync
+            | NamedFaultPoint::OwnerBeforeCompare
+            | NamedFaultPoint::OwnerAfterGenerationFsync
+            | NamedFaultPoint::OwnerAfterJournalCommit
+            | NamedFaultPoint::OwnerAfterSelectorRename
+            | NamedFaultPoint::OwnerAfterSelectorDirFsync
+            | NamedFaultPoint::OwnerBeforeReceipt
+            | NamedFaultPoint::OwnerAfterReceiptDirFsync => Self::Owner,
+            NamedFaultPoint::CanonicalBeforeInstall
+            | NamedFaultPoint::CanonicalAfterObjectFsync
+            | NamedFaultPoint::CanonicalAfterObjectDirFsync
+            | NamedFaultPoint::CanonicalAfterRootManifestFsync => Self::Canonical,
+            NamedFaultPoint::LocatorAfterForward
+            | NamedFaultPoint::LocatorAfterReverse
+            | NamedFaultPoint::LocatorAfterManifestFsync
+            | NamedFaultPoint::LocatorAfterSelectorRename
+            | NamedFaultPoint::LocatorAfterSelectorDirFsync
+            | NamedFaultPoint::RefBeforeTemp
+            | NamedFaultPoint::RefAfterTempFsync
+            | NamedFaultPoint::RefAfterReplace
+            | NamedFaultPoint::RefAfterParentFsync
+            | NamedFaultPoint::ResponseLossPublish => Self::Publication,
+            NamedFaultPoint::ResponseLossRollback => Self::Rollback,
+            NamedFaultPoint::ResponseLossActivate
+            | NamedFaultPoint::ActivateAfterRefSelect
+            | NamedFaultPoint::ActivateAfterLocatorPin
+            | NamedFaultPoint::ActivateAfterFreshOwner
+            | NamedFaultPoint::ActivateAfterMount
+            | NamedFaultPoint::ActivateAfterReady
+            | NamedFaultPoint::ActivateAfterBindingFsync => Self::Activation,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct Hv07ChildIntent {
+    schema_version: u32,
+    family: Hv07OperationFamily,
+    fault_point: NamedFaultPoint,
+    operation_id: OperationId,
+    operation_root: PathBuf,
+}
+
+struct Hv07PhysicalChildGuard {
+    child: Option<std::process::Child>,
+}
+
+impl Hv07PhysicalChildGuard {
+    fn new(child: std::process::Child) -> Self {
+        Self { child: Some(child) }
+    }
+
+    fn child_mut(&mut self) -> &mut std::process::Child {
+        self.child
+            .as_mut()
+            .expect("HV-07 physical child guard is armed")
+    }
+
+    fn id(&self) -> u32 {
+        self.child
+            .as_ref()
+            .expect("HV-07 physical child guard is armed")
+            .id()
+    }
+
+    fn disarm_reaped(&mut self) {
+        let _ = self.child.take();
+    }
+
+    fn kill_and_reap(&mut self) -> std::io::Result<std::process::ExitStatus> {
+        let child = self
+            .child
+            .as_mut()
+            .expect("HV-07 physical child guard is armed");
+        child.kill()?;
+        let status = child.wait()?;
+        let _ = self.child.take();
+        Ok(status)
+    }
+}
+
+impl Drop for Hv07PhysicalChildGuard {
+    fn drop(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+struct Hv07CgroupGuard {
+    directory: PathBuf,
+    cgroup_procs_path: PathBuf,
+    armed: bool,
+}
+
+impl Hv07CgroupGuard {
+    fn create(parent: &Path) -> CampaignResult<Self> {
+        if !parent.is_absolute() || !parent.starts_with("/sys/fs/cgroup") {
+            return Err(format!(
+                "HV-07 exclusive cgroup parent is outside /sys/fs/cgroup: {}",
+                parent.display()
+            )
+            .into());
+        }
+        let directory = parent.join(format!("mpla-hv07-{}", uuid::Uuid::new_v4()));
+        fs::create_dir(&directory)?;
+        let cgroup_procs_path = directory.join("cgroup.procs");
+        if !cgroup_procs_path.is_file()
+            || !fs::read_to_string(&cgroup_procs_path)?.trim().is_empty()
+        {
+            let _ = fs::remove_dir(&directory);
+            return Err("HV-07 exclusive cgroup was not created empty".into());
+        }
+        Ok(Self {
+            directory,
+            cgroup_procs_path,
+            armed: true,
+        })
+    }
+
+    fn cgroup_procs_path(&self) -> &Path {
+        &self.cgroup_procs_path
+    }
+
+    fn remove_terminal(&mut self) -> CampaignResult {
+        let members = fs::read_to_string(&self.cgroup_procs_path)?;
+        if !members.trim().is_empty() {
+            return Err(
+                format!("HV-07 exclusive cgroup retained terminal members: {members:?}").into(),
+            );
+        }
+        let events = fs::read_to_string(self.directory.join("cgroup.events"))?;
+        let populated = events
+            .lines()
+            .find_map(|line| line.strip_prefix("populated "))
+            .ok_or("HV-07 exclusive cgroup has no populated event")?;
+        if populated != "0" {
+            return Err(format!(
+                "HV-07 exclusive cgroup remained populated: {}",
+                self.directory.display()
+            )
+            .into());
+        }
+        fs::remove_dir(&self.directory)?;
+        self.armed = false;
+        Ok(())
+    }
+
+    fn force_cleanup(&mut self) {
+        if !self.armed {
+            return;
+        }
+        let kill_path = self.directory.join("cgroup.kill");
+        if kill_path.is_file() {
+            let _ = fs::write(&kill_path, b"1\n");
+        }
+        for _ in 0..200 {
+            let empty = fs::read_to_string(&self.cgroup_procs_path)
+                .map(|members| members.trim().is_empty())
+                .unwrap_or(true);
+            if empty {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let _ = fs::remove_dir(&self.directory);
+        self.armed = false;
+    }
+}
+
+impl Drop for Hv07CgroupGuard {
+    fn drop(&mut self) {
+        self.force_cleanup();
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct Hv07SessionRetry {
+    allocation: AllocationHandle,
+    recovery: sandbox_runtime_mpla_poc::SessionSealRecoveryRequest,
+    control_root: PathBuf,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct Hv07OwnerRetry {
+    allocation_root: PathBuf,
+    stable: StableAllocationReceipt,
+    transition: OwnerTransitionRequest,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct Hv07ActivationRetry {
+    payload: AllocationHandle,
+    selected_ref: PairedRefValue,
+    recipe: ProjectionRecipe,
+    arena_root: PathBuf,
+    control_root: PathBuf,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct Hv07DebtInventory {
+    profile: TreeProfile,
+    mount_targets: Vec<PathBuf>,
+    writable_fds: Vec<PathBuf>,
+    durable_manifest_bytes: u64,
+    temporary_manifest_bytes: u64,
+    retirement_manifest_bytes: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct Hv07DebtProof {
+    before: Hv07DebtInventory,
+    after: Hv07DebtInventory,
+    allocated_bytes_added: u64,
+    durable_operation_bytes: u64,
+    temporary_debt_bytes: u64,
+    retirement_debt_bytes: u64,
+    unexplained_bytes: u64,
+}
+
+#[derive(Debug)]
+struct Hv07RecoveryProof {
+    family: Hv07OperationFamily,
+    recovery_invoked: bool,
+    recovery_completed: bool,
+    pre_recovery_phase: Option<sandbox_runtime_mpla_poc::recovery::DurableRecoveryPhase>,
+    final_recovery_phase: Option<sandbox_runtime_mpla_poc::recovery::DurableRecoveryPhase>,
+    before_owner: sandbox_runtime_mpla_poc::OwnerGeneration,
+    after_owner: sandbox_runtime_mpla_poc::OwnerGeneration,
+    locator_generation: Option<sandbox_runtime_mpla_poc::LocatorGeneration>,
+    ref_sequence: Option<RefSequence>,
+    selected_visibility: SelectedVisibility,
+    idempotent_retry_same_result: bool,
+    terminal_invariant_verified: bool,
+    exact_owner_verified: bool,
+    exact_locator_verified: bool,
+    exact_ref_verified: bool,
+    stationary_payload_verified: bool,
+    stationary_payload_inventory: Value,
+    session_terminal_before: bool,
+    session_terminal_after: bool,
+    post_sealing_session_resumed: bool,
+    state_parent_synced: bool,
+    details: Value,
 }
 
 impl HeavyContext {
@@ -654,34 +939,81 @@ fn hv07_point(
     let marker_path = point_dir.join("armed.json");
     let failed_span_path = point_dir.join("failed-span.json");
     let cancelled_span_path = point_dir.join("cancelled-span.json");
-    durable::replace_json(
-        &request_path,
-        &Hv07ChildRequest {
-            schema_version: SCHEMA_VERSION,
-            fault_point,
-            operation_id: candidate.operation_id.clone(),
-            recovery_root: candidate.recovery_root.clone(),
-            locator_root: candidate.locator_root.clone(),
-            ref_root: candidate.ref_root.clone(),
-            occ_root: candidate.occ_root.clone(),
-            durable_state_paths,
-            operation_root: point_dir.join("real-operation"),
-            allocation_root: candidate.allocation.allocation_root.clone(),
-            allocation_id: candidate.allocation.descriptor.allocation_id.clone(),
-            owner_epoch: candidate.owner_epoch,
-            publication_id: candidate.publication_id.clone(),
-            semantic_roots: candidate.semantic.roots.clone(),
-            canonical: candidate.semantic.durability.clone(),
-            accounted_bytes: candidate.accounted_bytes,
-            branch: candidate.branch.clone(),
-        },
-    )?;
+    let family = Hv07OperationFamily::for_point(fault_point);
+    let operation_root = point_dir.join("real-operations").join(format!(
+        "{}-{}",
+        candidate.operation_id,
+        uuid::Uuid::new_v4()
+    ));
+    let mut operation_cgroup = if matches!(
+        family,
+        Hv07OperationFamily::Session | Hv07OperationFamily::Activation
+    ) {
+        let parent = smoke_context
+            .storage_cgroup_dir
+            .as_deref()
+            .ok_or("HV-07 physical session/activation has no storage cgroup")?;
+        let shared_membership = smoke_context
+            .cgroup_procs_path
+            .as_deref()
+            .ok_or("HV-07 physical session/activation has no workload cgroup membership")?;
+        if shared_membership != parent.join("cgroup.procs") {
+            return Err("HV-07 storage cgroup and workload membership disagree".into());
+        }
+        Some(Hv07CgroupGuard::create(parent)?)
+    } else {
+        None
+    };
+    let child_request = Hv07ChildRequest {
+        schema_version: SCHEMA_VERSION,
+        fault_point,
+        operation_id: candidate.operation_id.clone(),
+        recovery_root: candidate.recovery_root.clone(),
+        locator_root: candidate.locator_root.clone(),
+        ref_root: candidate.ref_root.clone(),
+        occ_root: candidate.occ_root.clone(),
+        durable_state_paths,
+        operation_root: operation_root.clone(),
+        allocation_root: candidate.allocation.allocation_root.clone(),
+        allocation_id: candidate.allocation.descriptor.allocation_id.clone(),
+        owner_epoch: candidate.owner_epoch,
+        publication_id: candidate.publication_id.clone(),
+        semantic_roots: candidate.semantic.roots.clone(),
+        canonical: candidate.semantic.durability.clone(),
+        accounted_bytes: candidate.accounted_bytes,
+        branch: candidate.branch.clone(),
+        operation_cgroup_procs_path: operation_cgroup
+            .as_ref()
+            .map(|cgroup| cgroup.cgroup_procs_path().to_path_buf()),
+    };
+    durable::replace_json(&request_path, &child_request)?;
+    fs::create_dir_all(&operation_root)?;
+    let child_intent = Hv07ChildIntent {
+        schema_version: SCHEMA_VERSION,
+        family,
+        fault_point,
+        operation_id: candidate.operation_id.clone(),
+        operation_root: operation_root.clone(),
+    };
+    write_hv07_create_new_json(&operation_root.join("INTENT.json"), &child_intent)?;
+    let stale_session_probe = if family == Hv07OperationFamily::Session {
+        Some(prepare_hv07_session_operation(&child_request)?)
+    } else {
+        None
+    };
+    let pre_activation_payload = if family == Hv07OperationFamily::Activation {
+        Some(hv07_payload_snapshot(&candidate.allocation.upper_dir)?)
+    } else {
+        None
+    };
+    let debt_before = capture_hv07_debt_inventory(&operation_root)?;
     if marker_path.exists() {
         fs::remove_file(&marker_path)?;
         File::open(&point_dir)?.sync_all()?;
     }
 
-    let mut child = Command::new(std::env::current_exe()?)
+    let mut child_command = Command::new(std::env::current_exe()?);
+    child_command
         .args([
             "--ignored",
             "--exact",
@@ -693,10 +1025,24 @@ fn hv07_point(
         .env("MPLA_POC_PHYSICAL_FAULT_POINT", fault_point.as_str())
         .env("MPLA_POC_PHYSICAL_FAULT_ORDINAL", "1")
         .env("MPLA_POC_PHYSICAL_FAULT_ARMED_PATH", &marker_path)
-        .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()?;
+        .stderr(Stdio::null());
+    child_command.stdin(if stale_session_probe.is_some() {
+        Stdio::piped()
+    } else {
+        Stdio::null()
+    });
+    let mut child = Hv07PhysicalChildGuard::new(child_command.spawn()?);
+    if let Some(lease) = stale_session_probe.as_ref() {
+        let mut child_stdin = child
+            .child_mut()
+            .stdin
+            .take()
+            .ok_or("HV-07 session child has no private capability pipe")?;
+        serde_json::to_writer(&mut child_stdin, lease)?;
+        child_stdin.flush()?;
+        drop(child_stdin);
+    }
     let child_pid = child.id();
     let mut stopped_status = 0;
     let stopped_pid = unsafe {
@@ -710,8 +1056,11 @@ fn hv07_point(
         || !libc::WIFSTOPPED(stopped_status)
         || libc::WSTOPSIG(stopped_status) != libc::SIGSTOP
     {
-        let _ = child.kill();
-        let _ = child.wait();
+        if stopped_pid == i32::try_from(child_pid)?
+            && (libc::WIFEXITED(stopped_status) || libc::WIFSIGNALED(stopped_status))
+        {
+            child.disarm_reaped();
+        }
         return Err(format!(
             "HV-07 child did not stop at the durable marker: pid={stopped_pid} status={stopped_status}"
         )
@@ -720,94 +1069,42 @@ fn hv07_point(
     let marker: PhysicalFaultMarker = durable::read_json(&marker_path)?;
     let real_operation_witness: RealOperationWitness =
         durable::read_json(&point_dir.join("real-operation.json"))?;
-    let child_qualification_capabilities: Value = durable::read_json(
-        &point_dir
-            .join("real-operation")
-            .join("qualification-capabilities.json"),
-    )?;
+    let child_qualification_capabilities: Value =
+        durable::read_json(&operation_root.join("qualification-capabilities.json"))?;
+    let observed_intent: Hv07ChildIntent = durable::read_json(&operation_root.join("INTENT.json"))?;
+    if observed_intent != child_intent {
+        return Err("HV-07 child changed its immutable exact-operation intent".into());
+    }
     if marker.fault_point != fault_point
         || marker.ordinal != 1
         || marker.process_id != child_pid
         || marker.operation_id.as_deref() != Some(candidate.operation_id.as_str())
         || !marker.marker_parent_synced
     {
-        let _ = child.kill();
-        let _ = child.wait();
         return Err(format!("HV-07 durable marker mismatch: {marker:?}").into());
     }
-    if unsafe { libc::kill(i32::try_from(child_pid)?, libc::SIGKILL) } != 0 {
-        return Err(std::io::Error::last_os_error().into());
-    }
-    let mut killed_status = 0;
-    let killed_pid = unsafe { libc::waitpid(i32::try_from(child_pid)?, &mut killed_status, 0) };
-    if killed_pid != i32::try_from(child_pid)?
-        || !libc::WIFSIGNALED(killed_status)
-        || libc::WTERMSIG(killed_status) != libc::SIGKILL
-    {
+    use std::os::unix::process::ExitStatusExt as _;
+    let killed_status = child.kill_and_reap()?;
+    if killed_status.signal() != Some(libc::SIGKILL) {
         return Err(format!(
-            "HV-07 child did not terminate through SIGKILL: pid={killed_pid} status={killed_status}"
+            "HV-07 child did not terminate through SIGKILL: pid={child_pid} status={killed_status}"
         )
         .into());
     }
-    drop(child);
 
-    let recovery = PublicationRecovery::open(&candidate.recovery_root)?;
-    let locator_store = LocatorStore::open(&candidate.locator_root)?;
-    let ref_store = PairedRefStore::open(&candidate.ref_root)?;
-    let occ = BranchOcc::open(&candidate.occ_root)?;
-    let pre_recovery = recovery.inspect(&candidate.operation_id)?;
-    let post_kill_ref = ref_store.read(&candidate.branch)?;
-    let selected_visibility = match post_kill_ref.as_ref() {
-        None => SelectedVisibility::Old,
-        Some(selected)
-            if selected.operation_id == candidate.operation_id
-                && selected.publication_id == candidate.publication_id
-                && selected.roots == candidate.semantic.roots =>
-        {
-            SelectedVisibility::CompleteNew
-        }
-        Some(_) => SelectedVisibility::PartialNew,
-    };
-    let first = recovery.replay(
-        &candidate.operation_id,
-        &locator_store,
-        &ref_store,
-        &occ,
-        &mut NamedFaultInjector::default(),
-        |_, _, _| {
-            Err(PocError::Integrity(
-                "HV-07 unique branch unexpectedly requested rebase".to_owned(),
-            ))
-        },
+    let recovery_proof = recover_hv07_exact_operation(
+        &candidate,
+        &child_intent,
+        &marker,
+        &real_operation_witness,
+        stale_session_probe.as_ref(),
+        pre_activation_payload.as_ref(),
     )?;
-    let first_receipt = match first {
-        RecoveryOutcome::Committed(receipt) => receipt,
-        other => return Err(format!("HV-07 recovery was not committed: {other:?}").into()),
-    };
-    let replay = recovery.replay(
-        &candidate.operation_id,
-        &locator_store,
-        &ref_store,
-        &occ,
-        &mut NamedFaultInjector::default(),
-        |_, _, _| {
-            Err(PocError::Integrity(
-                "HV-07 replay unexpectedly requested rebase".to_owned(),
-            ))
-        },
-    )?;
-    let replay_receipt = match replay {
-        RecoveryOutcome::Committed(receipt) => receipt,
-        other => return Err(format!("HV-07 retry was not committed: {other:?}").into()),
-    };
-    let final_snapshot = recovery.inspect(&candidate.operation_id)?;
-    let final_owner = current_owner(&candidate.allocation.allocation_root)?;
-    let final_locator = locator_store
-        .selected()?
-        .ok_or("HV-07 locator was absent after recovery")?;
-    let final_ref = ref_store
-        .read(&candidate.branch)?
-        .ok_or("HV-07 ref was absent after recovery")?;
+    if let Some(cgroup) = operation_cgroup.as_mut() {
+        cgroup.remove_terminal()?;
+    }
+    let debt_after = capture_hv07_debt_inventory(&operation_root)?;
+    let debt_proof = hv07_debt_proof(debt_before, debt_after)?;
 
     durable::replace_json(
         &failed_span_path,
@@ -834,28 +1131,26 @@ fn hv07_point(
     let before = DurableCrashWitness {
         schema_version: SCHEMA_VERSION,
         protocol_phase: expectation.protocol_phase,
-        recovery_phase: Some(pre_recovery.phase),
+        recovery_phase: recovery_proof.pre_recovery_phase,
         owner_count: 1,
-        owner_allocation_id: Some(candidate.allocation.descriptor.allocation_id.clone()),
-        owner_epoch: Some(candidate.owner_epoch),
-        locator_generation: post_kill_ref
-            .as_ref()
-            .map(|selected| selected.locator_generation),
-        ref_sequence: post_kill_ref.as_ref().map(|selected| selected.sequence),
-        session_terminal: expectation.terminal_session_required,
+        owner_allocation_id: Some(recovery_proof.before_owner.allocation_id.clone()),
+        owner_epoch: Some(recovery_proof.before_owner.owner_epoch),
+        locator_generation: recovery_proof.locator_generation,
+        ref_sequence: recovery_proof.ref_sequence,
+        session_terminal: recovery_proof.session_terminal_before,
         state_parent_synced: marker.marker_parent_synced,
     };
     let after = DurableCrashWitness {
         schema_version: SCHEMA_VERSION,
         protocol_phase: expectation.protocol_phase,
-        recovery_phase: Some(final_snapshot.phase),
+        recovery_phase: recovery_proof.final_recovery_phase,
         owner_count: 1,
-        owner_allocation_id: Some(final_owner.allocation_id.clone()),
-        owner_epoch: Some(final_owner.owner_epoch),
-        locator_generation: Some(final_locator.receipt.generation),
-        ref_sequence: Some(final_ref.sequence),
-        session_terminal: true,
-        state_parent_synced: true,
+        owner_allocation_id: Some(recovery_proof.after_owner.allocation_id.clone()),
+        owner_epoch: Some(recovery_proof.after_owner.owner_epoch),
+        locator_generation: recovery_proof.locator_generation,
+        ref_sequence: recovery_proof.ref_sequence,
+        session_terminal: recovery_proof.session_terminal_after,
+        state_parent_synced: recovery_proof.state_parent_synced,
     };
     let ledger = CrashSweepLedger::open(case_dir.join("crash-ledger"))?;
     let attempt = next_hv07_attempt(&case_dir, fault_point)?;
@@ -884,33 +1179,30 @@ fn hv07_point(
             fault_point,
             operation_id: candidate.operation_id.clone(),
             retry_operation_id: candidate.operation_id.clone(),
-            recovery_invoked: true,
-            recovery_completed: true,
-            terminal_invariant_verified: true,
-            selected_visibility,
-            exact_owner_verified: final_owner.allocation_id
-                == candidate.allocation.descriptor.allocation_id
-                && final_owner.owner_epoch == candidate.owner_epoch,
-            exact_locator_verified: final_locator.receipt.generation
-                == final_ref.locator_generation,
-            exact_ref_verified: replay_receipt.value == final_ref,
-            stationary_payload_verified: true,
+            recovery_invoked: recovery_proof.recovery_invoked,
+            recovery_completed: recovery_proof.recovery_completed,
+            terminal_invariant_verified: recovery_proof.terminal_invariant_verified,
+            selected_visibility: recovery_proof.selected_visibility,
+            exact_owner_verified: recovery_proof.exact_owner_verified,
+            exact_locator_verified: recovery_proof.exact_locator_verified,
+            exact_ref_verified: recovery_proof.exact_ref_verified,
+            stationary_payload_verified: recovery_proof.stationary_payload_verified,
             failed_attempt_bundle_durable: failed_span_path.is_file(),
             cancelled_attempt_bundle_durable: cancelled_span_path.is_file(),
-            idempotent_retry_verified: replay_receipt.idempotent_replay
-                && first_receipt.value == replay_receipt.value,
+            idempotent_retry_verified: recovery_proof.idempotent_retry_same_result,
         }),
-        selected_visibility,
-        idempotent_retry_same_result: replay_receipt.idempotent_replay
-            && first_receipt.value == replay_receipt.value
-            && replay_receipt.value == final_ref,
-        post_sealing_session_resumed: false,
+        selected_visibility: recovery_proof.selected_visibility,
+        idempotent_retry_same_result: recovery_proof.idempotent_retry_same_result,
+        post_sealing_session_resumed: recovery_proof.post_sealing_session_resumed,
         failed_span_retained: failed_span_path.is_file(),
         cancelled_span_retained: cancelled_span_path.is_file(),
-        observed_debt_bytes: 0,
-        temporary_debt_bytes: 0,
-        retirement_debt_bytes: 0,
-        unclassified_debt_bytes: 0,
+        observed_debt_bytes: debt_proof
+            .temporary_debt_bytes
+            .checked_add(debt_proof.retirement_debt_bytes)
+            .ok_or("HV-07 observed debt overflow")?,
+        temporary_debt_bytes: debt_proof.temporary_debt_bytes,
+        retirement_debt_bytes: debt_proof.retirement_debt_bytes,
+        unclassified_debt_bytes: debt_proof.unexplained_bytes,
     })?;
     let summary = ledger.summary(true)?;
     let point_receipt = point_dir.join(format!("attempt-{attempt:08}.json"));
@@ -920,11 +1212,11 @@ fn hv07_point(
             "marker": marker,
             "record": record,
             "summary": summary,
-            "pre_recovery": pre_recovery,
-            "final_snapshot": final_snapshot,
-            "final_owner": final_owner,
-            "final_locator": final_locator.receipt,
-            "final_ref": final_ref,
+            "operation_family": recovery_proof.family,
+            "exact_operation_recovery": recovery_proof.details,
+            "stationary_payload_inventory": recovery_proof.stationary_payload_inventory,
+            "final_owner": recovery_proof.after_owner,
+            "debt_proof": debt_proof,
             "child_qualification_capabilities": child_qualification_capabilities,
             "semantic_receipt_reused": candidate.semantic_reused,
         }),
@@ -964,8 +1256,8 @@ fn hv07_point(
                 ),
                 assertion(
                     "old_or_complete_new_visibility",
-                    selected_visibility != SelectedVisibility::PartialNew,
-                    format!("{selected_visibility:?}"),
+                    recovery_proof.selected_visibility != SelectedVisibility::PartialNew,
+                    format!("{:?}", recovery_proof.selected_visibility),
                     "Old or CompleteNew",
                 ),
                 assertion(
@@ -995,6 +1287,1384 @@ fn hv07_point(
         },
         semantic,
     ))
+}
+
+fn recover_hv07_exact_operation(
+    candidate: &Sm12RecoveryCandidate,
+    intent: &Hv07ChildIntent,
+    marker: &PhysicalFaultMarker,
+    real_operation: &RealOperationWitness,
+    stale_session_probe: Option<&sandbox_runtime_mpla_poc::MutableLease>,
+    pre_activation_payload: Option<&Hv07PayloadSnapshot>,
+) -> CampaignResult<Hv07RecoveryProof> {
+    if marker.operation_id.as_deref() != Some(intent.operation_id.as_str())
+        || real_operation.operation_id != intent.operation_id
+        || real_operation.fault_point != intent.fault_point
+    {
+        return Err("HV-07 recovery was not bound to the killed exact operation".into());
+    }
+    let expected_stationary_payload_path = match intent.family {
+        Hv07OperationFamily::Session => {
+            let retry: Hv07SessionRetry =
+                durable::read_json(&intent.operation_root.join("session-retry.json"))?;
+            retry.allocation.upper_dir
+        }
+        Hv07OperationFamily::Owner => {
+            let retry: Hv07OwnerRetry =
+                durable::read_json(&intent.operation_root.join("owner-retry.json"))?;
+            retry.allocation_root.join("upper")
+        }
+        Hv07OperationFamily::Canonical => {
+            let request: SemanticBuildRequest =
+                durable::read_json(&intent.operation_root.join("canonical-retry.json"))?;
+            request.sealed_tree
+        }
+        Hv07OperationFamily::Publication
+        | Hv07OperationFamily::Rollback
+        | Hv07OperationFamily::Activation => candidate.allocation.upper_dir.clone(),
+    };
+    let stationary_payload_path_exact = matches!(
+        (
+            real_operation.stationary_payload_path_before.as_ref(),
+            real_operation.stationary_payload_path_after.as_ref(),
+        ),
+        (Some(before), Some(after))
+            if before == &expected_stationary_payload_path
+                && after == &expected_stationary_payload_path
+    );
+    if !stationary_payload_path_exact
+        || real_operation.payload_bytes_moved != 0
+        || real_operation.payload_bytes_copied != 0
+    {
+        return Err("HV-07 killed operation moved or copied the stationary payload".into());
+    }
+    match intent.family {
+        Hv07OperationFamily::Session => recover_hv07_session(
+            candidate,
+            intent,
+            marker,
+            stale_session_probe.ok_or("HV-07 session recovery has no in-memory stale probe")?,
+        ),
+        Hv07OperationFamily::Owner => recover_hv07_owner(candidate, intent, marker),
+        Hv07OperationFamily::Canonical => recover_hv07_canonical(candidate, intent, marker),
+        Hv07OperationFamily::Publication => recover_hv07_publication(candidate, intent, marker),
+        Hv07OperationFamily::Rollback => recover_hv07_rollback(candidate, intent, marker),
+        Hv07OperationFamily::Activation => recover_hv07_activation(
+            candidate,
+            intent,
+            marker,
+            pre_activation_payload
+                .ok_or("HV-07 activation recovery has no pre-operation payload snapshot")?,
+        ),
+    }
+}
+
+fn recover_hv07_publication(
+    candidate: &Sm12RecoveryCandidate,
+    intent: &Hv07ChildIntent,
+    marker: &PhysicalFaultMarker,
+) -> CampaignResult<Hv07RecoveryProof> {
+    hv07_cleanup_operation_mounts(&intent.operation_root)?;
+    let recovery = PublicationRecovery::open(&candidate.recovery_root)?;
+    let locator_store = LocatorStore::open(&candidate.locator_root)?;
+    let ref_store = PairedRefStore::open(&candidate.ref_root)?;
+    let occ = BranchOcc::open(&candidate.occ_root)?;
+    let pre = recovery.inspect(&intent.operation_id)?;
+    let before_owner = current_owner(&candidate.allocation.allocation_root)?;
+    let first = recovery.replay(
+        &intent.operation_id,
+        &locator_store,
+        &ref_store,
+        &occ,
+        &mut NamedFaultInjector::default(),
+        |_, _, _| {
+            Err(PocError::Integrity(
+                "HV-07 recovery unexpectedly requested rebase".to_owned(),
+            ))
+        },
+    )?;
+    let first_value = hv07_recovery_value(&first).cloned();
+    let second = recovery.replay(
+        &intent.operation_id,
+        &locator_store,
+        &ref_store,
+        &occ,
+        &mut NamedFaultInjector::default(),
+        |_, _, _| {
+            Err(PocError::Integrity(
+                "HV-07 idempotent recovery unexpectedly requested rebase".to_owned(),
+            ))
+        },
+    )?;
+    let second_value = hv07_recovery_value(&second).cloned();
+    let post = recovery.inspect(&intent.operation_id)?;
+    let after_owner = current_owner(&candidate.allocation.allocation_root)?;
+    let selected_ref = ref_store.read(&candidate.branch)?;
+    let selected_locator = locator_store.selected()?;
+    let exact_owner = hv07_payload_owner_matches(
+        &after_owner,
+        &candidate.allocation.descriptor.allocation_id,
+        &intent.operation_id,
+        &candidate.publication_id,
+    );
+    let exact_ref = first_value.is_some()
+        && first_value == second_value
+        && selected_ref == first_value
+        && selected_ref.as_ref().is_some_and(|value| {
+            value.operation_id == intent.operation_id
+                && value.publication_id == candidate.publication_id
+        });
+    let exact_locator = selected_locator.as_ref().is_some_and(|selected| {
+        selected.operation_id == intent.operation_id
+            && selected.publication_id == candidate.publication_id
+            && selected_ref
+                .as_ref()
+                .is_some_and(|value| value.locator_generation == selected.receipt.generation)
+    });
+    let (stationary_payload_verified, stationary_payload_inventory) =
+        hv07_stationary_payload_inventory(&candidate.allocation.upper_dir)?;
+    let live = capture_hv07_live_state(&intent.operation_root)?;
+    let selected_visibility = match &first {
+        RecoveryOutcome::Committed(_) => SelectedVisibility::CompleteNew,
+        RecoveryOutcome::Conflict(_) => SelectedVisibility::Old,
+        RecoveryOutcome::AwaitingOwnerTransition { .. } => SelectedVisibility::PartialNew,
+    };
+    let state_parent_synced = hv07_observe_durable_parent_contract(&[
+        candidate
+            .recovery_root
+            .join("operations")
+            .join(intent.operation_id.as_str())
+            .join("STATE.json"),
+        candidate.allocation.owner_dir.join("CURRENT"),
+        candidate.locator_root.join("CURRENT"),
+        candidate.ref_root.join("refs"),
+    ])?;
+    let idempotent_retry_same_result = first_value.is_some() && first_value == second_value;
+    Ok(Hv07RecoveryProof {
+        family: intent.family,
+        recovery_invoked: true,
+        recovery_completed: true,
+        pre_recovery_phase: Some(pre.phase),
+        final_recovery_phase: Some(post.phase),
+        before_owner,
+        after_owner,
+        locator_generation: selected_locator
+            .as_ref()
+            .map(|selected| selected.receipt.generation),
+        ref_sequence: selected_ref.as_ref().map(|value| value.sequence),
+        selected_visibility,
+        idempotent_retry_same_result,
+        terminal_invariant_verified: exact_owner
+            && exact_locator
+            && exact_ref
+            && live.mount_targets.is_empty()
+            && live.writable_fds.is_empty(),
+        exact_owner_verified: exact_owner,
+        exact_locator_verified: exact_locator,
+        exact_ref_verified: exact_ref,
+        stationary_payload_verified,
+        stationary_payload_inventory,
+        session_terminal_before: marker.post_sealing && marker.mount_ids.is_empty(),
+        session_terminal_after: marker.post_sealing
+            && live.mount_targets.is_empty()
+            && live.writable_fds.is_empty(),
+        post_sealing_session_resumed: marker.post_sealing
+            && (!live.mount_targets.is_empty() || !live.writable_fds.is_empty()),
+        state_parent_synced,
+        details: json!({
+            "recovery_path": "publication_recovery_replay",
+            "first_outcome": format!("{first:?}"),
+            "second_outcome": format!("{second:?}"),
+            "pre_snapshot": pre,
+            "post_snapshot": post,
+            "live_state": live,
+        }),
+    })
+}
+
+fn recover_hv07_owner(
+    _candidate: &Sm12RecoveryCandidate,
+    intent: &Hv07ChildIntent,
+    marker: &PhysicalFaultMarker,
+) -> CampaignResult<Hv07RecoveryProof> {
+    hv07_cleanup_operation_mounts(&intent.operation_root)?;
+    let retry: Hv07OwnerRetry =
+        durable::read_json(&intent.operation_root.join("owner-retry.json"))?;
+    if retry.transition.operation_id != intent.operation_id
+        || retry.stable.operation_id != intent.operation_id
+    {
+        return Err("HV-07 owner retry state does not name the killed operation".into());
+    }
+    let before_owner = current_owner(&retry.allocation_root)?;
+    let first = compare_and_adopt(&retry.allocation_root, &retry.stable, &retry.transition)?;
+    let second = compare_and_adopt(&retry.allocation_root, &retry.stable, &retry.transition)?;
+    let after_owner = current_owner(&retry.allocation_root)?;
+    let exact_owner = first.operation_id == intent.operation_id
+        && second.operation_id == intent.operation_id
+        && first.new_owner == second.new_owner
+        && after_owner == second.new_owner
+        && second.idempotent_replay;
+    let no_locator = !intent.operation_root.join("owner/locators").exists();
+    let no_ref = !intent.operation_root.join("owner/refs").exists();
+    let allocation = open_allocation(
+        retry
+            .allocation_root
+            .parent()
+            .and_then(Path::parent)
+            .ok_or("HV-07 owner retry allocation has no arena root")?,
+        &retry.transition.allocation_id,
+    )?;
+    let (stationary_payload_verified, stationary_payload_inventory) =
+        hv07_stationary_payload_inventory(&allocation.upper_dir)?;
+    let live = capture_hv07_live_state(&intent.operation_root)?;
+    let state_parent_synced = hv07_observe_durable_parent_contract(&[
+        retry.allocation_root.join("owner/CURRENT"),
+        retry
+            .allocation_root
+            .join("owner/receipts")
+            .join(format!("{}.json", intent.operation_id)),
+    ])?;
+    Ok(Hv07RecoveryProof {
+        family: intent.family,
+        recovery_invoked: true,
+        recovery_completed: true,
+        pre_recovery_phase: None,
+        final_recovery_phase: None,
+        before_owner,
+        after_owner,
+        locator_generation: None,
+        ref_sequence: None,
+        selected_visibility: if exact_owner {
+            SelectedVisibility::CompleteNew
+        } else {
+            SelectedVisibility::PartialNew
+        },
+        idempotent_retry_same_result: exact_owner,
+        terminal_invariant_verified: exact_owner
+            && no_locator
+            && no_ref
+            && live.mount_targets.is_empty()
+            && live.writable_fds.is_empty(),
+        exact_owner_verified: exact_owner,
+        exact_locator_verified: no_locator,
+        exact_ref_verified: no_ref,
+        stationary_payload_verified,
+        stationary_payload_inventory,
+        session_terminal_before: marker.post_sealing && marker.mount_ids.is_empty(),
+        session_terminal_after: marker.post_sealing
+            && live.mount_targets.is_empty()
+            && live.writable_fds.is_empty(),
+        post_sealing_session_resumed: marker.post_sealing
+            && (!live.mount_targets.is_empty() || !live.writable_fds.is_empty()),
+        state_parent_synced,
+        details: json!({
+            "recovery_path": "compare_and_adopt_same_operation",
+            "first_receipt": first,
+            "second_receipt": second,
+            "live_state": live,
+        }),
+    })
+}
+
+fn recover_hv07_canonical(
+    candidate: &Sm12RecoveryCandidate,
+    intent: &Hv07ChildIntent,
+    marker: &PhysicalFaultMarker,
+) -> CampaignResult<Hv07RecoveryProof> {
+    hv07_cleanup_operation_mounts(&intent.operation_root)?;
+    let request: SemanticBuildRequest =
+        durable::read_json(&intent.operation_root.join("canonical-retry.json"))?;
+    if request.operation_id != intent.operation_id {
+        return Err("HV-07 canonical retry state does not name the killed operation".into());
+    }
+    let before_owner = current_owner(&candidate.allocation.allocation_root)?;
+    hv07_reset_canonical_spool(&request, intent)?;
+    let first = build_with_output(&request)?;
+    hv07_reset_canonical_spool(&request, intent)?;
+    let second = build_with_output(&request)?;
+    let after_owner = current_owner(&candidate.allocation.allocation_root)?;
+    let idempotent = first.receipt.operation_id == intent.operation_id
+        && second.receipt.operation_id == intent.operation_id
+        && first.receipt.roots == second.receipt.roots
+        && first.receipt.record_stream_sha256 == second.receipt.record_stream_sha256
+        && first.root_manifest_path == second.root_manifest_path;
+    let exact_owner = before_owner == after_owner
+        && after_owner.allocation_id == request.allocation_id
+        && after_owner.operation_id == intent.operation_id;
+    let no_locator = !intent.operation_root.join("canonical/locators").exists();
+    let no_ref = !intent.operation_root.join("canonical/refs").exists();
+    let (stationary_payload_verified, stationary_payload_inventory) =
+        hv07_stationary_payload_inventory(&request.sealed_tree)?;
+    let live = capture_hv07_live_state(&intent.operation_root)?;
+    let state_parent_synced = hv07_observe_durable_parent_contract(&[
+        first.root_manifest_path.clone(),
+        second.root_manifest_path.clone(),
+    ])?;
+    Ok(Hv07RecoveryProof {
+        family: intent.family,
+        recovery_invoked: true,
+        recovery_completed: true,
+        pre_recovery_phase: None,
+        final_recovery_phase: None,
+        before_owner,
+        after_owner,
+        locator_generation: None,
+        ref_sequence: None,
+        selected_visibility: if idempotent {
+            SelectedVisibility::CompleteNew
+        } else {
+            SelectedVisibility::PartialNew
+        },
+        idempotent_retry_same_result: idempotent,
+        terminal_invariant_verified: idempotent
+            && exact_owner
+            && no_locator
+            && no_ref
+            && live.mount_targets.is_empty()
+            && live.writable_fds.is_empty(),
+        exact_owner_verified: exact_owner,
+        exact_locator_verified: no_locator,
+        exact_ref_verified: no_ref,
+        stationary_payload_verified,
+        stationary_payload_inventory,
+        session_terminal_before: marker.post_sealing && marker.mount_ids.is_empty(),
+        session_terminal_after: marker.post_sealing
+            && live.mount_targets.is_empty()
+            && live.writable_fds.is_empty(),
+        post_sealing_session_resumed: marker.post_sealing
+            && (!live.mount_targets.is_empty() || !live.writable_fds.is_empty()),
+        state_parent_synced,
+        details: json!({
+            "recovery_path": "semantic_build_same_request",
+            "first_receipt": first.receipt,
+            "second_receipt": second.receipt,
+            "live_state": live,
+        }),
+    })
+}
+
+fn hv07_reset_canonical_spool(
+    request: &SemanticBuildRequest,
+    intent: &Hv07ChildIntent,
+) -> CampaignResult {
+    if request.operation_id != intent.operation_id
+        || !request.spool_dir.starts_with(&intent.operation_root)
+        || request.spool_dir == intent.operation_root
+    {
+        return Err("HV-07 refused to clear a spool outside the killed operation".into());
+    }
+    if request.spool_dir.exists() {
+        fs::remove_dir_all(&request.spool_dir)?;
+        File::open(
+            request
+                .spool_dir
+                .parent()
+                .ok_or("HV-07 canonical spool has no parent")?,
+        )?
+        .sync_all()?;
+    }
+    Ok(())
+}
+
+fn recover_hv07_rollback(
+    candidate: &Sm12RecoveryCandidate,
+    intent: &Hv07ChildIntent,
+    marker: &PhysicalFaultMarker,
+) -> CampaignResult<Hv07RecoveryProof> {
+    hv07_cleanup_operation_mounts(&intent.operation_root)?;
+    let source_root = intent.operation_root.join("rollback");
+    let locator_store = LocatorStore::open(source_root.join("locators"))?;
+    let ref_store = PairedRefStore::open(source_root.join("refs"))?;
+    let before_owner = current_owner(&candidate.allocation.allocation_root)?;
+    let first = ref_store.recover_committed(
+        "hv07-rollback",
+        intent.operation_id.as_str(),
+        &locator_store,
+    )?;
+    let second = ref_store.recover_committed(
+        "hv07-rollback",
+        intent.operation_id.as_str(),
+        &locator_store,
+    )?;
+    let after_owner = current_owner(&candidate.allocation.allocation_root)?;
+    let selected_ref = ref_store.read("hv07-rollback")?;
+    let selected_locator = locator_store.selected()?;
+    let exact_ref = first.as_ref().map(|receipt| &receipt.value)
+        == second.as_ref().map(|receipt| &receipt.value)
+        && first.as_ref().map(|receipt| &receipt.value) == selected_ref.as_ref()
+        && selected_ref.as_ref().is_some_and(|value| {
+            value.operation_id == intent.operation_id
+                && value.publication_id == candidate.publication_id
+        });
+    let exact_locator = selected_locator.as_ref().is_some_and(|selected| {
+        selected.operation_id == intent.operation_id
+            && selected.publication_id == candidate.publication_id
+            && selected_ref
+                .as_ref()
+                .is_some_and(|value| value.locator_generation == selected.receipt.generation)
+    });
+    let exact_owner = hv07_payload_owner_matches(
+        &after_owner,
+        &candidate.allocation.descriptor.allocation_id,
+        &intent.operation_id,
+        &candidate.publication_id,
+    );
+    let (stationary_payload_verified, stationary_payload_inventory) =
+        hv07_stationary_payload_inventory(&candidate.allocation.upper_dir)?;
+    let live = capture_hv07_live_state(&intent.operation_root)?;
+    let state_parent_synced = hv07_observe_durable_parent_contract(&[
+        source_root.join("locators/CURRENT"),
+        source_root.join("refs/refs"),
+    ])?;
+    let idempotent = first.is_some() && exact_ref;
+    Ok(Hv07RecoveryProof {
+        family: intent.family,
+        recovery_invoked: true,
+        recovery_completed: true,
+        pre_recovery_phase: None,
+        final_recovery_phase: None,
+        before_owner,
+        after_owner,
+        locator_generation: selected_locator
+            .as_ref()
+            .map(|selected| selected.receipt.generation),
+        ref_sequence: selected_ref.as_ref().map(|value| value.sequence),
+        selected_visibility: if exact_ref && exact_locator {
+            SelectedVisibility::CompleteNew
+        } else {
+            SelectedVisibility::PartialNew
+        },
+        idempotent_retry_same_result: idempotent,
+        terminal_invariant_verified: idempotent
+            && exact_owner
+            && exact_locator
+            && exact_ref
+            && live.mount_targets.is_empty()
+            && live.writable_fds.is_empty(),
+        exact_owner_verified: exact_owner,
+        exact_locator_verified: exact_locator,
+        exact_ref_verified: exact_ref,
+        stationary_payload_verified,
+        stationary_payload_inventory,
+        session_terminal_before: marker.post_sealing && marker.mount_ids.is_empty(),
+        session_terminal_after: marker.post_sealing
+            && live.mount_targets.is_empty()
+            && live.writable_fds.is_empty(),
+        post_sealing_session_resumed: marker.post_sealing
+            && (!live.mount_targets.is_empty() || !live.writable_fds.is_empty()),
+        state_parent_synced,
+        details: json!({
+            "recovery_path": "paired_ref_recover_committed_same_operation",
+            "first_receipt": first.map(|receipt| receipt.value),
+            "second_receipt": second.map(|receipt| receipt.value),
+            "live_state": live,
+        }),
+    })
+}
+
+fn recover_hv07_session(
+    _candidate: &Sm12RecoveryCandidate,
+    intent: &Hv07ChildIntent,
+    marker: &PhysicalFaultMarker,
+    stale_capability_probe: &sandbox_runtime_mpla_poc::MutableLease,
+) -> CampaignResult<Hv07RecoveryProof> {
+    let retry: Hv07SessionRetry =
+        durable::read_json(&intent.operation_root.join("session-retry.json"))?;
+    if retry.recovery.operation_id != intent.operation_id
+        || retry.recovery.prior_operation_id != intent.operation_id
+        || retry.recovery.allocation_id != retry.allocation.descriptor.allocation_id
+        || stale_capability_probe.session_id != retry.recovery.session_id
+        || stale_capability_probe.allocation_id != retry.recovery.allocation_id
+        || stale_capability_probe.lease_epoch != retry.recovery.lease_epoch
+        || stale_capability_probe.owner_epoch != retry.recovery.owner_epoch
+    {
+        return Err("HV-07 session retry state does not name the killed exact operation".into());
+    }
+    let session_dir = retry
+        .control_root
+        .join("sessions")
+        .join(retry.recovery.session_id.as_str());
+    let session_path = session_dir.join("SESSION.json");
+    let sealing_path = session_dir.join("SEALING.json");
+    let recovery_path = session_dir.join("SEAL-RECOVERY.json");
+    let before_record: sandbox_runtime_mpla_poc::SessionRecord = durable::read_json(&session_path)?;
+    let before_owner = current_owner(&retry.allocation.allocation_root)?;
+    let payload_before = hv07_payload_snapshot(&retry.allocation.upper_dir)?;
+    let first = sandbox_runtime_mpla_poc::recover_session_seal(
+        &retry.control_root,
+        &retry.allocation,
+        &retry.recovery,
+    )?;
+    let payload_after_first = hv07_payload_snapshot(&retry.allocation.upper_dir)?;
+    let first_recovery_bytes = fs::read(&recovery_path)?;
+    let second = sandbox_runtime_mpla_poc::recover_session_seal(
+        &retry.control_root,
+        &retry.allocation,
+        &retry.recovery,
+    )?;
+    let second_recovery_bytes = fs::read(&recovery_path)?;
+    let payload_after_second = hv07_payload_snapshot(&retry.allocation.upper_dir)?;
+    let after_record: sandbox_runtime_mpla_poc::SessionRecord = durable::read_json(&session_path)?;
+    let after_owner = current_owner(&retry.allocation.allocation_root)?;
+    let live = capture_hv07_live_state(&intent.operation_root)?;
+    let expected_old = matches!(
+        intent.fault_point,
+        NamedFaultPoint::FenceBeforeClose
+            | NamedFaultPoint::FenceAfterClose
+            | NamedFaultPoint::FenceAfterDrain
+            | NamedFaultPoint::SealingBeforeWrite
+            | NamedFaultPoint::SealingAfterFileFsync
+    );
+    let expected_disposition = if expected_old {
+        sandbox_runtime_mpla_poc::SessionSealRecoveryDisposition::Old
+    } else {
+        sandbox_runtime_mpla_poc::SessionSealRecoveryDisposition::CompleteNew
+    };
+    let disposition_exact =
+        first.disposition == expected_disposition && second.disposition == expected_disposition;
+    let immutable_replay =
+        first == second && first_recovery_bytes == second_recovery_bytes && disposition_exact;
+    let stale_writer_error = sandbox_runtime_mpla_poc::lease::validate_writer(
+        &retry.allocation.allocation_root,
+        &stale_capability_probe.writer,
+    )
+    .expect_err("terminal recovery unexpectedly preserved the stale writer capability");
+    let stale_deleter_error = sandbox_runtime_mpla_poc::lease::validate_deleter(
+        &retry.allocation.allocation_root,
+        &stale_capability_probe.deleter,
+    )
+    .expect_err("terminal recovery unexpectedly preserved the stale deleter capability");
+    let same_session_lease_reissue_error = issue_workspace_lease(
+        &retry.allocation,
+        retry.recovery.session_id.clone(),
+        &retry.recovery.prior_operation_id,
+    )
+    .expect_err("terminal recovery unexpectedly reissued executable session authority");
+    let expected_fenced_lease_epoch = retry
+        .recovery
+        .lease_epoch
+        .checked_add(1)
+        .ok_or("HV-07 session lease epoch overflow")?;
+    let expected_fenced_owner_epoch = retry
+        .recovery
+        .owner_epoch
+        .checked_add(1)
+        .ok_or("HV-07 session owner epoch overflow")?;
+    let stale_writer_rejected = matches!(
+        &stale_writer_error,
+        PocError::StaleCapability {
+            capability,
+            allocation_id,
+            expected_epoch,
+            observed_epoch,
+        } if *capability == "writer"
+            && allocation_id == retry.recovery.allocation_id.as_str()
+            && *expected_epoch == expected_fenced_lease_epoch
+            && *observed_epoch == retry.recovery.lease_epoch
+    );
+    let stale_deleter_rejected = matches!(
+        &stale_deleter_error,
+        PocError::StaleCapability {
+            capability,
+            allocation_id,
+            expected_epoch,
+            observed_epoch,
+        } if *capability == "deleter"
+            && allocation_id == retry.recovery.allocation_id.as_str()
+            && *expected_epoch == expected_fenced_lease_epoch
+            && *observed_epoch == retry.recovery.lease_epoch
+    );
+    let same_session_lease_reissue_rejected = matches!(
+        &same_session_lease_reissue_error,
+        PocError::OwnerConflict(detail)
+            if detail == "workspace lease already belongs to another session or operation"
+    );
+    let before_terminal = matches!(
+        before_record.phase,
+        sandbox_runtime_mpla_poc::SessionPhase::PublicationCommitted
+            | sandbox_runtime_mpla_poc::SessionPhase::RecoveryRequired
+    );
+    let after_terminal = matches!(
+        after_record.phase,
+        sandbox_runtime_mpla_poc::SessionPhase::PublicationCommitted
+            | sandbox_runtime_mpla_poc::SessionPhase::RecoveryRequired
+    ) && after_record.phase == first.terminal_phase
+        && live.mount_targets.is_empty()
+        && live.writable_fds.is_empty();
+    let exact_owner = before_owner == after_owner
+        && after_owner.allocation_id == retry.recovery.allocation_id
+        && after_owner.operation_id == retry.recovery.prior_operation_id
+        && after_owner.owner_epoch == retry.recovery.owner_epoch;
+    let exact_fence = first.lease_fence.schema_version == SCHEMA_VERSION
+        && first.lease_fence.operation_id == retry.recovery.operation_id
+        && first.lease_fence.prior_operation_id == retry.recovery.prior_operation_id
+        && first.lease_fence.allocation_id == retry.recovery.allocation_id
+        && first.lease_fence.session_id == retry.recovery.session_id
+        && first.lease_fence.prior_lease_epoch == retry.recovery.lease_epoch
+        && first.lease_fence.prior_owner_epoch == retry.recovery.owner_epoch
+        && first.lease_fence.fenced_lease_epoch == expected_fenced_lease_epoch
+        && first.lease_fence.fenced_owner_epoch == expected_fenced_owner_epoch
+        && first.lease_fence.writer_revoked
+        && first.lease_fence.deleter_revoked
+        && stale_writer_rejected
+        && stale_deleter_rejected
+        && same_session_lease_reissue_rejected;
+    let exact_terminal_projection = match first.disposition {
+        sandbox_runtime_mpla_poc::SessionSealRecoveryDisposition::Old => {
+            first.sealing.is_none()
+                && first.stable.is_none()
+                && first.quiescence.is_none()
+                && !sealing_path.exists()
+                && !session_dir.join("STABLE.json").exists()
+                && !session_dir.join("QUIESCENCE.json").exists()
+        }
+        sandbox_runtime_mpla_poc::SessionSealRecoveryDisposition::CompleteNew => {
+            first.sealing.is_some()
+                && first.stable.is_some()
+                && first.quiescence.is_some()
+                && sealing_path.is_file()
+                && session_dir.join("STABLE.json").is_file()
+                && session_dir.join("QUIESCENCE.json").is_file()
+        }
+    };
+    let no_locator = !intent.operation_root.join("session/locators").exists();
+    let no_ref = !intent.operation_root.join("session/refs").exists();
+    let stationary_payload_verified =
+        payload_before == payload_after_first && payload_after_first == payload_after_second;
+    let stationary_payload_inventory = json!({
+        "path": retry.allocation.upper_dir,
+        "verification_bytes_read": payload_before.profile.logical_bytes
+            .checked_mul(3)
+            .ok_or("HV-07 session verification byte count overflow")?,
+        "payload_bytes_moved": 0,
+        "payload_bytes_copied": 0,
+        "before": payload_before,
+        "after_first_recovery": payload_after_first,
+        "after_same_operation_replay": payload_after_second,
+    });
+    let state_parent_synced =
+        hv07_observe_durable_parent_contract(&[session_path.clone(), sealing_path, recovery_path])?;
+    let post_sealing_session_resumed =
+        marker.post_sealing && (!after_terminal || !live.mount_targets.is_empty());
+    let recovery_must_kill_holder = matches!(
+        intent.fault_point,
+        NamedFaultPoint::FenceBeforeClose
+            | NamedFaultPoint::FenceAfterClose
+            | NamedFaultPoint::FenceAfterDrain
+            | NamedFaultPoint::SealingBeforeWrite
+            | NamedFaultPoint::SealingAfterFileFsync
+            | NamedFaultPoint::SealingAfterDirFsync
+            | NamedFaultPoint::QuiesceBeforeStop
+    );
+    let physical_process_boundary_exact = if recovery_must_kill_holder {
+        !first.cleanup.killed_or_signaled_pids.is_empty()
+    } else {
+        marker.post_sealing
+            && marker.marker_parent_synced
+            && marker.operation_id.as_deref() == Some(intent.operation_id.as_str())
+            && first.cleanup.post_unmount_audit.is_clear()
+            && live.mount_targets.is_empty()
+            && live.writable_fds.is_empty()
+    };
+    let terminal_invariant_verified = immutable_replay
+        && exact_owner
+        && exact_fence
+        && exact_terminal_projection
+        && no_locator
+        && no_ref
+        && stationary_payload_verified
+        && after_terminal
+        && physical_process_boundary_exact
+        && first.cleanup.post_unmount_audit.is_clear()
+        && !post_sealing_session_resumed;
+    Ok(Hv07RecoveryProof {
+        family: intent.family,
+        recovery_invoked: true,
+        recovery_completed: true,
+        pre_recovery_phase: None,
+        final_recovery_phase: None,
+        before_owner,
+        after_owner,
+        locator_generation: None,
+        ref_sequence: None,
+        selected_visibility: match first.disposition {
+            sandbox_runtime_mpla_poc::SessionSealRecoveryDisposition::Old => {
+                SelectedVisibility::Old
+            }
+            sandbox_runtime_mpla_poc::SessionSealRecoveryDisposition::CompleteNew => {
+                SelectedVisibility::CompleteNew
+            }
+        },
+        idempotent_retry_same_result: immutable_replay,
+        terminal_invariant_verified,
+        exact_owner_verified: exact_owner,
+        exact_locator_verified: no_locator,
+        exact_ref_verified: no_ref,
+        stationary_payload_verified,
+        stationary_payload_inventory,
+        session_terminal_before: before_terminal,
+        session_terminal_after: after_terminal,
+        post_sealing_session_resumed,
+        state_parent_synced,
+        details: json!({
+            "recovery_path": "secret_free_restart_recover_session_seal",
+            "expected_disposition": expected_disposition,
+            "disposition_exact": disposition_exact,
+            "immutable_same_operation_replay": immutable_replay,
+            "exact_terminal_projection": exact_terminal_projection,
+            "exact_terminal_lease_fence": exact_fence,
+            "stale_writer_rejected": stale_writer_rejected,
+            "stale_deleter_rejected": stale_deleter_rejected,
+            "same_session_lease_reissue_rejected": same_session_lease_reissue_rejected,
+            "recovery_must_kill_holder": recovery_must_kill_holder,
+            "recovery_killed_or_signaled_pids": first.cleanup.killed_or_signaled_pids,
+            "physical_process_boundary_exact": physical_process_boundary_exact,
+            "stale_writer_error": stale_writer_error.to_string(),
+            "stale_deleter_error": stale_deleter_error.to_string(),
+            "same_session_lease_reissue_error": same_session_lease_reissue_error.to_string(),
+            "before_record": before_record,
+            "after_record": after_record,
+            "first_receipt": first,
+            "second_receipt": second,
+            "live_state": live,
+        }),
+    })
+}
+
+fn recover_hv07_activation(
+    candidate: &Sm12RecoveryCandidate,
+    intent: &Hv07ChildIntent,
+    marker: &PhysicalFaultMarker,
+    pre_operation_payload: &Hv07PayloadSnapshot,
+) -> CampaignResult<Hv07RecoveryProof> {
+    let retry: Hv07ActivationRetry =
+        durable::read_json(&intent.operation_root.join("activation-retry.json"))?;
+    if retry.selected_ref.operation_id != intent.operation_id {
+        return Err("HV-07 activation retry state does not name the killed operation".into());
+    }
+    let activation_dir = retry
+        .control_root
+        .join("activations")
+        .join(intent.operation_id.as_str());
+    let locator_pin_path = activation_dir.join("LOCATOR_PIN.json");
+    let binding_path = activation_dir.join("SESSION_BOUND.json");
+    let outcome_path = activation_dir.join("OUTCOME.json");
+    let recovery_path = activation_dir.join("RECOVERY.json");
+    let before_owner = current_owner(&retry.payload.allocation_root)?;
+    let payload_before = pre_operation_payload.clone();
+    let recovery_request = ExactActivationRequest {
+        activation_operation_id: ActivationOperationId::from_string(intent.operation_id.as_str()),
+        allocation_operation_id: OperationId::from_string(format!(
+            "{}-activation-allocation",
+            intent.operation_id
+        )),
+        selected_ref: retry.selected_ref.clone(),
+        recipe: retry.recipe.clone(),
+        payload_allocations: vec![retry.payload.clone()],
+        arena_root: retry.arena_root.clone(),
+        control_root: retry.control_root.clone(),
+        cgroup_procs_path: None,
+        readiness_path: PathBuf::from("sm12.txt"),
+        readiness_contains: None,
+        readiness_timeout: Duration::from_secs(2),
+    };
+    let first = sandbox_runtime_mpla_poc::recover_exact_activation(&recovery_request)?;
+    let payload_after_first = hv07_payload_snapshot(&retry.payload.upper_dir)?;
+    let first_recovery_bytes = fs::read(&recovery_path)?;
+    let second = sandbox_runtime_mpla_poc::recover_exact_activation(&recovery_request)?;
+    let second_recovery_bytes = fs::read(&recovery_path)?;
+    let payload_after_second = hv07_payload_snapshot(&retry.payload.upper_dir)?;
+    let immutable_replay = first == second && first_recovery_bytes == second_recovery_bytes;
+    let expected_old = matches!(
+        intent.fault_point,
+        NamedFaultPoint::ActivateAfterRefSelect
+            | NamedFaultPoint::ActivateAfterLocatorPin
+            | NamedFaultPoint::ActivateAfterFreshOwner
+            | NamedFaultPoint::ActivateAfterMount
+            | NamedFaultPoint::ActivateAfterReady
+    );
+    let expected_disposition = if expected_old {
+        sandbox_runtime_mpla_poc::ActivationRecoveryDisposition::Old
+    } else {
+        sandbox_runtime_mpla_poc::ActivationRecoveryDisposition::CompleteNew
+    };
+    let disposition_exact =
+        first.disposition == expected_disposition && second.disposition == expected_disposition;
+    let after_owner = current_owner(&retry.payload.allocation_root)?;
+    let exact_owner = before_owner == after_owner
+        && after_owner.allocation_id == retry.payload.descriptor.allocation_id
+        && after_owner.operation_id == intent.operation_id
+        && after_owner.owner_epoch == candidate.owner_epoch
+        && hv07_payload_owner_matches(
+            &after_owner,
+            &candidate.allocation.descriptor.allocation_id,
+            &candidate.operation_id,
+            &candidate.publication_id,
+        );
+    let local_ref_store = PairedRefStore::open(intent.operation_root.join("activation/refs"))?;
+    let observed_ref = local_ref_store.read("hv07-activation")?;
+    let exact_ref = observed_ref.as_ref() == Some(&retry.selected_ref);
+    let locator_pin: Option<Value> = if locator_pin_path.exists() {
+        Some(durable::read_json(&locator_pin_path)?)
+    } else {
+        None
+    };
+    let locator_pin_expected =
+        !matches!(intent.fault_point, NamedFaultPoint::ActivateAfterRefSelect);
+    let exact_locator = first.locator_pin_durable == locator_pin_expected
+        && second.locator_pin_durable == locator_pin_expected
+        && locator_pin.as_ref().map_or(!locator_pin_expected, |pin| {
+            pin.get("activation_operation_id").and_then(Value::as_str)
+                == Some(intent.operation_id.as_str())
+                && pin
+                    .get("locator_generation")
+                    .and_then(Value::as_u64)
+                    .is_some_and(|generation| {
+                        generation == retry.selected_ref.locator_generation.get()
+                    })
+        });
+    let binding_exact = match first.disposition {
+        sandbox_runtime_mpla_poc::ActivationRecoveryDisposition::Old => first.binding.is_none(),
+        sandbox_runtime_mpla_poc::ActivationRecoveryDisposition::CompleteNew => {
+            first.binding.as_ref().is_some_and(|binding| {
+                binding.activation_operation_id.as_str() == intent.operation_id.as_str()
+                    && binding.selected_ref == retry.selected_ref
+                    && binding.session_id == first.session_id
+            })
+        }
+    };
+    let outcome_expected = matches!(intent.fault_point, NamedFaultPoint::ResponseLossActivate);
+    let outcome_exact = first.original_outcome.is_some() == outcome_expected
+        && first.original_outcome.as_ref().is_none_or(|outcome| {
+            outcome.activation_operation_id.as_str() == intent.operation_id.as_str()
+                && outcome.session_id == first.session_id
+                && first
+                    .binding
+                    .as_ref()
+                    .is_some_and(|binding| binding.session_id == outcome.session_id)
+        });
+    let selected_payload_exact = first.selected_payloads_preserved
+        && first.selected_payload_allocations_before == vec![retry.payload.clone()]
+        && first.selected_payload_allocations_after == vec![retry.payload.clone()]
+        && first.selected_payload_owners_before == vec![before_owner.clone()]
+        && first.selected_payload_owners_after == vec![after_owner.clone()];
+    let terminal_disposition_exact = match first.disposition {
+        sandbox_runtime_mpla_poc::ActivationRecoveryDisposition::Old => {
+            first.binding.is_none()
+                && first.original_outcome.is_none()
+                && first.terminal_session_record.is_none()
+                && !first.allocation_retained
+                && first.allocation_removed == first.fresh_allocation.is_some()
+                && first.authority_fenced == first.terminal_lease_fence.is_some()
+                && (first.fresh_owner.is_none() || first.terminal_lease_fence.is_some())
+        }
+        sandbox_runtime_mpla_poc::ActivationRecoveryDisposition::CompleteNew => {
+            first.binding.is_some()
+                && first
+                    .terminal_session_record
+                    .as_ref()
+                    .is_some_and(|record| {
+                        record.session_id == first.session_id
+                            && record.phase
+                                == sandbox_runtime_mpla_poc::SessionPhase::RecoveryRequired
+                    })
+                && !first.allocation_removed
+                && first.allocation_retained
+                && first.terminal_lease_fence.is_some()
+                && first.authority_fenced
+        }
+    };
+    let stationary_payload_verified = pre_operation_payload == &payload_before
+        && payload_before == payload_after_first
+        && payload_after_first == payload_after_second;
+    let stationary_payload_inventory = json!({
+        "path": retry.payload.upper_dir,
+        "verification_bytes_read": payload_before.profile.logical_bytes
+            .checked_mul(3)
+            .ok_or("HV-07 activation verification byte count overflow")?,
+        "payload_bytes_moved": 0,
+        "payload_bytes_copied": 0,
+        "before_child": pre_operation_payload,
+        "after_sigkill_before_recovery": payload_before,
+        "after_first_recovery": payload_after_first,
+        "after_same_operation_replay": payload_after_second,
+    });
+    let live = capture_hv07_live_state(&intent.operation_root)?;
+    let post_sealing_session_resumed =
+        marker.post_sealing && (!live.mount_targets.is_empty() || !live.writable_fds.is_empty());
+    let state_parent_synced = hv07_observe_durable_parent_contract(&[
+        intent.operation_root.join("activation-retry.json"),
+        locator_pin_path.clone(),
+        binding_path.clone(),
+        outcome_path.clone(),
+        recovery_path,
+    ])?;
+    let terminal_invariant_verified = immutable_replay
+        && disposition_exact
+        && terminal_disposition_exact
+        && exact_owner
+        && exact_locator
+        && exact_ref
+        && binding_exact
+        && outcome_exact
+        && selected_payload_exact
+        && stationary_payload_verified
+        && first.mount_removed
+        && first.process_audit_clear
+        && !first.executable_authority_returned
+        && live.mount_targets.is_empty()
+        && live.writable_fds.is_empty()
+        && !post_sealing_session_resumed;
+    Ok(Hv07RecoveryProof {
+        family: intent.family,
+        recovery_invoked: true,
+        recovery_completed: true,
+        pre_recovery_phase: None,
+        final_recovery_phase: None,
+        before_owner,
+        after_owner,
+        locator_generation: observed_ref.as_ref().map(|value| value.locator_generation),
+        ref_sequence: observed_ref.as_ref().map(|value| value.sequence),
+        selected_visibility: match first.disposition {
+            sandbox_runtime_mpla_poc::ActivationRecoveryDisposition::Old => SelectedVisibility::Old,
+            sandbox_runtime_mpla_poc::ActivationRecoveryDisposition::CompleteNew => {
+                SelectedVisibility::CompleteNew
+            }
+        },
+        idempotent_retry_same_result: immutable_replay,
+        terminal_invariant_verified,
+        exact_owner_verified: exact_owner,
+        exact_locator_verified: exact_locator,
+        exact_ref_verified: exact_ref,
+        stationary_payload_verified,
+        stationary_payload_inventory,
+        session_terminal_before: marker.post_sealing && marker.mount_ids.is_empty(),
+        session_terminal_after: terminal_disposition_exact
+            && live.mount_targets.is_empty()
+            && live.writable_fds.is_empty(),
+        post_sealing_session_resumed,
+        state_parent_synced,
+        details: json!({
+            "recovery_path": "secret_free_restart_recover_exact_activation",
+            "expected_disposition": expected_disposition,
+            "disposition_exact": disposition_exact,
+            "immutable_same_operation_replay": immutable_replay,
+            "terminal_disposition_exact": terminal_disposition_exact,
+            "selected_payload_exact": selected_payload_exact,
+            "binding_exact": binding_exact,
+            "outcome_exact": outcome_exact,
+            "locator_pin": locator_pin,
+            "first_receipt": first,
+            "second_receipt": second,
+            "live_state": live,
+        }),
+    })
+}
+
+fn hv07_recovery_value(outcome: &RecoveryOutcome) -> Option<&PairedRefValue> {
+    match outcome {
+        RecoveryOutcome::Committed(receipt) => Some(&receipt.value),
+        RecoveryOutcome::AwaitingOwnerTransition { .. } | RecoveryOutcome::Conflict(_) => None,
+    }
+}
+
+fn hv07_payload_owner_matches(
+    owner: &sandbox_runtime_mpla_poc::OwnerGeneration,
+    allocation_id: &AllocationId,
+    operation_id: &OperationId,
+    publication_id: &PublicationId,
+) -> bool {
+    owner.allocation_id == *allocation_id
+        && owner.operation_id == *operation_id
+        && matches!(
+            &owner.subject,
+            OwnerSubject::PayloadOwned {
+                publication_id: observed
+            } if observed == publication_id
+        )
+}
+
+#[derive(Debug, Serialize)]
+struct Hv07LiveState {
+    mount_targets: Vec<PathBuf>,
+    writable_fds: Vec<PathBuf>,
+}
+
+fn capture_hv07_live_state(operation_root: &Path) -> CampaignResult<Hv07LiveState> {
+    Ok(Hv07LiveState {
+        mount_targets: hv07_operation_mount_targets(operation_root)?,
+        writable_fds: hv07_operation_writable_fds(operation_root)?,
+    })
+}
+
+fn hv07_cleanup_operation_mounts(operation_root: &Path) -> CampaignResult {
+    let mut targets = hv07_operation_mount_targets(operation_root)?;
+    targets.sort_by_key(|path| std::cmp::Reverse(path.components().count()));
+    for target in targets {
+        let encoded = std::ffi::CString::new(target.as_os_str().as_bytes())?;
+        // SAFETY: `encoded` is a live, NUL-terminated path and every target was
+        // read from mountinfo and proven to be inside this operation root.
+        if unsafe { libc::umount2(encoded.as_ptr(), 0) } != 0 {
+            return Err(format!(
+                "HV-07 strict operation-scoped unmount failed for {}: {}",
+                target.display(),
+                std::io::Error::last_os_error()
+            )
+            .into());
+        }
+    }
+    if !hv07_operation_mount_targets(operation_root)?.is_empty() {
+        return Err("HV-07 operation-scoped mounts remained after strict unmount".into());
+    }
+    Ok(())
+}
+
+fn hv07_operation_mount_targets(operation_root: &Path) -> CampaignResult<Vec<PathBuf>> {
+    let mountinfo = fs::read_to_string("/proc/self/mountinfo")?;
+    let mut targets = Vec::new();
+    for line in mountinfo.lines() {
+        let raw = line
+            .split_whitespace()
+            .nth(4)
+            .ok_or("malformed /proc/self/mountinfo row")?;
+        let target = PathBuf::from(hv07_decode_mount_path(raw)?);
+        if target.starts_with(operation_root) {
+            targets.push(target);
+        }
+    }
+    targets.sort();
+    targets.dedup();
+    Ok(targets)
+}
+
+fn hv07_decode_mount_path(raw: &str) -> CampaignResult<String> {
+    let bytes = raw.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'\\' && index + 3 < bytes.len() {
+            let octal = &raw[index + 1..index + 4];
+            if octal.bytes().all(|byte| (b'0'..=b'7').contains(&byte)) {
+                decoded.push(u8::from_str_radix(octal, 8)?);
+                index += 4;
+                continue;
+            }
+        }
+        decoded.push(bytes[index]);
+        index += 1;
+    }
+    Ok(String::from_utf8(decoded)?)
+}
+
+fn hv07_operation_writable_fds(operation_root: &Path) -> CampaignResult<Vec<PathBuf>> {
+    let mut paths = Vec::new();
+    for entry in fs::read_dir("/proc/self/fd")? {
+        let entry = entry?;
+        let Ok(target) = fs::read_link(entry.path()) else {
+            continue;
+        };
+        if !target.starts_with(operation_root) {
+            continue;
+        }
+        let fd = entry.file_name().to_string_lossy().parse::<i32>()?;
+        // SAFETY: `fd` names an entry observed in this process's `/proc/self/fd`;
+        // F_GETFL only reads its status flags and does not retain a pointer.
+        let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+        if flags < 0 {
+            continue;
+        }
+        let access = flags & libc::O_ACCMODE;
+        if access == libc::O_WRONLY || access == libc::O_RDWR {
+            paths.push(target);
+        }
+    }
+    paths.sort();
+    paths.dedup();
+    Ok(paths)
+}
+
+fn write_hv07_create_new_json<T: Serialize>(path: &Path, value: &T) -> CampaignResult {
+    let parent = path
+        .parent()
+        .ok_or("HV-07 immutable JSON path has no parent")?;
+    fs::create_dir_all(parent)?;
+    let bytes = serde_json::to_vec_pretty(value)?;
+    let mut file = std::fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(path)?;
+    file.write_all(&bytes)?;
+    file.write_all(b"\n")?;
+    file.sync_all()?;
+    File::open(parent)?.sync_all()?;
+    Ok(())
+}
+
+fn capture_hv07_debt_inventory(operation_root: &Path) -> CampaignResult<Hv07DebtInventory> {
+    let profile = profile_tree(operation_root)?;
+    let (durable_manifest_bytes, temporary_manifest_bytes, retirement_manifest_bytes) =
+        hv07_classified_allocated_bytes(operation_root)?;
+    Ok(Hv07DebtInventory {
+        profile,
+        mount_targets: hv07_operation_mount_targets(operation_root)?,
+        writable_fds: hv07_operation_writable_fds(operation_root)?,
+        durable_manifest_bytes,
+        temporary_manifest_bytes,
+        retirement_manifest_bytes,
+    })
+}
+
+fn hv07_classified_allocated_bytes(root: &Path) -> CampaignResult<(u64, u64, u64)> {
+    let mut durable = 0_u64;
+    let mut temporary = 0_u64;
+    let mut retirement = 0_u64;
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(path) = pending.pop() {
+        let metadata = fs::symlink_metadata(&path)?;
+        if metadata.is_dir() {
+            for entry in fs::read_dir(&path)? {
+                pending.push(entry?.path());
+            }
+            continue;
+        }
+        if !metadata.is_file() {
+            continue;
+        }
+        let bytes = metadata
+            .blocks()
+            .checked_mul(512)
+            .ok_or("HV-07 debt overflow")?;
+        let relative = path.strip_prefix(root)?;
+        let is_retirement = relative.components().any(|component| {
+            component
+                .as_os_str()
+                .to_string_lossy()
+                .to_ascii_lowercase()
+                .contains("retir")
+        });
+        let file_name = path
+            .file_name()
+            .map(|name| name.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        let is_temporary = file_name.starts_with('.')
+            || file_name.contains(".tmp")
+            || file_name.ends_with(".partial");
+        if is_retirement {
+            retirement = retirement.checked_add(bytes).ok_or("HV-07 debt overflow")?;
+        } else if is_temporary {
+            temporary = temporary.checked_add(bytes).ok_or("HV-07 debt overflow")?;
+        } else {
+            durable = durable.checked_add(bytes).ok_or("HV-07 debt overflow")?;
+        }
+    }
+    Ok((durable, temporary, retirement))
+}
+
+fn hv07_debt_proof(
+    before: Hv07DebtInventory,
+    after: Hv07DebtInventory,
+) -> CampaignResult<Hv07DebtProof> {
+    let allocated_bytes_added = after
+        .profile
+        .allocated_bytes
+        .checked_sub(before.profile.allocated_bytes)
+        .ok_or("HV-07 operation allocation shrank during recovery")?;
+    let durable_operation_bytes = after
+        .durable_manifest_bytes
+        .checked_sub(before.durable_manifest_bytes)
+        .ok_or("HV-07 durable operation bytes shrank during recovery")?;
+    let temporary_debt_bytes = after
+        .temporary_manifest_bytes
+        .checked_sub(before.temporary_manifest_bytes)
+        .ok_or("HV-07 temporary operation bytes shrank during recovery")?;
+    let retirement_debt_bytes = after
+        .retirement_manifest_bytes
+        .checked_sub(before.retirement_manifest_bytes)
+        .ok_or("HV-07 retirement operation bytes shrank during recovery")?;
+    let classified = durable_operation_bytes
+        .checked_add(temporary_debt_bytes)
+        .and_then(|bytes| bytes.checked_add(retirement_debt_bytes))
+        .ok_or("HV-07 classified debt overflow")?;
+    let unexplained_bytes = allocated_bytes_added
+        .checked_sub(classified)
+        .ok_or("HV-07 classified bytes exceed measured allocation growth")?;
+    Ok(Hv07DebtProof {
+        temporary_debt_bytes,
+        retirement_debt_bytes,
+        before,
+        after,
+        allocated_bytes_added,
+        durable_operation_bytes,
+        unexplained_bytes,
+    })
+}
+
+fn hv07_stationary_payload_inventory(path: &Path) -> CampaignResult<(bool, Value)> {
+    let first_profile = profile_tree(path)?;
+    let first_sha256 = hv07_tree_inventory_sha256(path)?;
+    File::open(path)?.sync_all()?;
+    let second_profile = profile_tree(path)?;
+    let second_sha256 = hv07_tree_inventory_sha256(path)?;
+    Ok((
+        first_profile.regular_files > 0
+            && first_profile == second_profile
+            && first_sha256 == second_sha256,
+        json!({
+            "path": path,
+            "first_profile": first_profile,
+            "second_profile": second_profile,
+            "first_inventory_sha256": first_sha256,
+            "second_inventory_sha256": second_sha256,
+        }),
+    ))
+}
+
+fn hv07_tree_inventory_sha256(root: &Path) -> CampaignResult<String> {
+    let mut entries = Vec::new();
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(path) = pending.pop() {
+        let metadata = fs::symlink_metadata(&path)?;
+        let kind = if metadata.is_dir() {
+            for entry in fs::read_dir(&path)? {
+                pending.push(entry?.path());
+            }
+            "directory"
+        } else if metadata.is_file() {
+            "file"
+        } else if metadata.file_type().is_symlink() {
+            "symlink"
+        } else {
+            "other"
+        };
+        entries.push((
+            path.strip_prefix(root)?.as_os_str().as_bytes().to_vec(),
+            kind,
+            metadata.len(),
+            metadata.blocks(),
+        ));
+    }
+    entries.sort();
+    Ok(hex_digest(Sha256::digest(serde_json::to_vec(&entries)?)))
+}
+
+fn hv07_payload_snapshot(root: &Path) -> CampaignResult<Hv07PayloadSnapshot> {
+    let profile = profile_tree(root)?;
+    let metadata_inventory_sha256 = hv07_tree_inventory_sha256(root)?;
+    let mut paths = Vec::new();
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(path) = pending.pop() {
+        let metadata = fs::symlink_metadata(&path)?;
+        if metadata.is_dir() {
+            for entry in fs::read_dir(&path)? {
+                pending.push(entry?.path());
+            }
+        }
+        paths.push(path);
+    }
+    paths.sort_by(|left, right| {
+        left.strip_prefix(root)
+            .expect("HV-07 payload path is rooted")
+            .as_os_str()
+            .as_bytes()
+            .cmp(
+                right
+                    .strip_prefix(root)
+                    .expect("HV-07 payload path is rooted")
+                    .as_os_str()
+                    .as_bytes(),
+            )
+    });
+
+    let mut content = Sha256::new();
+    let mut buffer = vec![0_u8; 1024 * 1024];
+    for path in paths {
+        let relative = path.strip_prefix(root)?.as_os_str().as_bytes();
+        content.update(
+            u64::try_from(relative.len())
+                .map_err(|_| "HV-07 relative path length overflow")?
+                .to_le_bytes(),
+        );
+        content.update(relative);
+        let metadata = fs::symlink_metadata(&path)?;
+        if metadata.is_dir() {
+            content.update([b'd']);
+        } else if metadata.is_file() {
+            content.update([b'f']);
+            content.update(metadata.len().to_le_bytes());
+            let mut reader = BufReader::new(File::open(&path)?);
+            let mut observed = 0_u64;
+            loop {
+                let read = reader.read(&mut buffer)?;
+                if read == 0 {
+                    break;
+                }
+                observed = observed
+                    .checked_add(u64::try_from(read)?)
+                    .ok_or("HV-07 payload content byte count overflow")?;
+                content.update(&buffer[..read]);
+            }
+            if observed != metadata.len() {
+                return Err(format!(
+                    "HV-07 payload changed while hashing {}: metadata={} observed={observed}",
+                    path.display(),
+                    metadata.len()
+                )
+                .into());
+            }
+        } else if metadata.file_type().is_symlink() {
+            content.update([b'l']);
+            let target = fs::read_link(&path)?;
+            let target = target.as_os_str().as_bytes();
+            content.update(
+                u64::try_from(target.len())
+                    .map_err(|_| "HV-07 symlink target length overflow")?
+                    .to_le_bytes(),
+            );
+            content.update(target);
+        } else {
+            return Err(format!(
+                "HV-07 payload contains unsupported entry {}",
+                path.display()
+            )
+            .into());
+        }
+    }
+    Ok(Hv07PayloadSnapshot {
+        profile,
+        metadata_inventory_sha256,
+        content_sha256: hex_digest(content.finalize()),
+    })
+}
+
+fn hv07_observe_durable_parent_contract(paths: &[PathBuf]) -> CampaignResult<bool> {
+    let mut observed = false;
+    for path in paths {
+        let metadata = match fs::symlink_metadata(path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error.into()),
+        };
+        if metadata.file_type().is_symlink() || !(metadata.is_file() || metadata.is_dir()) {
+            return Err(format!(
+                "HV-07 durable state entry is not a regular file or directory: {}",
+                path.display()
+            )
+            .into());
+        }
+        let parent = path
+            .parent()
+            .ok_or("HV-07 durable state path has no parent")?;
+        let parent_metadata = fs::symlink_metadata(parent)?;
+        if !parent_metadata.is_dir() || parent_metadata.file_type().is_symlink() {
+            return Err(format!(
+                "HV-07 durable state parent is not an exact directory: {}",
+                parent.display()
+            )
+            .into());
+        }
+        observed = true;
+    }
+    Ok(observed)
 }
 
 pub fn run_hv07_fresh_sweep() -> CampaignResult {
@@ -1162,6 +2832,17 @@ pub fn run_hv07_child() -> CampaignResult {
         return Err("HV-07 child request and configured faultpoint disagree".into());
     }
     fs::create_dir_all(&request.operation_root)?;
+    let intent: Hv07ChildIntent = durable::read_json(&request.operation_root.join("INTENT.json"))?;
+    let expected_intent = Hv07ChildIntent {
+        schema_version: SCHEMA_VERSION,
+        family: Hv07OperationFamily::for_point(request.fault_point),
+        fault_point: request.fault_point,
+        operation_id: request.operation_id.clone(),
+        operation_root: request.operation_root.clone(),
+    };
+    if intent != expected_intent {
+        return Err("HV-07 child immutable exact-operation intent mismatch".into());
+    }
     durable::replace_json(
         &request
             .operation_root
@@ -1225,10 +2906,12 @@ fn run_hv07_publication_operation(request: &Hv07ChildRequest) -> CampaignResult 
     let locator_store = LocatorStore::open(&request.locator_root)?;
     let ref_store = PairedRefStore::open(&request.ref_root)?;
     let occ = BranchOcc::open(&request.occ_root)?;
-    let mut faults = NamedFaultInjector::default().with_physical_context(
-        request.operation_id.as_str(),
-        request.durable_state_paths.clone(),
-    );
+    let mut faults = NamedFaultInjector::default()
+        .with_physical_context(
+            request.operation_id.as_str(),
+            request.durable_state_paths.clone(),
+        )
+        .with_physical_stationary_payload_path(request.allocation_root.join("upper"));
     let outcome = recovery.replay(
         &request.operation_id,
         &locator_store,
@@ -1248,7 +2931,9 @@ fn run_hv07_publication_operation(request: &Hv07ChildRequest) -> CampaignResult 
     .into())
 }
 
-fn run_hv07_session_operation(request: &Hv07ChildRequest) -> CampaignResult {
+fn prepare_hv07_session_operation(
+    request: &Hv07ChildRequest,
+) -> CampaignResult<sandbox_runtime_mpla_poc::MutableLease> {
     let source_root = request.operation_root.join("session");
     let lower = source_root.join("lower");
     fs::create_dir_all(&lower)?;
@@ -1258,19 +2943,59 @@ fn run_hv07_session_operation(request: &Hv07ChildRequest) -> CampaignResult {
         &request.operation_id,
     )?;
     let lease = issue_workspace_lease(&allocation, SessionId::new(), &request.operation_id)?;
+    let recovery = sandbox_runtime_mpla_poc::SessionSealRecoveryRequest::from_lease(
+        &lease,
+        request.operation_id.clone(),
+        request.operation_id.clone(),
+    );
+    write_hv07_create_new_json(
+        &request.operation_root.join("session-retry.json"),
+        &Hv07SessionRetry {
+            allocation,
+            recovery,
+            control_root: source_root.join("control"),
+        },
+    )?;
+    Ok(lease)
+}
+
+fn run_hv07_session_operation(request: &Hv07ChildRequest) -> CampaignResult {
+    let source_root = request.operation_root.join("session");
+    let lower = source_root.join("lower");
+    let retry: Hv07SessionRetry =
+        durable::read_json(&request.operation_root.join("session-retry.json"))?;
+    let lease: sandbox_runtime_mpla_poc::MutableLease =
+        serde_json::from_reader(std::io::stdin().lock())?;
+    if retry.recovery.operation_id != request.operation_id
+        || retry.recovery.prior_operation_id != request.operation_id
+        || retry.recovery.allocation_id != retry.allocation.descriptor.allocation_id
+        || retry.recovery.session_id != lease.session_id
+        || retry.recovery.allocation_id != lease.allocation_id
+        || retry.recovery.lease_epoch != lease.lease_epoch
+        || retry.recovery.owner_epoch != lease.owner_epoch
+    {
+        return Err("HV-07 private session capability does not match durable retry tuple".into());
+    }
     let mut session = sandbox_runtime_mpla_poc::MplaSession::open(
-        &source_root.join("control"),
-        allocation,
+        &retry.control_root,
+        retry.allocation,
         lease.clone(),
         vec![lower],
-        None,
+        Some(
+            request
+                .operation_cgroup_procs_path
+                .clone()
+                .ok_or("HV-07 session operation has no exclusive cgroup")?,
+        ),
     )?;
     let command = session.execute(
         &lease.writer,
         Path::new("/bin/sh"),
         &[
             "-c".to_owned(),
-            "printf hv07-session > hv07-session.txt".to_owned(),
+            "printf hv07-session > hv07-session.txt; \
+             (exec 9>>hv07-session.txt; sleep 30) >/dev/null 2>&1 &"
+                .to_owned(),
         ],
         Duration::from_secs(2),
     )?;
@@ -1312,10 +3037,18 @@ fn run_hv07_owner_operation(request: &Hv07ChildRequest) -> CampaignResult {
         operation_id: request.operation_id.clone(),
         publication_id: request.publication_id.clone(),
         session_id: lease.session_id,
-        allocation_id: allocation.descriptor.allocation_id,
+        allocation_id: allocation.descriptor.allocation_id.clone(),
         expected_lease_epoch: lease.lease_epoch,
         expected_owner_epoch: lease.owner_epoch,
     };
+    write_hv07_create_new_json(
+        &request.operation_root.join("owner-retry.json"),
+        &Hv07OwnerRetry {
+            allocation_root: allocation.allocation_root.clone(),
+            stable: stable.clone(),
+            transition: transition.clone(),
+        },
+    )?;
     let result = compare_and_adopt(&allocation.allocation_root, &stable, &transition);
     Err(format!(
         "HV-07 owner operation passed {} without stopping: {result:?}",
@@ -1334,7 +3067,7 @@ fn run_hv07_canonical_operation(request: &Hv07ChildRequest) -> CampaignResult {
     source.sync_all()?;
     drop(source);
     File::open(&sealed_tree)?.sync_all()?;
-    let output = build_with_output(&SemanticBuildRequest {
+    let semantic_request = SemanticBuildRequest {
         schema_version: SCHEMA_VERSION,
         operation_id: request.operation_id.clone(),
         allocation_id: request.allocation_id.clone(),
@@ -1342,7 +3075,12 @@ fn run_hv07_canonical_operation(request: &Hv07ChildRequest) -> CampaignResult {
         spool_dir: source_root.join("spool"),
         canonical_object_dir: source_root.join("objects"),
         attribution: attribution(),
-    });
+    };
+    write_hv07_create_new_json(
+        &request.operation_root.join("canonical-retry.json"),
+        &semantic_request,
+    )?;
+    let output = build_with_output(&semantic_request);
     Err(format!(
         "HV-07 canonical operation passed {} without stopping: {output:?}",
         request.fault_point.as_str()
@@ -1365,7 +3103,8 @@ fn run_hv07_rollback_operation(request: &Hv07ChildRequest) -> CampaignResult {
         expected_sequence: RefSequence::ZERO,
     };
     let mut faults = NamedFaultInjector::default()
-        .with_physical_context(request.operation_id.as_str(), [source_root.join("refs")]);
+        .with_physical_context(request.operation_id.as_str(), [source_root.join("refs")])
+        .with_physical_stationary_payload_path(request.allocation_root.join("upper"));
     let outcome = ref_store.commit_rollback(
         "hv07-rollback",
         &candidate,
@@ -1418,6 +3157,27 @@ fn run_hv07_activation_operation(request: &Hv07ChildRequest) -> CampaignResult {
             return Err("HV-07 activation seed ref had an unexpected parent".into())
         }
     };
+    let recipe = ProjectionRecipe {
+        schema_version: SCHEMA_VERSION,
+        roots: request.semantic_roots.clone(),
+        base_allocation_id: request.allocation_id.clone(),
+        net_delta_carrier_id: None,
+        recent_delta_ids: Vec::new(),
+    };
+    let arena_root = source_root.join("payload/allocations");
+    let control_root = source_root.join("control");
+    fs::create_dir(&control_root)?;
+    File::open(&source_root)?.sync_all()?;
+    write_hv07_create_new_json(
+        &request.operation_root.join("activation-retry.json"),
+        &Hv07ActivationRetry {
+            payload: payload.clone(),
+            selected_ref: selected_ref.clone(),
+            recipe: recipe.clone(),
+            arena_root: arena_root.clone(),
+            control_root: control_root.clone(),
+        },
+    )?;
     let activation = activate_exact(ExactActivationRequest {
         activation_operation_id: ActivationOperationId::from_string(request.operation_id.as_str()),
         allocation_operation_id: OperationId::from_string(format!(
@@ -1425,17 +3185,16 @@ fn run_hv07_activation_operation(request: &Hv07ChildRequest) -> CampaignResult {
             request.operation_id
         )),
         selected_ref,
-        recipe: ProjectionRecipe {
-            schema_version: SCHEMA_VERSION,
-            roots: request.semantic_roots.clone(),
-            base_allocation_id: request.allocation_id.clone(),
-            net_delta_carrier_id: None,
-            recent_delta_ids: Vec::new(),
-        },
+        recipe,
         payload_allocations: vec![payload],
-        arena_root: source_root.join("payload/allocations"),
-        control_root: source_root.join("control"),
-        cgroup_procs_path: None,
+        arena_root,
+        control_root,
+        cgroup_procs_path: Some(
+            request
+                .operation_cgroup_procs_path
+                .clone()
+                .ok_or("HV-07 activation operation has no exclusive cgroup")?,
+        ),
         readiness_path: PathBuf::from("sm12.txt"),
         readiness_contains: None,
         readiness_timeout: Duration::from_secs(2),
