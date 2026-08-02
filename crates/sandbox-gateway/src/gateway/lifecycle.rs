@@ -1,20 +1,23 @@
 use std::sync::Arc;
 
 use tokio::io::{AsyncWrite, AsyncWriteExt};
-use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 
+use super::listener::GatewayListener;
 use super::{error, GatewayError, SandboxGatewayServer};
 
 impl SandboxGatewayServer {
     pub async fn serve(self) -> Result<(), GatewayError> {
         let server = Arc::new(self);
         prepare_paths(&server).await?;
-        let listener = TcpListener::bind(server.config.bind_addr.as_str()).await?;
+        let endpoint = server.config.endpoint().map_err(|error| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, error.to_string())
+        })?;
+        let mut listener =
+            GatewayListener::bind(endpoint, server.config.max_concurrent_connections).await?;
         tokio::fs::write(&server.config.pid_path, std::process::id().to_string()).await?;
-
         let permits = Arc::new(Semaphore::new(server.config.max_concurrent_connections));
-        let result = accept_until_shutdown(Arc::clone(&server), listener, permits).await;
+        let result = accept_until_shutdown(Arc::clone(&server), &mut listener, permits).await;
         cleanup_paths(&server).await;
         result
     }
@@ -29,14 +32,14 @@ async fn prepare_paths(server: &SandboxGatewayServer) -> Result<(), GatewayError
 
 async fn accept_until_shutdown(
     server: Arc<SandboxGatewayServer>,
-    listener: TcpListener,
+    listener: &mut GatewayListener,
     permits: Arc<Semaphore>,
 ) -> Result<(), GatewayError> {
     loop {
         tokio::select! {
             () = server.shutdown.cancelled() => return Ok(()),
             accepted = listener.accept() => {
-                let (stream, _) = accepted?;
+                let stream = accepted?;
                 let Ok(permit) = Arc::clone(&permits).try_acquire_owned() else {
                     tokio::spawn(reject_overloaded_connection(
                         stream,

@@ -19,12 +19,77 @@ fn gateway_server_config_constructs_from_defaults() {
 }
 
 #[test]
+fn gateway_endpoints_parse_supported_transports_and_legacy_tcp() {
+    let endpoints = [
+        (
+            "127.0.0.1:7878",
+            GatewayEndpoint::Tcp("127.0.0.1:7878".parse().expect("socket address")),
+        ),
+        (
+            "tcp://[::1]:7878",
+            GatewayEndpoint::Tcp("[::1]:7878".parse().expect("socket address")),
+        ),
+        (
+            "npipe://./pipe/ephemeral-sandbox/user-1",
+            GatewayEndpoint::WindowsNamedPipe(
+                r"\\.\pipe\ephemeral-sandbox\user-1".to_owned(),
+            ),
+        ),
+        (
+            "unix:///tmp/ephemeral-sandbox.sock",
+            GatewayEndpoint::UnixSocket(PathBuf::from("/tmp/ephemeral-sandbox.sock")),
+        ),
+    ];
+
+    for (raw, expected) in endpoints {
+        let parsed = raw
+            .parse::<GatewayEndpoint>()
+            .expect("supported endpoint parses");
+        assert_eq!(parsed, expected);
+        assert_eq!(
+            parsed.to_string(),
+            match raw {
+                "127.0.0.1:7878" => "tcp://127.0.0.1:7878",
+                _ => raw,
+            }
+        );
+    }
+}
+
+#[test]
+fn gateway_endpoints_reject_unsafe_or_ambiguous_values() {
+    let invalid = [
+        "",
+        " 127.0.0.1:7878",
+        "127.0.0.1:7878 ",
+        "http://127.0.0.1:7878",
+        "tcp://localhost:7878",
+        "tcp://127.0.0.1:0",
+        "npipe://server/pipe/name",
+        "npipe://./pipe/",
+        "npipe://./pipe/../escape",
+        "npipe://./pipe/name\\escape",
+        "unix://relative.sock",
+        "unix:////tmp/ambiguous.sock",
+        "unix:///tmp/../escape.sock",
+        "unix:///tmp//ambiguous.sock",
+    ];
+
+    for value in invalid {
+        let error = value
+            .parse::<GatewayEndpoint>()
+            .expect_err("unsafe endpoint must fail");
+        assert!(error.to_string().contains("invalid gateway endpoint"));
+    }
+}
+
+#[test]
 fn config_gateway_defaults_preserve_shipped_policy() {
     // prd.yml carries no gateway section, so the section must load to
     // today's exact constants.
     let config = GatewayConfig::default();
     config.validate().expect("default gateway config is valid");
-    assert_eq!(config.bind_addr, "127.0.0.1:7878");
+    assert_eq!(config.bind_addr, DEFAULT_GATEWAY_SOCKET);
     assert_eq!(config.pid_path, PathBuf::from("/tmp/eos-gateway.pid"));
     assert_eq!(config.max_concurrent_connections, 256);
     assert!(config.auth_token.is_none());
@@ -84,6 +149,20 @@ fn config_validation_rejects_gateway_edge_values() {
         (
             GatewayConfig {
                 bind_addr: "not-an-address".to_owned(),
+                ..GatewayConfig::default()
+            },
+            "gateway.bind_addr",
+        ),
+        (
+            GatewayConfig {
+                bind_addr: "npipe://./pipe/../escape".to_owned(),
+                ..GatewayConfig::default()
+            },
+            "gateway.bind_addr",
+        ),
+        (
+            GatewayConfig {
+                bind_addr: "unix://relative.sock".to_owned(),
                 ..GatewayConfig::default()
             },
             "gateway.bind_addr",

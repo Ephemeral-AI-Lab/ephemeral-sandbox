@@ -185,6 +185,26 @@ async fn omitted_create_count_uses_catalog_default() {
 }
 
 #[tokio::test]
+async fn explicit_gateway_endpoint_accepts_a_typed_tcp_uri() {
+    let response = json!({"sandboxes": []});
+    let (addr, received) = fake_gateway(response.clone()).await;
+    let endpoint = format!("tcp://{addr}");
+    let (code, stdout, stderr) = run(&[
+        "sandbox-manager-cli",
+        "--gateway-endpoint",
+        &endpoint,
+        "list_sandboxes",
+    ])
+    .await;
+
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), response);
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(request["op"], "list_sandboxes");
+}
+
+#[tokio::test]
 async fn progress_streams_to_stderr_and_keeps_final_json_on_stdout() {
     let response = json!({"sandboxes": []});
     let raw_response = format!("cli_log(\"manager fixture progress\")\n{response}\n").into_bytes();

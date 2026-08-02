@@ -16,7 +16,11 @@ pub struct Cli {
     #[arg(long, value_enum)]
     pub set: OperationSet,
 
-    #[arg(long = "gateway-socket", value_name = "HOST:PORT")]
+    #[arg(
+        long = "gateway-endpoint",
+        visible_alias = "gateway-socket",
+        value_name = "URI"
+    )]
     gateway_socket_path: Option<PathBuf>,
 
     #[arg(long = "gateway-auth-token", value_name = "TOKEN")]

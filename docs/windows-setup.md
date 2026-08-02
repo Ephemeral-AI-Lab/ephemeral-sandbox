@@ -84,7 +84,7 @@ Set-Content target\windows-gateway.token $env:SANDBOX_GATEWAY_AUTH_TOKEN
 target\debug\sandbox-gateway.exe serve `
   --backend docker `
   --config-yaml config\windows-amd64.yml `
-  --gateway-socket 127.0.0.1:7878 `
+  --gateway-endpoint npipe://./pipe/ephemeral-sandbox-gateway `
   --auth-token $env:SANDBOX_GATEWAY_AUTH_TOKEN `
   --pid-file target\windows-gateway.pid
 ```
@@ -108,12 +108,12 @@ if (-not $smoke) {
 }
 
 target\debug\sandbox-manager-cli.exe `
-  --gateway-socket 127.0.0.1:7878 `
+  --gateway-endpoint npipe://./pipe/ephemeral-sandbox-gateway `
   --gateway-auth-token $env:SANDBOX_GATEWAY_AUTH_TOKEN `
   list_docker_images
 
 $created = target\debug\sandbox-manager-cli.exe `
-  --gateway-socket 127.0.0.1:7878 `
+  --gateway-endpoint npipe://./pipe/ephemeral-sandbox-gateway `
   --gateway-auth-token $env:SANDBOX_GATEWAY_AUTH_TOKEN `
   create_sandbox `
   --image alpine:3.20 `
@@ -122,13 +122,13 @@ $created = target\debug\sandbox-manager-cli.exe `
 $sandboxId = ($created | ConvertFrom-Json).id
 
 target\debug\sandbox-runtime-cli.exe `
-  --gateway-socket 127.0.0.1:7878 `
+  --gateway-endpoint npipe://./pipe/ephemeral-sandbox-gateway `
   --gateway-auth-token $env:SANDBOX_GATEWAY_AUTH_TOKEN `
   --sandbox-id $sandboxId `
   exec_command "pwd && cat README.txt && ls src"
 
 target\debug\sandbox-observability-cli.exe `
-  --gateway-socket 127.0.0.1:7878 `
+  --gateway-endpoint npipe://./pipe/ephemeral-sandbox-gateway `
   --gateway-auth-token $env:SANDBOX_GATEWAY_AUTH_TOKEN `
   snapshot --sandbox-id $sandboxId
 ```
@@ -139,6 +139,9 @@ workspace`, and `main.txt`.
 ## Run The Web Console
 
 The browser UI lives in the separate console repository.
+The console currently uses TCP, so stop the named-pipe gateway and restart the
+packaged launcher with
+`-GatewaySocket tcp://127.0.0.1:7878` before starting the console.
 
 ```powershell
 cd ..
