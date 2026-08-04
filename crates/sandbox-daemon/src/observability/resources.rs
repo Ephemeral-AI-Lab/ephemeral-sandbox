@@ -1,27 +1,58 @@
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{mpsc, Arc};
+use std::sync::{mpsc, Arc, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sandbox_config::configs::observability::ResourceStatsConfig;
 use sandbox_observability_telemetry::collect::cgroup::CgroupSample;
+use sandbox_observability_telemetry::collect::disk::sample_upperdir;
 use sandbox_observability_telemetry::{
-    Attrs, Record, Sample, Sink, SinkStats, COUNTERS_METRIC_KEY, MAX_LINE_BYTES,
+    Attrs, Record, Sample, Sink, SinkStats, WalkBudget, COUNTERS_METRIC_KEY, MAX_LINE_BYTES,
 };
+use sandbox_runtime::SandboxRuntimeOperations;
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
-pub(super) struct ResourceSampler {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WorkspaceDiskTarget {
+    pub(crate) workspace_id: String,
+    pub(crate) upperdir: Option<PathBuf>,
+}
+
+pub(crate) trait WorkspaceDiskSource: Send + Sync {
+    fn workspace_disk_targets(&self) -> Vec<WorkspaceDiskTarget>;
+}
+
+impl WorkspaceDiskSource for SandboxRuntimeOperations {
+    fn workspace_disk_targets(&self) -> Vec<WorkspaceDiskTarget> {
+        self.observability_snapshot()
+            .workspaces
+            .into_iter()
+            .map(|workspace| WorkspaceDiskTarget {
+                workspace_id: workspace.workspace_id.0,
+                upperdir: workspace.upperdir,
+            })
+            .collect()
+    }
+}
+
+pub(crate) struct ResourceSampler {
     enabled: bool,
     sample_interval: Duration,
     cgroup_dir: Result<PathBuf, String>,
+    sampling: WalkBudget,
+    workspace_source: OnceLock<Arc<dyn WorkspaceDiskSource>>,
     sink: Arc<Sink>,
     collection_failures: AtomicU64,
 }
 
 impl ResourceSampler {
-    pub(super) fn new(config: ResourceStatsConfig, resource_path: PathBuf) -> Self {
+    pub(crate) fn new(
+        config: ResourceStatsConfig,
+        resource_path: PathBuf,
+        sampling: WalkBudget,
+    ) -> Self {
         let cgroup_dir = std::fs::read_to_string("/proc/self/cgroup")
             .map_err(|error| format!("/proc/self/cgroup: {error}"))
             .and_then(|contents| resolve_cgroup_dir(&contents, Path::new("/sys/fs/cgroup")));
@@ -29,6 +60,8 @@ impl ResourceSampler {
             enabled: config.enabled,
             sample_interval: Duration::from_millis(config.sample_interval_ms),
             cgroup_dir,
+            sampling,
+            workspace_source: OnceLock::new(),
             sink: Arc::new(Sink::with_budget(
                 resource_path,
                 MAX_LINE_BYTES,
@@ -38,7 +71,12 @@ impl ResourceSampler {
         }
     }
 
-    pub(super) fn start(self: &Arc<Self>, tasks: &TaskTracker, shutdown: CancellationToken) {
+    pub(crate) fn bind_workspace_source(&self, source: Arc<dyn WorkspaceDiskSource>) {
+        let inserted = self.workspace_source.set(source).is_ok();
+        debug_assert!(inserted, "workspace disk source bound more than once");
+    }
+
+    pub(crate) fn start(self: &Arc<Self>, tasks: &TaskTracker, shutdown: CancellationToken) {
         if !self.enabled {
             return;
         }
@@ -57,7 +95,13 @@ impl ResourceSampler {
         });
     }
 
-    pub(super) fn sample_once(&self) {
+    pub(crate) fn sample_once(&self) {
+        let timestamp = unix_now_ms();
+        self.sample_cgroup(timestamp);
+        self.sample_workspaces(timestamp);
+    }
+
+    fn sample_cgroup(&self, timestamp: i64) {
         let cgroup = match &self.cgroup_dir {
             Ok(path) => CgroupSample::read(path),
             Err(_) => {
@@ -93,20 +137,61 @@ impl ResourceSampler {
             .collect::<Vec<_>>();
         metrics.insert(COUNTERS_METRIC_KEY.to_owned(), json!(counters));
         let record = Record::Sample(Sample {
-            ts: unix_now_ms(),
+            ts: timestamp,
             scope: "sandbox".to_owned(),
             metrics,
         });
         let _ = self.sink.append_strict(&record);
     }
 
-    pub(super) fn sink_stats(&self) -> SinkStats {
+    fn sample_workspaces(&self, timestamp: i64) {
+        let Some(source) = self.workspace_source.get() else {
+            return;
+        };
+        for target in source.workspace_disk_targets() {
+            let (metrics, failed) = workspace_metrics(target.upperdir.as_deref(), self.sampling);
+            if failed {
+                self.collection_failures.fetch_add(1, Ordering::Relaxed);
+            }
+            let record = Record::Sample(Sample {
+                ts: timestamp,
+                scope: target.workspace_id,
+                metrics,
+            });
+            let _ = self.sink.append_strict(&record);
+        }
+    }
+
+    pub(crate) fn sink_stats(&self) -> SinkStats {
         self.sink.stats()
     }
 
-    pub(super) fn collection_failures(&self) -> u64 {
+    pub(crate) fn collection_failures(&self) -> u64 {
         self.collection_failures.load(Ordering::Relaxed)
     }
+}
+
+fn workspace_metrics(upperdir: Option<&Path>, budget: WalkBudget) -> (Attrs, bool) {
+    let Some(upperdir) = upperdir else {
+        let mut metrics = Attrs::new();
+        metrics.insert("disk_truncated".to_owned(), Value::Bool(true));
+        return (metrics, true);
+    };
+    let sample = sample_upperdir(upperdir, budget);
+    let read_failed = sample.read_error_count != Some(0);
+    let incomplete = sample.truncated != Some(false) || read_failed;
+    let mut metrics = Attrs::new();
+    insert_option(&mut metrics, "disk_bytes", sample.upperdir_bytes);
+    if !incomplete {
+        insert_option(
+            &mut metrics,
+            "disk_allocated_bytes",
+            sample.upperdir_allocated_bytes,
+        );
+    }
+    insert_option(&mut metrics, "files", sample.file_count);
+    metrics.insert("disk_truncated".to_owned(), Value::Bool(incomplete));
+    (metrics, read_failed)
 }
 
 fn insert_option<T: serde::Serialize>(metrics: &mut Attrs, key: &str, value: Option<T>) {
@@ -174,6 +259,8 @@ mod tests {
             enabled: true,
             sample_interval: interval,
             cgroup_dir: Ok(cgroup_dir),
+            sampling: WalkBudget::default(),
+            workspace_source: OnceLock::new(),
             sink: Arc::new(Sink::with_budget(resource_path, MAX_LINE_BYTES, 128 * 1024)),
             collection_failures: AtomicU64::new(0),
         }

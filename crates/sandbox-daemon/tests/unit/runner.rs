@@ -1,8 +1,9 @@
+use std::fs::File;
 use std::io::{Read, Write};
 use std::os::fd::AsRawFd;
-use std::os::unix::net::UnixStream;
 
 use anyhow::{bail, Context, Result};
+use rustix::pipe::pipe;
 
 use crate::runner_cli::{mount_overlay::mount_overlay_result, open_fd_for_write, RunnerCliConfig};
 
@@ -85,7 +86,8 @@ fn runner_cli_rejects_positional_request_fd() -> Result<()> {
 
 #[test]
 fn result_fd_writer_writes_to_fd_peer() -> Result<()> {
-    let (mut read_end, write_end) = UnixStream::pair().context("create result pair")?;
+    let (read_end, write_end) = pipe().context("create result pipe")?;
+    let mut read_end = File::from(read_end);
     let mut writer = open_fd_for_write(write_end.as_raw_fd()).context("open result fd")?;
 
     writer.write_all(b"{\"exit_code\":0}")?;

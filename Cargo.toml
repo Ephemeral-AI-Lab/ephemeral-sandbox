@@ -59,6 +59,7 @@ clap = { version = "4", features = ["derive", "env"] }
 proptest = "1"
 base64 = "0.22"
 futures-util = "0.3"
+flate2 = "1"
 rtnetlink = "0.21"
 netlink-sys = "0.8"
 bollard = "0.17"

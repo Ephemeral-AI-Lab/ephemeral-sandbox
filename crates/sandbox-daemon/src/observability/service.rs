@@ -12,7 +12,7 @@ use sandbox_observability_telemetry::collect::process_topology::{
 use sandbox_observability_telemetry::{
     record, ObservabilityPaths, Observer, ObserverConfig, Reader, Sink, WalkBudget,
 };
-use sandbox_runtime::SandboxRuntimeConfig;
+use sandbox_runtime::{SandboxRuntimeConfig, SandboxRuntimeOperations};
 
 use crate::rpc::ServerConfig;
 
@@ -54,9 +54,14 @@ impl DaemonObservability {
                 config.observability.max_disk_bytes,
             ),
         );
+        let sampling = WalkBudget {
+            max_nodes: config.observability.sampling.max_walk_nodes,
+            max_depth: config.observability.sampling.max_walk_depth,
+        };
         let resource_sampler = Arc::new(ResourceSampler::new(
             config.observability.resource_stats,
             paths.resource_log_path().to_path_buf(),
+            sampling,
         ));
         let diagnostics = DiagnosticTracker::new(
             config.observability.diagnostics,
@@ -78,10 +83,7 @@ impl DaemonObservability {
                 infrastructure_thread_allowance: Some(INFRASTRUCTURE_THREAD_ALLOWANCE),
             },
             diagnostics,
-            sampling: WalkBudget {
-                max_nodes: config.observability.sampling.max_walk_nodes,
-                max_depth: config.observability.sampling.max_walk_depth,
-            },
+            sampling,
             views: config.observability.views,
         })
     }
@@ -118,6 +120,10 @@ impl DaemonObservability {
         shutdown: tokio_util::sync::CancellationToken,
     ) {
         self.resource_sampler.start(tasks, shutdown);
+    }
+
+    pub(crate) fn bind_runtime_operations(&self, operations: Arc<SandboxRuntimeOperations>) {
+        self.resource_sampler.bind_workspace_source(operations);
     }
 
     pub(super) fn resource_sink_stats(&self) -> sandbox_observability_telemetry::SinkStats {

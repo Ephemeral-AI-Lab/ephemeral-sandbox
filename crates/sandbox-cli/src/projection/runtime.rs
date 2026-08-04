@@ -30,7 +30,7 @@ const FILE_READ_ARGUMENTS: &[ArgumentProjection] = &[
 
 const FILE_WRITE_ARGUMENTS: &[ArgumentProjection] = &[
     ArgumentProjection::flag("path", "--path"),
-    ArgumentProjection::flag("content", "--content"),
+    ArgumentProjection::flag_with_value_file("content", "--content", "--content-file"),
     ArgumentProjection::flag("workspace_session_id", "--workspace-session-id"),
 ];
 

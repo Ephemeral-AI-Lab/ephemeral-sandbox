@@ -48,7 +48,10 @@ async fn help_lists_exact_management_catalog() {
     let (code, stdout, stderr) = run(&["sandbox-manager-cli", "help"]).await;
     assert_eq!(code, 0);
     assert!(stderr.is_empty());
-    assert_eq!(stdout, include_str!("fixtures/manager-help.txt"));
+    assert_eq!(
+        stdout,
+        include_str!("fixtures/manager-help.txt").replace("\r\n", "\n")
+    );
     assert_eq!(
         help_operation_names(&stdout),
         [
@@ -62,7 +65,7 @@ async fn help_lists_exact_management_catalog() {
             "export_changes",
         ]
     );
-    assert!(stdout.contains("Use:\n  sandbox-manager-cli OPERATION"));
+    assert!(stdout.contains("Use:\n  sandbox-manager-cli [--request-id VALUE] OPERATION"));
 }
 
 #[tokio::test]
@@ -86,7 +89,7 @@ async fn bare_invocation_prints_manager_catalog_help() {
     assert_eq!(code, 0);
     assert!(stderr.is_empty());
     assert!(stdout.contains("Sandbox Manager Help"));
-    assert!(stdout.contains("Use:\n  sandbox-manager-cli OPERATION"));
+    assert!(stdout.contains("Use:\n  sandbox-manager-cli [--request-id VALUE] OPERATION"));
 }
 
 #[tokio::test]
@@ -296,6 +299,27 @@ async fn success_is_one_stdout_json_line_and_uses_system_scope() {
     assert!(request["request_id"]
         .as_str()
         .is_some_and(|id| !id.is_empty()));
+}
+
+#[tokio::test]
+async fn explicit_request_id_is_forwarded_unchanged() {
+    let response = json!({"sandboxes": []});
+    let (addr, received) = fake_gateway(response).await;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-manager-cli",
+        "--gateway-socket",
+        &addr,
+        "--request-id",
+        "exp1.manager.ready.001",
+        "list_sandboxes",
+    ])
+    .await;
+
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), json!({"sandboxes": []}));
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(request["request_id"], "exp1.manager.ready.001");
 }
 
 #[tokio::test]

@@ -131,7 +131,7 @@ fn config_validation_rejects_observability_edge_values() {
     assert_invalid(cfg, "observability.max_line_bytes");
 
     let mut cfg = prd_config();
-    cfg.resource_stats.sample_interval_ms = 249;
+    cfg.resource_stats.sample_interval_ms = 99;
     assert_invalid(cfg, "observability.resource_stats.sample_interval_ms");
 
     let mut cfg = prd_config();

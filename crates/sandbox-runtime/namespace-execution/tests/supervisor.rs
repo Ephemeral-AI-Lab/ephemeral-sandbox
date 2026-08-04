@@ -50,15 +50,30 @@ impl ControlledChild {
 }
 
 #[test]
-fn multithread_runtime_reuses_async_workers_for_completion_polling() {
+fn completion_progress_does_not_depend_on_tokio_blocking_pool_capacity() {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
+        .max_blocking_threads(1)
         .enable_time()
         .build()
         .expect("build multithread runtime");
     runtime.block_on(async {
+        let (blocking_started_tx, blocking_started_rx) = mpsc::sync_channel(0);
+        let (blocking_release_tx, blocking_release_rx) = mpsc::channel();
+        let blocking_worker = tokio::task::spawn_blocking(move || {
+            blocking_started_tx
+                .send(())
+                .expect("test observes occupied blocking worker");
+            blocking_release_rx
+                .recv()
+                .expect("test releases occupied blocking worker");
+        });
+        blocking_started_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("blocking pool worker is occupied");
+
         let supervisor = CompletionSupervisor::new();
-        assert_eq!(supervisor.worker_threads(), 0);
+        assert_eq!(supervisor.worker_threads(), 1);
 
         let terminate_calls = Arc::new(AtomicUsize::new(0));
         let wait_polls = Arc::new(AtomicUsize::new(0));
@@ -73,7 +88,7 @@ fn multithread_runtime_reuses_async_workers_for_completion_polling() {
             )
             .expect("child admitted");
 
-        let result = tokio::time::timeout(Duration::from_secs(1), async {
+        let completion = tokio::time::timeout(Duration::from_secs(1), async {
             loop {
                 match completion_rx.try_recv() {
                     Ok(result) => return result,
@@ -84,18 +99,27 @@ fn multithread_runtime_reuses_async_workers_for_completion_polling() {
                 }
             }
         })
-        .await
-        .expect("completion callback remains responsive")
-        .expect("completed child succeeds");
+        .await;
+
+        blocking_release_tx
+            .send(())
+            .expect("release occupied blocking worker");
+        blocking_worker
+            .await
+            .expect("blocking worker exits after release");
+
+        let result = completion
+            .expect("completion callback remains responsive")
+            .expect("completed child succeeds");
         assert_eq!(result.exit_code, 130);
         assert_eq!(terminate_calls.load(Ordering::SeqCst), 0);
         assert!(wait_polls.load(Ordering::SeqCst) >= 1);
         assert_eq!(supervisor.active(), 0);
-        assert_eq!(supervisor.worker_threads(), 0);
+        assert_eq!(supervisor.worker_threads(), 1);
 
         supervisor
             .shutdown_and_join()
-            .expect("idle async completion worker shuts down cleanly");
+            .expect("dedicated completion worker shuts down cleanly");
         assert_eq!(supervisor.worker_threads(), 0);
     });
 }

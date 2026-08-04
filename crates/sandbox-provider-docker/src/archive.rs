@@ -2,12 +2,13 @@
 //! `put_archive` endpoint. Entries are rooted at `/`, so the archive is
 //! extracted with `path = "/"`.
 
-use std::io;
+use std::io::{self, Write as _};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Component, Path};
 
 use bytes::Bytes;
+use flate2::{write::GzEncoder, Compression};
 use sandbox_runtime_layerstack::{
     WorkspaceBinding, ACTIVE_MANIFEST_FILE, LAYERS_DIR, LAYER_METADATA_DIR,
     MANIFEST_SCHEMA_VERSION, SHARED_BASE_DIR, STAGING_DIR, WORKSPACE_BASE_LAYER_ID,
@@ -42,7 +43,10 @@ pub fn build_install_archive(
         config_yaml,
         CONFIG_FILE_MODE,
     )?;
-    let inner = builder.into_inner()?;
+    let archive = builder.into_inner()?;
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::fast());
+    encoder.write_all(&archive)?;
+    let inner = encoder.finish()?;
     Ok(Bytes::from(inner))
 }
 

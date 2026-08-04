@@ -3,9 +3,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use sandbox_runtime_layerstack::MANIFEST_SCHEMA_VERSION;
 use sandbox_runtime_layerstack::{
-    build_workspace_base, ensure_workspace_base, LayerChange, LayerPath, LayerStack,
-    LayerStackError, ManifestFileRead, MergedView, WorkspaceBinding, ACTIVE_MANIFEST_FILE,
-    WORKSPACE_BINDING_FILE,
+    build_shared_workspace_base, build_workspace_base, ensure_workspace_base, LayerChange,
+    LayerPath, LayerStack, LayerStackError, ManifestFileRead, MergedView, WorkspaceBinding,
+    ACTIVE_MANIFEST_FILE, WORKSPACE_BINDING_FILE,
 };
 use serde_json::json;
 
@@ -138,6 +138,119 @@ fn build_workspace_base_writes_manifest_with_canonical_atomic_path(
         )
     })?;
     assert!(!stale_tmp, "atomic manifest writer left a temporary file");
+    Ok(())
+}
+
+#[test]
+fn shared_workspace_base_reuses_intact_content_addressed_entry(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = Fixture::new("shared_workspace_base_cache_hit");
+    let cache = fixture.root.join("cache");
+    std::fs::create_dir_all(fixture.workspace.join("nested"))?;
+    std::fs::write(fixture.workspace.join("tracked.txt"), "base\n")?;
+    std::fs::write(fixture.workspace.join("nested/other.txt"), "other\n")?;
+
+    let built = build_shared_workspace_base(&cache, &fixture.workspace)?;
+    let reused = build_shared_workspace_base(&cache, &fixture.workspace)?;
+
+    assert!(built.built);
+    assert!(!reused.built);
+    assert_eq!(reused.bytes, 0);
+    assert_eq!(reused.root_hash, built.root_hash);
+    assert_eq!(reused.cache_entry_root, built.cache_entry_root);
+    assert_eq!(reused.base_mount_source, built.base_mount_source);
+    assert!(reused.base_mount_source.join("B000001-base").is_dir());
+    assert!(
+        std::fs::read_dir(&cache)?
+            .filter_map(Result::ok)
+            .all(|entry| !entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".building-")),
+        "shared base lookup left a temporary build tree"
+    );
+    Ok(())
+}
+
+#[test]
+fn shared_workspace_base_rejects_deep_cached_file_modification_without_repair(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = Fixture::new("shared_workspace_base_cache_modified");
+    let cache = fixture.root.join("cache");
+    std::fs::create_dir_all(fixture.workspace.join("deep/nested"))?;
+    std::fs::write(fixture.workspace.join("deep/nested/tracked.txt"), "base\n")?;
+    let built = build_shared_workspace_base(&cache, &fixture.workspace)?;
+    let cached_file = built
+        .base_mount_source
+        .join("B000001-base/deep/nested/tracked.txt");
+    std::fs::write(&cached_file, "corrupt\n")?;
+
+    let error = build_shared_workspace_base(&cache, &fixture.workspace)
+        .expect_err("modified cached content must fail closed");
+
+    assert!(
+        error
+            .to_string()
+            .contains("shared base cache entry root hash mismatch"),
+        "unexpected error: {error}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(cached_file)?,
+        "corrupt\n",
+        "cache integrity failure must not repair a potentially mounted entry"
+    );
+    Ok(())
+}
+
+#[test]
+fn shared_workspace_base_rejects_deep_cached_file_removal_without_repair(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = Fixture::new("shared_workspace_base_cache_missing");
+    let cache = fixture.root.join("cache");
+    std::fs::create_dir_all(fixture.workspace.join("deep/nested"))?;
+    std::fs::write(fixture.workspace.join("deep/nested/tracked.txt"), "base\n")?;
+    let built = build_shared_workspace_base(&cache, &fixture.workspace)?;
+    let cached_file = built
+        .base_mount_source
+        .join("B000001-base/deep/nested/tracked.txt");
+    std::fs::remove_file(&cached_file)?;
+
+    let error = build_shared_workspace_base(&cache, &fixture.workspace)
+        .expect_err("missing cached content must fail closed");
+
+    assert!(
+        error
+            .to_string()
+            .contains("shared base cache entry root hash mismatch"),
+        "unexpected error: {error}"
+    );
+    assert!(
+        !cached_file.exists(),
+        "cache integrity failure must not repair a potentially mounted entry"
+    );
+    assert!(built.cache_entry_root.is_dir());
+    Ok(())
+}
+
+#[test]
+fn shared_workspace_base_cache_lookup_observes_content_changes(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let fixture = Fixture::new("shared_workspace_base_cache_change");
+    let cache = fixture.root.join("cache");
+    std::fs::create_dir_all(&fixture.workspace)?;
+    std::fs::write(fixture.workspace.join("tracked.txt"), "before\n")?;
+    let before = build_shared_workspace_base(&cache, &fixture.workspace)?;
+
+    std::fs::write(fixture.workspace.join("tracked.txt"), "after\n")?;
+    let after = build_shared_workspace_base(&cache, &fixture.workspace)?;
+
+    assert!(after.built);
+    assert_ne!(after.root_hash, before.root_hash);
+    assert_ne!(after.cache_entry_root, before.cache_entry_root);
+    assert_eq!(
+        std::fs::read_to_string(after.base_mount_source.join("B000001-base/tracked.txt"))?,
+        "after\n"
+    );
     Ok(())
 }
 

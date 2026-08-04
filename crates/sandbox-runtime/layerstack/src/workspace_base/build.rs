@@ -13,7 +13,9 @@ use super::binding::{
     read_workspace_binding, validate_manifest_for_root, validate_workspace_binding_paths,
     write_workspace_binding_at, WorkspaceBinding,
 };
-use super::layer::{build_base_layer, build_shared_base_layer, SHARED_BASE_DIR};
+use super::layer::{
+    build_base_layer, build_shared_base_layer, hash_shared_base_layer, SHARED_BASE_DIR,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SharedWorkspaceBase {
@@ -133,6 +135,15 @@ pub fn build_shared_workspace_base(
         )));
     }
     std::fs::create_dir_all(cache)?;
+    let snapshot = hash_shared_base_layer(workspace)?;
+    let final_root = cache.join(&snapshot.root_hash);
+    if final_root.exists() {
+        return validated_shared_base_cache_hit(
+            final_root,
+            &snapshot.root_hash,
+            &snapshot.layer_ref.layer_id,
+        );
+    }
     let tmp = cache.join(format!(
         ".building-{}-{}",
         std::process::id(),
@@ -146,16 +157,13 @@ pub fn build_shared_workspace_base(
         let base_layer = build_shared_base_layer(&tmp, workspace)?;
         let root_hash = base_layer.root_hash;
         let final_root = cache.join(&root_hash);
-        let final_base = final_root.join(SHARED_BASE_DIR);
-        if final_base.join(&base_layer.layer_ref.layer_id).is_dir() {
+        if final_root.exists() {
             remove_path(&tmp)?;
-            return Ok(SharedWorkspaceBase {
-                root_hash,
-                cache_entry_root: final_root,
-                base_mount_source: final_base,
-                bytes: 0,
-                built: false,
-            });
+            return validated_shared_base_cache_hit(
+                final_root,
+                &root_hash,
+                &base_layer.layer_ref.layer_id,
+            );
         }
         let _ = std::fs::remove_dir(tmp.join(STAGING_DIR));
         match std::fs::rename(&tmp, &final_root) {
@@ -171,19 +179,11 @@ pub fn build_shared_workspace_base(
             }
             Err(err) if err.kind() == ErrorKind::AlreadyExists => {
                 remove_path(&tmp)?;
-                if !final_base.join(&base_layer.layer_ref.layer_id).is_dir() {
-                    return Err(LayerStackError::Storage(format!(
-                        "shared base cache entry exists but is invalid: {}",
-                        final_root.display()
-                    )));
-                }
-                Ok(SharedWorkspaceBase {
-                    root_hash,
-                    cache_entry_root: final_root,
-                    base_mount_source: final_base,
-                    bytes: 0,
-                    built: false,
-                })
+                validated_shared_base_cache_hit(
+                    final_root,
+                    &root_hash,
+                    &base_layer.layer_ref.layer_id,
+                )
             }
             Err(err) => Err(err.into()),
         }
@@ -192,6 +192,41 @@ pub fn build_shared_workspace_base(
         let _ = remove_path(&tmp);
     }
     result
+}
+
+fn validated_shared_base_cache_hit(
+    cache_entry_root: PathBuf,
+    expected_root_hash: &str,
+    layer_id: &str,
+) -> Result<SharedWorkspaceBase, LayerStackError> {
+    let base_mount_source = cache_entry_root.join(SHARED_BASE_DIR);
+    let layer = base_mount_source.join(layer_id);
+    if !layer.is_dir() {
+        return Err(LayerStackError::Storage(format!(
+            "shared base cache entry is missing its layer directory: {}",
+            layer.display()
+        )));
+    }
+    let cached = hash_shared_base_layer(&layer).map_err(|error| {
+        LayerStackError::Storage(format!(
+            "shared base cache entry could not be validated without mutation: {}: {error}",
+            layer.display()
+        ))
+    })?;
+    if cached.root_hash != expected_root_hash {
+        return Err(LayerStackError::Storage(format!(
+            "shared base cache entry root hash mismatch: expected {expected_root_hash}, observed {} at {}",
+            cached.root_hash,
+            layer.display()
+        )));
+    }
+    Ok(SharedWorkspaceBase {
+        root_hash: expected_root_hash.to_owned(),
+        cache_entry_root,
+        base_mount_source,
+        bytes: 0,
+        built: false,
+    })
 }
 
 fn reject_existing_base_state(stack: &Path) -> Result<(), LayerStackError> {

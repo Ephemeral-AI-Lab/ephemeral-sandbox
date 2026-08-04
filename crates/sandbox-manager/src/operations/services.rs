@@ -10,7 +10,6 @@ use crate::{
 };
 
 pub(crate) const MAX_RESOURCE_HISTORY_MS: i64 = 600_000;
-const RESOURCE_SAMPLE_INTERVAL: Duration = Duration::from_secs(2);
 
 /// `manager.observability_snapshot` fan-out limits; the gateway overwrites
 /// the default with the configured values before serving.
@@ -65,7 +64,11 @@ impl ManagerServices {
         }
     }
 
-    pub fn start_resource_sampler(&self) {
+    pub fn start_resource_sampler(&self, sample_interval: Duration) {
+        assert!(
+            !sample_interval.is_zero(),
+            "resource sample interval must be non-zero"
+        );
         let mut worker = self
             .resource_sampler
             .lock()
@@ -87,9 +90,7 @@ impl ManagerServices {
                         .wake_lock
                         .lock()
                         .unwrap_or_else(std::sync::PoisonError::into_inner);
-                    let _ = thread_signal
-                        .wake
-                        .wait_timeout(guard, RESOURCE_SAMPLE_INTERVAL);
+                    let _ = thread_signal.wake.wait_timeout(guard, sample_interval);
                 }
             });
         if let Ok(handle) = handle {

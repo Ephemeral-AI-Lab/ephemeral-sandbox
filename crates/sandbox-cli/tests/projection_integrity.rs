@@ -102,6 +102,13 @@ fn assert_unique_argument_bindings(operation: &sandbox_cli::projection::Operatio
                 operation.name
             );
         }
+        if let Some(flag) = argument.value_file_flag {
+            assert!(
+                flags.insert(flag),
+                "duplicate flag in {}: {flag}",
+                operation.name
+            );
+        }
         if let Some(positional) = argument.positional {
             assert!(
                 positionals.insert(positional),

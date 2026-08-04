@@ -177,13 +177,19 @@ fn system_snapshot_and_unknown_operations_are_not_observability_handlers() {
 
 #[test]
 fn snapshot_renders_neutral_runtime_state_and_latest_resources() {
-    let log_path = log_path("snapshot");
+    let event_log_path = log_path("snapshot-events");
+    let resource_log_path = log_path("snapshot-resources");
     write_lines(
-        &log_path,
+        &event_log_path,
+        &[sample_line("workspace-1", json!({ "disk_bytes": 999 }))],
+    );
+    write_lines(
+        &resource_log_path,
         &[sample_line("workspace-1", json!({ "disk_bytes": 3 }))],
     );
     let input = FakeInput {
-        log_path: Some(log_path),
+        log_path: Some(event_log_path),
+        resource_log_path: Some(resource_log_path),
         snapshot: ObservabilitySnapshot {
             workspaces: vec![
                 workspace("workspace-1", &["l0"]),

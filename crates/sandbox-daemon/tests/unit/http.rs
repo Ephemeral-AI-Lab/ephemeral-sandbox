@@ -593,7 +593,7 @@ async fn daemon_shutdown_runs_runtime_teardown_and_removes_published_artifacts()
     Ok(())
 }
 
-fn test_operations(root: &Path) -> TestResult<Arc<SandboxRuntimeOperations>> {
+pub(crate) fn test_operations(root: &Path) -> TestResult<Arc<SandboxRuntimeOperations>> {
     let workspace_root = root.join("workspace");
     let layer_stack_root = root.join("layer-stack");
     std::fs::create_dir_all(&workspace_root)?;
@@ -644,11 +644,25 @@ fn test_operations(root: &Path) -> TestResult<Arc<SandboxRuntimeOperations>> {
                 ))
             }),
             create_workspace: Box::new(move |request: CreateWorkspaceRequest| {
-                Ok(WorkspaceHandle::without_launch_for_test(
+                let upperdir = create_workspace_root
+                    .join("upper")
+                    .join(&request.workspace_session_id.0);
+                let workdir = create_workspace_root
+                    .join("work")
+                    .join(&request.workspace_session_id.0);
+                std::fs::create_dir_all(&upperdir).map_err(|error| WorkspaceError::Setup {
+                    step: format!("create test upperdir: {error}"),
+                })?;
+                std::fs::create_dir_all(&workdir).map_err(|error| WorkspaceError::Setup {
+                    step: format!("create test workdir: {error}"),
+                })?;
+                Ok(WorkspaceHandle::holder_backed_for_test(
                     request.workspace_session_id,
                     create_workspace_root.clone(),
                     request.network,
                     create_snapshot.clone(),
+                    upperdir,
+                    workdir,
                 ))
             }),
             capture_changes: Box::new(

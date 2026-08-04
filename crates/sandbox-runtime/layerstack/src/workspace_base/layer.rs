@@ -45,6 +45,19 @@ pub(super) fn build_shared_base_layer(
     build_base_layer_under(stack, workspace, SHARED_BASE_DIR)
 }
 
+pub(super) fn hash_shared_base_layer(workspace: &Path) -> Result<BaseLayerBuild, LayerStackError> {
+    let layer_id = WORKSPACE_BASE_LAYER_ID;
+    let (root_hash, bytes) = read_base_layer(workspace, None)?;
+    Ok(BaseLayerBuild {
+        layer_ref: LayerRef {
+            layer_id: layer_id.to_owned(),
+            path: format!("{SHARED_BASE_DIR}/{layer_id}"),
+        },
+        root_hash,
+        bytes,
+    })
+}
+
 fn build_base_layer_under(
     stack: &Path,
     workspace: &Path,
@@ -61,55 +74,12 @@ fn build_base_layer_under(
     }
     std::fs::create_dir_all(&staging_dir)?;
     let result = (|| {
-        let stats = BuildStats::new();
-        stats.emit(format!(
-            "copying workspace {} into base layer",
-            workspace.display()
-        ));
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(BASE_BUILD_WORKER_THREADS)
-            .build()
-            .map_err(|err| {
-                LayerStackError::Storage(format!("failed to build base-build thread pool: {err}"))
-            })?;
-        let Collected {
-            mut entries,
-            file_tasks,
-            mut special,
-            mut unstable,
-        } = pool.install(|| collect_subtree(workspace, workspace, &staging_dir, &stats))?;
-        merge_file_outcomes(
-            pool.install(|| copy_files(&file_tasks, &stats))?,
-            &mut entries,
-            &mut special,
-            &mut unstable,
-        );
-        if !special.is_empty() || !unstable.is_empty() {
-            special.sort();
-            unstable.sort();
-            stats.emit(format!(
-                "workspace changed or contains unsupported files: special={} unstable={}",
-                special.len(),
-                unstable.len()
-            ));
-            return Err(LayerStackError::Storage(format!(
-                "workspace base must be a full copy; special={} [{}], unstable={} [{}]",
-                special.len(),
-                format_path_sample(&special),
-                unstable.len(),
-                format_path_sample(&unstable)
-            )));
-        }
-        stats.emit(stats.summary());
-        stats.emit(format!("hashing base manifest entries={}", entries.len()));
-        let root_hash = base_root_hash(&mut entries);
-        let bytes = stats.bytes();
-        stats.emit(format!("base manifest root_hash={root_hash}"));
+        let (root_hash, bytes) = read_base_layer(workspace, Some(&staging_dir))?;
         if let Some(parent) = layer_dir.parent() {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::rename(&staging_dir, &layer_dir)?;
-        stats.emit(format!("base layer ready at {}", layer_dir.display()));
+        cli_log(format!("base layer ready at {}", layer_dir.display()));
         Ok::<(String, u64), LayerStackError>((root_hash, bytes))
     })();
     let (root_hash, bytes) = match result {
@@ -130,9 +100,63 @@ fn build_base_layer_under(
     })
 }
 
+fn read_base_layer(
+    workspace: &Path,
+    staging_dir: Option<&Path>,
+) -> Result<(String, u64), LayerStackError> {
+    let stats = BuildStats::new();
+    stats.emit(match staging_dir {
+        Some(_) => format!("copying workspace {} into base layer", workspace.display()),
+        None => format!(
+            "hashing workspace {} for shared base lookup",
+            workspace.display()
+        ),
+    });
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(BASE_BUILD_WORKER_THREADS)
+        .build()
+        .map_err(|err| {
+            LayerStackError::Storage(format!("failed to build base-build thread pool: {err}"))
+        })?;
+    let Collected {
+        mut entries,
+        file_tasks,
+        mut special,
+        mut unstable,
+    } = pool.install(|| collect_subtree(workspace, workspace, staging_dir, &stats))?;
+    merge_file_outcomes(
+        pool.install(|| copy_files(&file_tasks, &stats))?,
+        &mut entries,
+        &mut special,
+        &mut unstable,
+    );
+    if !special.is_empty() || !unstable.is_empty() {
+        special.sort();
+        unstable.sort();
+        stats.emit(format!(
+            "workspace changed or contains unsupported files: special={} unstable={}",
+            special.len(),
+            unstable.len()
+        ));
+        return Err(LayerStackError::Storage(format!(
+            "workspace base must be a full copy; special={} [{}], unstable={} [{}]",
+            special.len(),
+            format_path_sample(&special),
+            unstable.len(),
+            format_path_sample(&unstable)
+        )));
+    }
+    stats.emit(stats.summary());
+    stats.emit(format!("hashing base manifest entries={}", entries.len()));
+    let root_hash = base_root_hash(&mut entries);
+    let bytes = stats.bytes();
+    stats.emit(format!("base manifest root_hash={root_hash}"));
+    Ok((root_hash, bytes))
+}
+
 struct FileTask {
     source: PathBuf,
-    target: PathBuf,
+    target: Option<PathBuf>,
     rel: String,
 }
 
@@ -162,7 +186,7 @@ impl Collected {
 fn collect_subtree(
     workspace: &Path,
     current: &Path,
-    staging_dir: &Path,
+    staging_dir: Option<&Path>,
     stats: &BuildStats,
 ) -> Result<Collected, LayerStackError> {
     let mut collected = Collected::default();
@@ -180,7 +204,7 @@ fn collect_subtree(
     for child in children {
         let source = child.path();
         let rel = relative_path(workspace, &source);
-        let target = join_layer_path(staging_dir, &rel);
+        let target = staging_dir.map(|root| join_layer_path(root, &rel));
         let file_type = match child.file_type() {
             Ok(file_type) => file_type,
             Err(err) if err.kind() == ErrorKind::NotFound => {
@@ -194,14 +218,18 @@ fn collect_subtree(
                 collected.special.push(rel);
                 continue;
             };
-            create_symlink(&link_target, &target)?;
+            if let Some(target) = &target {
+                create_symlink(&link_target, target)?;
+            }
             collected.entries.push(BaseEntry::Symlink {
                 path: rel,
                 link_target: link_target.to_string_lossy().into_owned(),
             });
             stats.record_symlink();
         } else if file_type.is_dir() {
-            std::fs::create_dir_all(&target)?;
+            if let Some(target) = &target {
+                std::fs::create_dir_all(target)?;
+            }
             collected.entries.push(BaseEntry::Directory { path: rel });
             stats.record_directory();
             subdirs.push(source);
@@ -258,7 +286,7 @@ fn merge_file_outcomes(
 }
 
 fn copy_one_file(task: &FileTask, buffer: &mut [u8]) -> Result<FileOutcome, LayerStackError> {
-    match copy_file_with_hash(&task.source, &task.target, buffer) {
+    match copy_file_with_hash(&task.source, task.target.as_deref(), buffer) {
         Ok(copied) => Ok(FileOutcome::Copied(BaseEntry::File {
             path: task.rel.clone(),
             size: copied.size,
@@ -361,13 +389,16 @@ enum CopyFileError {
 
 fn copy_file_with_hash(
     source: &Path,
-    target: &Path,
+    target: Option<&Path>,
     buffer: &mut [u8],
 ) -> Result<CopiedFile, CopyFileError> {
     let mut input = std::fs::File::open(source).map_err(map_source_error)?;
     let metadata = input.metadata().map_err(map_source_error)?;
     let permissions = metadata.permissions();
-    let mut output = std::fs::File::create(target).map_err(CopyFileError::Target)?;
+    let mut output = target
+        .map(std::fs::File::create)
+        .transpose()
+        .map_err(CopyFileError::Target)?;
     let mut digest = Sha256::new();
     let mut size = 0_u64;
 
@@ -378,17 +409,21 @@ fn copy_file_with_hash(
         if count == 0 {
             return Err(CopyFileError::SourceUnreadable);
         }
-        output
-            .write_all(&buffer[..count])
-            .map_err(CopyFileError::Target)?;
+        if let Some(output) = &mut output {
+            output
+                .write_all(&buffer[..count])
+                .map_err(CopyFileError::Target)?;
+        }
         digest.update(&buffer[..count]);
         size += count as u64;
         remaining -= count as u64;
     }
 
-    output
-        .set_permissions(permissions)
-        .map_err(CopyFileError::Target)?;
+    if let Some(output) = output {
+        output
+            .set_permissions(permissions)
+            .map_err(CopyFileError::Target)?;
+    }
     Ok(CopiedFile {
         size,
         content_hash: hex_lower(digest.finalize()),
