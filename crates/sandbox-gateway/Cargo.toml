@@ -11,7 +11,6 @@ name = "sandbox-gateway"
 path = "src/gateway/main.rs"
 
 [dependencies]
-nix = { workspace = true, features = ["process", "signal"] }
 sandbox-config.workspace = true
 sandbox-operation-contract.workspace = true
 sandbox-manager.workspace = true
@@ -23,6 +22,9 @@ thiserror.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 uuid.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true, features = ["process", "signal"] }
 
 [lints]
 workspace = true

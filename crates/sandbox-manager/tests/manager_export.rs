@@ -435,6 +435,7 @@ fn every_catalog_spec_has_a_dispatcher() {
 
 // ------------------------------------------------------------- dir apply
 
+#[cfg(unix)]
 #[test]
 fn dir_apply_reproduces_winners_deletions_and_opaque_clears() {
     let env = env("dir-apply");
@@ -650,6 +651,7 @@ fn empty_delta_applies_as_a_clean_no_op() {
 
 // MED-06 twin: a symlink at a directory position is replaced, never
 // followed — its old target directory stays untouched.
+#[cfg(unix)]
 #[test]
 fn directory_winner_replaces_a_dest_symlink_without_following_it() {
     let env = env("symlink-replace");
