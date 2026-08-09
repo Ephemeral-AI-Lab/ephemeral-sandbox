@@ -20,14 +20,14 @@ use sandbox_operation_catalog::{
         PUBLISH_WORKSPACE_SESSION_SPEC, READ_LINES_SPEC, WRITE_STDIN_SPEC,
     },
 };
-#[cfg(unix)]
-use sandbox_operation_catalog::manager::EXPORT_CHANGES_SPEC;
-
 use sandbox_operation_contract::{
     error, OperationExecutionOwner, OperationRequest, OperationResponse, OperationScope,
     OperationScopeKind, OperationVisibility,
 };
 use serde_json::{json, Value};
+
+#[cfg(unix)]
+use sandbox_operation_catalog::manager::EXPORT_CHANGES_SPEC;
 
 struct FakeRuntime {
     counters_available: bool,
