@@ -12,8 +12,6 @@ use sandbox_manager::{
 };
 use sandbox_operation_catalog::{
     internal,
-    #[cfg(unix)]
-    manager::EXPORT_CHANGES_SPEC,
     observability::{CGROUP_SPEC, DAEMON_SPEC, SNAPSHOT_SPEC},
     routes,
     runtime::{
@@ -27,6 +25,9 @@ use sandbox_operation_contract::{
     OperationScopeKind, OperationVisibility,
 };
 use serde_json::{json, Value};
+
+#[cfg(unix)]
+use sandbox_operation_catalog::manager::EXPORT_CHANGES_SPEC;
 
 struct FakeRuntime {
     counters_available: bool,
