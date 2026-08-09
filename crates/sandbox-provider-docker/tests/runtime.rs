@@ -253,6 +253,20 @@ fn create_sandbox_rejects_missing_shared_base_source() {
 }
 
 #[test]
+fn repeated_metrics_batches_are_safe_inside_a_tokio_runtime() {
+    let runtime = DockerSandboxRuntime::new(DockerRuntimeConfig::default());
+    let tokio_runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("build test runtime");
+
+    tokio_runtime.block_on(async {
+        assert!(runtime.read_sandbox_resource_metrics_batch(&[]).is_empty());
+        assert!(runtime.read_sandbox_resource_metrics_batch(&[]).is_empty());
+    });
+}
+
+#[test]
 #[ignore = "requires a local Docker Engine and the ubuntu:24.04 image"]
 fn create_sandbox_accepts_image_without_git() {
     let root = std::env::temp_dir().join(format!("eos-no-git-sandbox-{}", unique_test_suffix()));

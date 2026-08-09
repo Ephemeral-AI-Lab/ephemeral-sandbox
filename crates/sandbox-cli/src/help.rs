@@ -194,6 +194,13 @@ fn push_argument(output: &mut String, arg: &ArgSpecDocument, cli: Option<&Argume
     if let Some(default) = &arg.default {
         push_indented_line(output, 4, &format!("Default: {default}"));
     }
+    if let Some(value_file_flag) = cli.and_then(|cli| cli.value_file_flag) {
+        push_indented_line(
+            output,
+            4,
+            &format!("Alternatively, {value_file_flag} FILE reads the value as UTF-8."),
+        );
+    }
     output.push('\n');
 }
 

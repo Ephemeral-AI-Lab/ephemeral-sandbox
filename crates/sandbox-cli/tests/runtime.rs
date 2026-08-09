@@ -2,12 +2,23 @@
 
 mod support;
 
+use std::fs;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use sandbox_cli::runtime::run_cli_with_writers;
 use serde_json::json;
 use support::{fake_gateway, help_operation_names, parse_json_line};
 use tokio::net::TcpListener;
+
+fn temp_file(label: &str) -> std::path::PathBuf {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    std::env::temp_dir().join(format!(
+        "sandbox-cli-{label}-{}-{}",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    ))
+}
 
 async fn run(args: &[&str]) -> (u8, String, String) {
     let mut stdout = Vec::new();
@@ -26,7 +37,10 @@ async fn help_lists_exact_runtime_catalog() {
         run(&["sandbox-runtime-cli", "--sandbox-id", "eos-x", "help"]).await;
     assert_eq!(code, 0);
     assert!(stderr.is_empty());
-    assert_eq!(stdout, include_str!("fixtures/runtime-help.txt"));
+    assert_eq!(
+        stdout,
+        include_str!("fixtures/runtime-help.txt").replace("\r\n", "\n")
+    );
     assert_eq!(
         help_operation_names(&stdout),
         [
@@ -99,6 +113,12 @@ async fn operation_help_uses_runtime_program_name() {
     ));
     assert!(stdout.contains("--workspace-session-id string required"));
     assert!(stdout.contains("--grace-s float optional"));
+
+    let (code, stdout, stderr) = run(&["sandbox-runtime-cli", "help", "file_write"]).await;
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert!(stdout.contains("--content string required"));
+    assert!(stdout.contains("Alternatively, --content-file FILE reads the value as UTF-8."));
 }
 
 #[tokio::test]
@@ -424,6 +444,95 @@ async fn omitted_read_arguments_use_catalog_defaults() {
         request["args"],
         json!({"path": "README.md", "offset": 1, "limit": 2000})
     );
+}
+
+#[tokio::test]
+async fn file_write_reads_large_utf8_content_from_file_after_process_start() {
+    let content = "x".repeat(256 * 1024);
+    let content_path = temp_file("content");
+    fs::write(&content_path, &content).expect("write content fixture");
+    let content_path = content_path.to_string_lossy().into_owned();
+    let response = json!({"path": "large.txt", "bytes_written": content.len()});
+    let (addr, received) = fake_gateway(response.clone()).await;
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--gateway-socket",
+        &addr,
+        "--sandbox-id",
+        "eos-x",
+        "file_write",
+        "--path",
+        "large.txt",
+        "--content-file",
+        &content_path,
+    ])
+    .await;
+    fs::remove_file(&content_path).expect("remove content fixture");
+
+    assert_eq!(code, 0);
+    assert!(stderr.is_empty());
+    assert_eq!(parse_json_line(&stdout), response);
+    let request = received.await.expect("fake gateway task");
+    assert_eq!(request["op"], "file_write");
+    assert_eq!(request["args"]["path"], "large.txt");
+    assert_eq!(
+        request["args"]["content"]
+            .as_str()
+            .expect("content string")
+            .len(),
+        256 * 1024
+    );
+}
+
+#[tokio::test]
+async fn file_write_rejects_duplicate_and_non_utf8_content_sources() {
+    let invalid_path = temp_file("invalid-utf8");
+    fs::write(&invalid_path, [0xff, 0xfe]).expect("write invalid UTF-8 fixture");
+    let invalid_path = invalid_path.to_string_lossy().into_owned();
+
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--gateway-socket",
+        "127.0.0.1:1",
+        "--sandbox-id",
+        "eos-x",
+        "file_write",
+        "--path",
+        "notes.txt",
+        "--content-file",
+        &invalid_path,
+    ])
+    .await;
+    assert_eq!(code, 2);
+    assert!(stdout.is_empty());
+    assert!(parse_json_line(&stderr)["error"]["message"]
+        .as_str()
+        .expect("error message")
+        .contains("--content-file must contain valid UTF-8"));
+
+    fs::write(&invalid_path, "from-file").expect("replace content fixture");
+    let (code, stdout, stderr) = run(&[
+        "sandbox-runtime-cli",
+        "--gateway-socket",
+        "127.0.0.1:1",
+        "--sandbox-id",
+        "eos-x",
+        "file_write",
+        "--path",
+        "notes.txt",
+        "--content",
+        "inline",
+        "--content-file",
+        &invalid_path,
+    ])
+    .await;
+    fs::remove_file(&invalid_path).expect("remove content fixture");
+    assert_eq!(code, 2);
+    assert!(stdout.is_empty());
+    assert!(parse_json_line(&stderr)["error"]["message"]
+        .as_str()
+        .expect("error message")
+        .contains("--content was provided more than once"));
 }
 
 #[tokio::test]

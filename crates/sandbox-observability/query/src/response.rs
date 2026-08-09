@@ -9,7 +9,11 @@ use crate::ports::{
     NamespaceExecutionSnapshot, ObservabilitySnapshot, QueryContext, WorkspaceSnapshot,
 };
 
-pub(crate) fn snapshot_value(context: &QueryContext, snapshot: ObservabilitySnapshot) -> Value {
+pub(crate) fn snapshot_value(
+    context: &QueryContext,
+    resource_reader: Option<&Reader>,
+    snapshot: ObservabilitySnapshot,
+) -> Value {
     let ObservabilitySnapshot {
         workspaces,
         active_namespace_executions,
@@ -27,7 +31,9 @@ pub(crate) fn snapshot_value(context: &QueryContext, snapshot: ObservabilitySnap
             .iter()
             .map(|workspace| workspace.workspace_id.as_str()),
     );
-    let latest_samples = context.reader.latest_samples(&scopes);
+    let latest_samples = resource_reader
+        .map(|reader| reader.latest_samples(&scopes))
+        .unwrap_or_default();
     json!({
         "sandbox_id": context.sandbox_id,
         "lifecycle_state": "ready",

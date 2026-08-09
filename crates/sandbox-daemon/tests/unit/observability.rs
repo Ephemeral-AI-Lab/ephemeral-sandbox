@@ -7,20 +7,27 @@ use std::io::Read as _;
 use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{mpsc, Arc};
+use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
+use crate::observability::resources::{
+    ResourceSampler, WorkspaceDiskSource, WorkspaceDiskTarget,
+};
 use crate::observability::diagnostics::DiagnosticTracker;
 use crate::observability::DaemonObservability;
-use crate::rpc::{SandboxDaemonServer, ServerConfig};
-use sandbox_config::configs::observability::{DiagnosticsConfig, ObservabilityConfig};
+use crate::rpc::{
+    BlockingAdmission, ConnectionAdmission, SandboxDaemonServer, ServerConfig,
+};
+use sandbox_config::configs::observability::{
+    DiagnosticsConfig, ObservabilityConfig, ResourceStatsConfig,
+};
 use sandbox_observability_query::ports::DaemonMetricsRequestClass;
 use sandbox_observability_telemetry::collect::process_topology::{
     DaemonDiagnosticTrigger, DaemonDiagnosticWorkspaceHolder, DaemonOwnershipMetrics,
     DaemonProcessMetrics, DaemonRuntimeConfigMetrics, DaemonRuntimeUsage,
 };
-use sandbox_observability_telemetry::ObservabilityPaths;
+use sandbox_observability_telemetry::{ObservabilityPaths, Record, Sample, WalkBudget};
 use sandbox_operation_catalog::observability::{
     CGROUP_SPEC, DAEMON_SPEC, EVENTS_SPEC, LAYERSTACK_SPEC, SNAPSHOT_SPEC, TOPOLOGY_SPEC,
     TRACE_SPEC,
@@ -35,6 +42,8 @@ use sandbox_runtime::{
 };
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
+use tokio_util::sync::CancellationToken;
+use tokio_util::task::TaskTracker;
 
 type TestResult<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
 const TOPOLOGY_REQUEST: DaemonMetricsRequestClass = DaemonMetricsRequestClass::Topology;
@@ -116,6 +125,209 @@ fn from_config_disabled_when_sandbox_id_is_missing() {
     let config = server_config(&root, None);
     let runtime = runtime_config(&root).expect("runtime config");
     assert!(DaemonObservability::from_config(&config, &runtime).is_none());
+}
+
+#[test]
+fn workspace_resource_samples_emit_exact_metrics_and_refresh() -> TestResult {
+    let root = test_root("workspace-resource-emission");
+    let upperdir = root.join("upper");
+    fs::create_dir_all(&upperdir)?;
+    fs::write(upperdir.join("alpha"), b"abc")?;
+    fs::write(upperdir.join("beta"), b"defg")?;
+    let (sampler, source, resource_path) =
+        workspace_resource_sampler(&root, WalkBudget::default(), Duration::from_millis(10));
+    source.replace(vec![workspace_disk_target("workspace-1", &upperdir)]);
+
+    sampler.sample_once();
+    let first = latest_workspace_sample(&resource_path, "workspace-1")?;
+    assert_eq!(first.metrics["disk_bytes"], 7);
+    assert_eq!(first.metrics["files"], 2);
+    assert_eq!(first.metrics["disk_truncated"], false);
+    assert!(first.metrics["disk_allocated_bytes"].as_u64().is_some());
+    let mut metric_keys = first.metrics.keys().map(String::as_str).collect::<Vec<_>>();
+    metric_keys.sort_unstable();
+    assert_eq!(
+        metric_keys,
+        [
+            "disk_allocated_bytes",
+            "disk_bytes",
+            "disk_truncated",
+            "files",
+        ]
+    );
+
+    fs::write(upperdir.join("gamma"), b"hijkl")?;
+    let refreshed = loop {
+        thread::sleep(Duration::from_millis(2));
+        sampler.sample_once();
+        let latest = latest_workspace_sample(&resource_path, "workspace-1")?;
+        if latest.ts > first.ts {
+            break latest;
+        }
+    };
+    assert_eq!(refreshed.metrics["disk_bytes"], 12);
+    assert_eq!(refreshed.metrics["files"], 3);
+    Ok(())
+}
+
+#[test]
+fn workspace_resource_samples_fail_closed_on_truncation_and_read_error() -> TestResult {
+    let root = test_root("workspace-resource-incomplete");
+    let upperdir = root.join("upper");
+    fs::create_dir_all(&upperdir)?;
+    fs::write(upperdir.join("alpha"), b"abc")?;
+    let (sampler, source, resource_path) = workspace_resource_sampler(
+        &root,
+        WalkBudget {
+            max_nodes: 1,
+            max_depth: 64,
+        },
+        Duration::from_millis(10),
+    );
+    source.replace(vec![workspace_disk_target("workspace-truncated", &upperdir)]);
+
+    sampler.sample_once();
+    let truncated = latest_workspace_sample(&resource_path, "workspace-truncated")?;
+    assert_eq!(truncated.metrics["disk_truncated"], true);
+    assert!(truncated.metrics.get("disk_allocated_bytes").is_none());
+
+    source.replace(vec![workspace_disk_target(
+        "workspace-error",
+        &root.join("missing-upper"),
+    )]);
+    sampler.sample_once();
+    let failed = latest_workspace_sample(&resource_path, "workspace-error")?;
+    assert_eq!(failed.metrics["disk_bytes"], 0);
+    assert_eq!(failed.metrics["files"], 0);
+    assert_eq!(failed.metrics["disk_truncated"], true);
+    assert!(failed.metrics.get("disk_allocated_bytes").is_none());
+    Ok(())
+}
+
+#[test]
+fn workspace_resource_sampler_stops_emitting_after_workspace_disappears() -> TestResult {
+    let root = test_root("workspace-resource-disappearance");
+    let upperdir = root.join("upper");
+    fs::create_dir_all(&upperdir)?;
+    let (sampler, source, resource_path) =
+        workspace_resource_sampler(&root, WalkBudget::default(), Duration::from_millis(10));
+    source.replace(vec![workspace_disk_target("workspace-1", &upperdir)]);
+    sampler.sample_once();
+    assert_eq!(workspace_samples(&resource_path, "workspace-1")?.len(), 1);
+
+    source.replace(Vec::new());
+    sampler.sample_once();
+    assert_eq!(
+        workspace_samples(&resource_path, "workspace-1")?.len(),
+        1,
+        "a disappeared workspace must not receive another resource sample"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn workspace_resource_sampler_shutdown_joins_before_returning() -> TestResult {
+    let root = test_root("workspace-resource-shutdown");
+    let upperdir = root.join("upper");
+    fs::create_dir_all(&upperdir)?;
+    fs::write(upperdir.join("alpha"), b"abc")?;
+    let (sampler, source, resource_path) =
+        workspace_resource_sampler(&root, WalkBudget::default(), Duration::from_millis(2));
+    source.replace(vec![workspace_disk_target("workspace-1", &upperdir)]);
+    let tasks = TaskTracker::new();
+    let shutdown = CancellationToken::new();
+    sampler.start(&tasks, shutdown.clone());
+
+    tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            if workspace_samples(&resource_path, "workspace-1")
+                .map(|samples| samples.len() >= 2)
+                .unwrap_or(false)
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("workspace sampler emits before timeout");
+
+    shutdown.cancel();
+    tasks.close();
+    tasks.wait().await;
+    let bytes_after_join = fs::read(&resource_path)?;
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    assert_eq!(fs::read(&resource_path)?, bytes_after_join);
+    Ok(())
+}
+
+#[tokio::test]
+async fn daemon_snapshot_reads_live_workspace_sample_from_resource_store() -> TestResult {
+    let root = test_root("workspace-resource-snapshot");
+    let operations = crate::http_tests::test_operations(&root)?;
+    let upperdir = operations
+        .observability_snapshot()
+        .workspaces
+        .into_iter()
+        .find(|workspace| workspace.workspace_id.0 == "live-1")
+        .and_then(|workspace| workspace.upperdir)
+        .expect("live workspace exposes upperdir");
+    fs::write(upperdir.join("sample-payload"), vec![b'x'; 4096])?;
+    let mut config = server_config(&root, Some("sandbox-1"));
+    config.observability.resource_stats.sample_interval_ms = 2;
+    let observability = Arc::new(
+        DaemonObservability::from_config(&config, &runtime_config(&root.join("runtime-config"))?)
+            .expect("configured observability"),
+    );
+    observability.bind_runtime_operations(Arc::clone(&operations));
+    let server = SandboxDaemonServer {
+        blocking_admission: BlockingAdmission::new(config.max_blocking_requests),
+        connection_admission: ConnectionAdmission::new(config.max_concurrent_connections),
+        async_tasks: TaskTracker::new(),
+        config,
+        operations,
+        observability: Some(observability),
+        shutdown: CancellationToken::new(),
+    };
+
+    let resource_tasks = TaskTracker::new();
+    let resource_shutdown = CancellationToken::new();
+    server
+        .observability
+        .as_ref()
+        .expect("configured observability")
+        .start_resource_sampler(&resource_tasks, resource_shutdown.clone());
+    let snapshot = tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            let response = server
+                .dispatch_bytes(
+                    request_bytes(SNAPSHOT_SPEC.name, "snapshot-workspace", json!({}))
+                        .expect("snapshot request"),
+                    false,
+                )
+                .await;
+            let value = response.as_json_value();
+            if value
+                .pointer("/workspaces/0/resources/latest/metrics/disk_allocated_bytes")
+                .is_some_and(Value::is_u64)
+            {
+                break value.clone();
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("snapshot receives a complete workspace resource sample");
+    assert_eq!(snapshot["workspaces"][0]["workspace_id"], "live-1");
+    assert_eq!(
+        snapshot["workspaces"][0]["resources"]["latest"]["metrics"]["disk_truncated"],
+        false
+    );
+
+    resource_shutdown.cancel();
+    resource_tasks.close();
+    resource_tasks.wait().await;
+    Ok(())
 }
 
 #[test]
@@ -1420,6 +1632,81 @@ fn daemon_server_from(root: &Path, config: ServerConfig) -> TestResult<SandboxDa
         config,
         runtime_config(root)?,
     ))
+}
+
+#[derive(Default)]
+struct FakeWorkspaceDiskSource {
+    targets: RwLock<Vec<WorkspaceDiskTarget>>,
+}
+
+impl FakeWorkspaceDiskSource {
+    fn replace(&self, targets: Vec<WorkspaceDiskTarget>) {
+        *self.targets.write().expect("lock workspace disk targets") = targets;
+    }
+}
+
+impl WorkspaceDiskSource for FakeWorkspaceDiskSource {
+    fn workspace_disk_targets(&self) -> Vec<WorkspaceDiskTarget> {
+        self.targets
+            .read()
+            .expect("lock workspace disk targets")
+            .clone()
+    }
+}
+
+fn workspace_resource_sampler(
+    root: &Path,
+    sampling: WalkBudget,
+    interval: Duration,
+) -> (
+    Arc<ResourceSampler>,
+    Arc<FakeWorkspaceDiskSource>,
+    PathBuf,
+) {
+    let resource_path = root.join("resources.ndjson");
+    let sampler = Arc::new(ResourceSampler::new(
+        ResourceStatsConfig {
+            enabled: true,
+            sample_interval_ms: u64::try_from(interval.as_millis())
+                .expect("test interval fits u64"),
+            max_disk_bytes: 128 * 1024,
+        },
+        resource_path.clone(),
+        sampling,
+    ));
+    let source = Arc::new(FakeWorkspaceDiskSource::default());
+    sampler.bind_workspace_source(source.clone());
+    (sampler, source, resource_path)
+}
+
+fn workspace_disk_target(workspace_id: &str, upperdir: &Path) -> WorkspaceDiskTarget {
+    WorkspaceDiskTarget {
+        workspace_id: workspace_id.to_owned(),
+        upperdir: Some(upperdir.to_path_buf()),
+    }
+}
+
+fn workspace_samples(resource_path: &Path, scope: &str) -> TestResult<Vec<Sample>> {
+    let contents = match fs::read_to_string(resource_path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.into()),
+    };
+    let mut samples = Vec::new();
+    for line in contents.lines() {
+        if let Record::Sample(sample) = serde_json::from_str::<Record>(line)? {
+            if sample.scope == scope {
+                samples.push(sample);
+            }
+        }
+    }
+    Ok(samples)
+}
+
+fn latest_workspace_sample(resource_path: &Path, scope: &str) -> TestResult<Sample> {
+    workspace_samples(resource_path, scope)?
+        .pop()
+        .ok_or_else(|| format!("missing resource sample for workspace {scope}").into())
 }
 
 fn request_bytes(op: &str, request_id: &str, args: Value) -> TestResult<Vec<u8>> {

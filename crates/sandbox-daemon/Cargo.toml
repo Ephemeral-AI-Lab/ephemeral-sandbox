@@ -42,6 +42,7 @@ tikv-jemalloc-ctl = { workspace = true, optional = true }
 [dev-dependencies]
 sandbox-runtime-layerstack.workspace = true
 sandbox-runtime-workspace.workspace = true
+rustix = { workspace = true, features = ["pipe"] }
 
 [lints]
 workspace = true

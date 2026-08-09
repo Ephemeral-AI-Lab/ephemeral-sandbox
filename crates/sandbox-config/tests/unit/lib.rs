@@ -19,6 +19,25 @@ fn load_path_reads_committed_baseline() {
 }
 
 #[test]
+fn windows_release_resource_ring_matches_paper_sampling_cadence() {
+    let baseline = ConfigPath::prd().expect("resolve config directory");
+    let windows = baseline
+        .as_path()
+        .parent()
+        .expect("config directory")
+        .join("windows-amd64.yml");
+    let doc = load_path(&windows).expect("Windows release config loads");
+    let observability = doc
+        .section::<configs::observability::ObservabilityConfig>("observability")
+        .expect("observability section exists");
+
+    observability
+        .validate()
+        .expect("Windows observability config is valid");
+    assert_eq!(observability.resource_stats.sample_interval_ms, 100);
+}
+
+#[test]
 fn merge_recurses_objects_replaces_scalars_and_replaces_arrays() {
     let mut baseline = parse_doc(
         r#"

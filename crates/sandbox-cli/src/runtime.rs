@@ -14,7 +14,7 @@ use std::process::ExitCode;
 use clap::error::ErrorKind;
 use clap::Parser;
 
-use crate::input::{resolve_runtime_sandbox_id, BuildRequestInput};
+use crate::input::{resolve_runtime_sandbox_id, validate_request_id, BuildRequestInput};
 use crate::output::{
     discover_config, render_error, render_help_command, render_request_error,
     run_request_from_catalog_with_id, EXIT_SUCCESS, EXIT_USAGE,
@@ -25,8 +25,6 @@ use sandbox_operation_contract::OperationDomain;
 
 const PROGRAM: &str = "sandbox-runtime-cli --sandbox-id ID [--request-id VALUE]";
 const HELP_OP: &str = "help";
-const REQUEST_ID_ERROR: &str =
-    "--request-id must be 1-128 ASCII letters, digits, period, underscore, colon, or dash";
 
 #[derive(Debug, Parser)]
 #[command(name = "sandbox-runtime-cli", disable_help_subcommand = true)]
@@ -151,21 +149,6 @@ where
         stderr,
     )
     .await
-}
-
-fn validate_request_id(request_id: Option<String>) -> Result<Option<String>, RequestBuildError> {
-    let Some(request_id) = request_id else {
-        return Ok(None);
-    };
-    if request_id.len() > 128
-        || request_id.is_empty()
-        || !request_id
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || b"._:-".contains(&byte))
-    {
-        return Err(RequestBuildError::invalid(REQUEST_ID_ERROR));
-    }
-    Ok(Some(request_id))
 }
 
 fn client_from<WErr>(overrides: GatewayConfigOverrides, stderr: &mut WErr) -> Option<GatewayClient>

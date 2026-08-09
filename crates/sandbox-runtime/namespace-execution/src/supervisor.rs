@@ -4,8 +4,6 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use sandbox_runtime_namespace_process::runner::protocol::RunResult;
-use tokio::runtime::{Handle as RuntimeHandle, RuntimeFlavor};
-use tokio::sync::Notify;
 
 use crate::error::NamespaceExecutionError;
 use crate::launcher::RunnerChild;
@@ -30,7 +28,6 @@ struct SupervisorQueue {
     shutdown_deadline: Option<Instant>,
     worker_running: bool,
     worker_threads: usize,
-    worker_busy: bool,
     stopped: bool,
     failure: Option<String>,
     shutdown_join_timeouts: usize,
@@ -39,14 +36,12 @@ struct SupervisorQueue {
 struct SupervisorState {
     queue: Mutex<SupervisorQueue>,
     ready: Condvar,
-    async_ready: Notify,
     active: AtomicUsize,
 }
 
 pub(crate) struct CompletionSupervisor {
     state: Arc<SupervisorState>,
     worker: Mutex<Option<JoinHandle<()>>>,
-    async_worker: bool,
 }
 
 impl CompletionSupervisor {
@@ -54,29 +49,8 @@ impl CompletionSupervisor {
         let state = Arc::new(SupervisorState {
             queue: Mutex::new(SupervisorQueue::default()),
             ready: Condvar::new(),
-            async_ready: Notify::new(),
             active: AtomicUsize::new(0),
         });
-
-        if let Ok(runtime) = RuntimeHandle::try_current() {
-            if runtime.runtime_flavor() == RuntimeFlavor::MultiThread {
-                {
-                    let mut queue = state
-                        .queue
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner);
-                    queue.worker_running = true;
-                }
-                let worker_state = Arc::clone(&state);
-                let worker_guard = AsyncWorkerGuard::new(Arc::clone(&state));
-                runtime.spawn(supervise_async(worker_state, worker_guard));
-                return Self {
-                    state,
-                    worker: Mutex::new(None),
-                    async_worker: true,
-                };
-            }
-        }
 
         let worker_state = Arc::clone(&state);
         let (ready_tx, ready_rx) = mpsc::sync_channel(0);
@@ -114,7 +88,6 @@ impl CompletionSupervisor {
         Self {
             state,
             worker: Mutex::new(worker),
-            async_worker: false,
         }
     }
 
@@ -140,7 +113,6 @@ impl CompletionSupervisor {
             } else {
                 queue.jobs.push(job);
                 self.state.ready.notify_one();
-                self.state.async_ready.notify_one();
             }
             return Err(NamespaceExecutionError::Shutdown);
         }
@@ -151,7 +123,6 @@ impl CompletionSupervisor {
             termination_requested: false,
         });
         self.state.ready.notify_one();
-        self.state.async_ready.notify_one();
         Ok(())
     }
 
@@ -192,15 +163,12 @@ impl CompletionSupervisor {
                 queue.shutdown = true;
                 queue.shutdown_deadline = Some(Instant::now() + SUPERVISOR_SHUTDOWN_TIMEOUT);
             }
-            if !queue.worker_running
-                || (self.async_worker && queue.jobs.is_empty() && !queue.worker_busy)
-            {
+            if !queue.worker_running {
                 queue.worker_running = false;
                 queue.worker_threads = 0;
                 queue.stopped = true;
             }
             self.state.ready.notify_all();
-            self.state.async_ready.notify_waiters();
         }
 
         let worker = self
@@ -218,10 +186,8 @@ impl CompletionSupervisor {
                 queue.failure = Some("completion supervisor panicked".to_owned());
                 queue.worker_running = false;
                 queue.worker_threads = 0;
-                queue.worker_busy = false;
                 queue.stopped = true;
                 self.state.ready.notify_all();
-                self.state.async_ready.notify_waiters();
             }
         } else {
             let mut queue = self
@@ -278,13 +244,10 @@ fn supervise(state: Arc<SupervisorState>) {
             if queue.jobs.is_empty() && queue.shutdown {
                 queue.worker_running = false;
                 queue.worker_threads = 0;
-                queue.worker_busy = false;
                 queue.stopped = true;
                 state.ready.notify_all();
-                state.async_ready.notify_waiters();
                 return;
             }
-            queue.worker_busy = true;
             (std::mem::take(&mut queue.jobs), queue.shutdown_deadline)
         };
 
@@ -303,64 +266,6 @@ fn supervise(state: Arc<SupervisorState>) {
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
         }
     }
-}
-
-async fn supervise_async(state: Arc<SupervisorState>, mut guard: AsyncWorkerGuard) {
-    loop {
-        let notified = state.async_ready.notified();
-        let work = {
-            let mut queue = state
-                .queue
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            if queue.stopped || (queue.jobs.is_empty() && queue.shutdown) {
-                queue.worker_running = false;
-                queue.worker_threads = 0;
-                queue.worker_busy = false;
-                queue.stopped = true;
-                state.ready.notify_all();
-                AsyncWork::Stop
-            } else if queue.jobs.is_empty() {
-                AsyncWork::Wait
-            } else {
-                queue.worker_busy = true;
-                AsyncWork::Jobs(std::mem::take(&mut queue.jobs), queue.shutdown_deadline)
-            }
-        };
-
-        let (jobs, shutdown_deadline) = match work {
-            AsyncWork::Stop => {
-                guard.disarm();
-                return;
-            }
-            AsyncWork::Wait => {
-                notified.await;
-                continue;
-            }
-            AsyncWork::Jobs(jobs, shutdown_deadline) => (jobs, shutdown_deadline),
-        };
-        let completed = poll_jobs(&state, jobs, shutdown_deadline);
-        if !completed.is_empty() {
-            let completion_state = Arc::clone(&state);
-            if let Err(error) = tokio::task::spawn_blocking(move || {
-                complete_jobs(&completion_state, completed);
-            })
-            .await
-            {
-                record_worker_failure(&state, format!("completion callback task failed: {error}"));
-            }
-        }
-        let has_pending = finish_batch(&state);
-        if has_pending {
-            tokio::time::sleep(COMPLETION_POLL_INTERVAL).await;
-        }
-    }
-}
-
-enum AsyncWork {
-    Stop,
-    Wait,
-    Jobs(Vec<CompletionJob>, Option<Instant>),
 }
 
 type CompletedJob = (CompletionJob, Result<RunResult, NamespaceExecutionError>);
@@ -412,68 +317,8 @@ fn complete_jobs(state: &SupervisorState, completed: Vec<CompletedJob>) {
     }
 }
 
-fn finish_batch(state: &SupervisorState) -> bool {
-    let mut queue = state
-        .queue
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    queue.worker_busy = false;
-    let has_pending = !queue.jobs.is_empty();
+fn finish_batch(state: &SupervisorState) {
     state.ready.notify_all();
-    state.async_ready.notify_one();
-    has_pending
-}
-
-struct AsyncWorkerGuard {
-    state: Arc<SupervisorState>,
-    armed: bool,
-}
-
-impl AsyncWorkerGuard {
-    fn new(state: Arc<SupervisorState>) -> Self {
-        Self { state, armed: true }
-    }
-
-    fn disarm(&mut self) {
-        self.armed = false;
-    }
-}
-
-impl Drop for AsyncWorkerGuard {
-    fn drop(&mut self) {
-        if !self.armed {
-            return;
-        }
-        let mut queue = self
-            .state
-            .queue
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if !queue.stopped {
-            queue.failure.get_or_insert_with(|| {
-                "async completion supervisor exited unexpectedly".to_owned()
-            });
-            queue.shutdown = true;
-            queue.worker_running = false;
-            queue.worker_threads = 0;
-            queue.worker_busy = false;
-            queue.stopped = true;
-            self.state.ready.notify_all();
-            self.state.async_ready.notify_waiters();
-        }
-    }
-}
-
-fn record_worker_failure(state: &SupervisorState, failure: impl Into<String>) {
-    let mut queue = state
-        .queue
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    queue.failure = Some(failure.into());
-    queue.shutdown = true;
-    queue.shutdown_deadline = Some(Instant::now() + SUPERVISOR_SHUTDOWN_TIMEOUT);
-    state.ready.notify_all();
-    state.async_ready.notify_waiters();
 }
 
 fn record_start_failure(state: &SupervisorState, failure: impl Into<String>) {
@@ -486,9 +331,7 @@ fn record_start_failure(state: &SupervisorState, failure: impl Into<String>) {
     queue.stopped = true;
     queue.worker_running = false;
     queue.worker_threads = 0;
-    queue.worker_busy = false;
     state.ready.notify_all();
-    state.async_ready.notify_waiters();
 }
 
 #[inline(never)]

@@ -171,6 +171,9 @@ impl SandboxDaemonServer {
             runtime_config,
             resolve_observer(observability.as_ref()),
         ));
+        if let Some(observability) = &observability {
+            observability.bind_runtime_operations(Arc::clone(&operations));
+        }
         Self {
             blocking_admission: BlockingAdmission::new(config.max_blocking_requests),
             connection_admission: ConnectionAdmission::new(config.max_concurrent_connections),
