@@ -12,8 +12,6 @@ use sandbox_manager::{
 };
 use sandbox_operation_catalog::{
     internal,
-    #[cfg(unix)]
-    manager::EXPORT_CHANGES_SPEC,
     observability::{CGROUP_SPEC, DAEMON_SPEC, SNAPSHOT_SPEC},
     routes,
     runtime::{
@@ -22,6 +20,8 @@ use sandbox_operation_catalog::{
         PUBLISH_WORKSPACE_SESSION_SPEC, READ_LINES_SPEC, WRITE_STDIN_SPEC,
     },
 };
+#[cfg(unix)]
+use sandbox_operation_catalog::manager::EXPORT_CHANGES_SPEC;
 use sandbox_operation_contract::{
     error, OperationExecutionOwner, OperationRequest, OperationResponse, OperationScope,
     OperationScopeKind, OperationVisibility,
