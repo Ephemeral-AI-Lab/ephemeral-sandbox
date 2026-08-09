@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 //! Manager export surface: catalog + SPECS↔OPERATIONS parity (spec H6),
 //! the forward loop against a fake AND a hostile daemon, apply semantics
 //! (winners, deletions, opaque clears, dotfile-under-opaque ordering — spec

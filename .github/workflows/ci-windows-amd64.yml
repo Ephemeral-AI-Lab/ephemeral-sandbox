@@ -1,0 +1,67 @@
+name: CI Windows amd64
+
+on:
+  push:
+    paths:
+      - crates/**
+      - Cargo.toml
+      - Cargo.lock
+      - .github/workflows/ci-windows-amd64.yml
+      - bin/**
+  pull_request:
+    paths:
+      - crates/**
+      - Cargo.toml
+      - Cargo.lock
+      - .github/workflows/ci-windows-amd64.yml
+      - bin/**
+
+permissions:
+  contents: read
+
+jobs:
+  ci-windows-amd64:
+    runs-on: windows-2022
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup component add --toolchain stable clippy rustfmt
+
+      - name: Build gateway
+        shell: pwsh
+        run: cargo build --locked -p sandbox-gateway --bin sandbox-gateway
+
+      - name: Build CLI (manager)
+        shell: pwsh
+        run: cargo build --locked -p sandbox-cli --no-default-features --features manager --bin sandbox-manager-cli
+
+      - name: Build CLI (runtime)
+        shell: pwsh
+        run: cargo build --locked -p sandbox-cli --no-default-features --features runtime --bin sandbox-runtime-cli
+
+      - name: Build CLI (observability)
+        shell: pwsh
+        run: cargo build --locked -p sandbox-cli --no-default-features --features observability --bin sandbox-observability-cli
+
+      - name: Build MCP
+        shell: pwsh
+        run: cargo build --locked -p sandbox-mcp --bin sandbox-mcp
+
+      - name: Test
+        shell: pwsh
+        run: cargo test --locked -p sandbox-gateway -p sandbox-cli -p sandbox-mcp -p sandbox-manager -p sandbox-provider-docker -p sandbox-operation-client -p sandbox-operation-contract -p sandbox-operation-catalog -p sandbox-config -p sandbox-protocol -p sandbox-runtime-layerstack
+
+      - name: Clippy
+        shell: pwsh
+        run: cargo clippy --locked --all-targets -p sandbox-gateway -p sandbox-cli -p sandbox-mcp -p sandbox-manager -p sandbox-provider-docker -p sandbox-operation-client -p sandbox-operation-contract -p sandbox-operation-catalog -p sandbox-config -p sandbox-protocol -p sandbox-runtime-layerstack
+
+      - name: Format check
+        shell: pwsh
+        run: cargo fmt --check
