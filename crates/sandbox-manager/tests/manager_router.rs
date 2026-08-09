@@ -12,6 +12,7 @@ use sandbox_manager::{
 };
 use sandbox_operation_catalog::{
     internal,
+    #[cfg(unix)]
     manager::EXPORT_CHANGES_SPEC,
     observability::{CGROUP_SPEC, DAEMON_SPEC, SNAPSHOT_SPEC},
     routes,
@@ -1073,6 +1074,7 @@ async fn manager_router_forwards_every_sandbox_observability_route() {
         .all(|(_, _, scope)| scope == &OperationScope::sandbox("sbox-1")));
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn manager_router_rejects_internal_routes_while_public_export_uses_direct_daemon_port() {
     let (router, daemon_client) = ready_router();
